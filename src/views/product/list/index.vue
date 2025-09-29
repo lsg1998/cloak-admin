@@ -332,7 +332,7 @@
                 >
                   <div style="display: flex; align-items: center; justify-content: space-between">
                     <span>{{ product.title }}</span>
-                    <span style=" font-size: 12px;color: #999999">¥{{ product.sell_price }}</span>
+                    <span style="font-size: 12px; color: #999999">¥{{ product.sell_price }}</span>
                   </div>
                 </el-option>
               </el-select>
@@ -624,7 +624,7 @@
               <div class="card-content">
                 <div class="card-title">{{ product.title }}</div>
                 <div class="card-price">¥{{ product.sell_price }}</div>
-                <el-tag type="warning" size="small" style=" padding: 1px 4px;font-size: 10px">仿品</el-tag>
+                <el-tag type="warning" size="small" style="padding: 1px 4px; font-size: 10px">仿品</el-tag>
               </div>
               <div class="card-check">
                 <el-radio :value="product.id" v-model="selectedFakeProductId"></el-radio>
