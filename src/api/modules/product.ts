@@ -115,6 +115,7 @@ export const getOriginalProductsApi = (search?: string) => {
 // 更新仿品的关联正品
 export const updateFakeProductLinkApi = (fakeProductId: string, originalProductId: string) => {
   return http.put(`/admin/products/${fakeProductId}`, {
+    product_type: "fake",
     b_page_product_id: originalProductId
   });
 };

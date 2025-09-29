@@ -121,14 +121,32 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="关联关系" width="120" align="center">
+        <el-table-column label="关联关系" width="150" align="center">
           <template #default="{ row }">
-            <span v-if="row.product_type === 'original'">-</span>
-            <span v-else-if="row.b_page_product_id">
+            <!-- 正品显示关联的仿品 -->
+            <div v-if="row.product_type === 'original'">
+              <div v-if="getFakeProductsForOriginal(row.id).length > 0">
+                <el-tooltip
+                  v-for="fakeProduct in getFakeProductsForOriginal(row.id)"
+                  :key="fakeProduct.id"
+                  :content="`仿品: ${fakeProduct.title}`"
+                  placement="top"
+                >
+                  <el-tag type="warning" size="small" style="margin: 2px; cursor: pointer" @click="handleView(fakeProduct)">
+                    仿品
+                  </el-tag>
+                </el-tooltip>
+              </div>
+              <span v-else style="color: #999">-</span>
+            </div>
+            <!-- 仿品显示关联的正品 -->
+            <div v-else-if="row.b_page_product_id">
               <el-tooltip :content="`关联正品: ${getOriginalProductTitle(row.b_page_product_id)}`" placement="top">
-                <el-tag type="info" size="small">已关联</el-tag>
+                <el-tag type="info" size="small" style="cursor: pointer" @click="handleViewOriginal(row.b_page_product_id)">
+                  已关联
+                </el-tag>
               </el-tooltip>
-            </span>
+            </div>
             <span v-else style="color: #f56c6c">未关联</span>
           </template>
         </el-table-column>
@@ -759,17 +777,17 @@ const isEditorFullscreen = ref(false);
 
 // 国家选项（基于language.php配置）
 const countryOptions = [
-  { label: "日本語", value: "JA" },
-  { label: "中文", value: "ZH" },
-  { label: "English", value: "EN" },
-  { label: "Slovenčina", value: "SK" },
-  { label: "Slovenščina", value: "SI" },
-  { label: "Polski", value: "PL" },
-  { label: "Português", value: "PT" },
-  { label: "Magyar", value: "HU" },
-  { label: "Italiano", value: "IT" },
-  { label: "Español", value: "ES" },
-  { label: "Čeština", value: "CZ" }
+  { label: "日本", value: "JA" },
+  { label: "中国", value: "ZH" },
+  { label: "英国", value: "EN" },
+  { label: "斯洛伐克", value: "SK" },
+  { label: "斯洛文尼亚", value: "SI" },
+  { label: "波兰", value: "PL" },
+  { label: "葡萄牙", value: "PT" },
+  { label: "匈牙利", value: "HU" },
+  { label: "意大利", value: "IT" },
+  { label: "西班牙", value: "ES" },
+  { label: "捷克", value: "CZ" }
 ];
 
 // 富文本编辑器配置
@@ -916,9 +934,8 @@ const handleAdd = () => {
 
 // 查看
 const handleView = (row: Product) => {
-  const frontendUrl = "http://localhost:3000";
-  const country = row.country || "JA";
-  const viewUrl = `${frontendUrl}/product/${row.id}?lang=${country}`;
+  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
+  const viewUrl = `${frontendUrl}/product/${row.id}`;
 
   // 在新标签页中打开
   window.open(viewUrl, "_blank");
@@ -1273,8 +1290,10 @@ const handleProductTypeChange = (value: string) => {
     // 如果改为正品，清空关联的正品ID
     form.b_page_product_id = "";
   } else if (value === "fake") {
-    // 如果改为仿品，加载正品商品列表
-    loadOriginalProducts();
+    // 如果改为仿品，且当前没有关联的正品，才加载正品商品列表
+    if (!form.b_page_product_id) {
+      loadOriginalProducts();
+    }
   }
 };
 
@@ -1313,6 +1332,19 @@ const loadOriginalProducts = async () => {
 const getOriginalProductTitle = (productId: string) => {
   const product = tableData.value.find(p => p.id === productId);
   return product ? product.title : "未知商品";
+};
+
+// 获取正品关联的所有仿品
+const getFakeProductsForOriginal = (originalProductId: string) => {
+  return tableData.value.filter(p => p.product_type === "fake" && p.b_page_product_id === originalProductId);
+};
+
+// 查看正品详情
+const handleViewOriginal = (originalProductId: string) => {
+  const originalProduct = tableData.value.find(p => p.id === originalProductId);
+  if (originalProduct) {
+    handleView(originalProduct);
+  }
 };
 
 // 关联仿品商品
