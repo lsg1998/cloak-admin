@@ -137,7 +137,7 @@
                   </el-tag>
                 </el-tooltip>
               </div>
-              <span v-else style="color: #999">-</span>
+              <span v-else style="color: #999999">-</span>
             </div>
             <!-- 仿品显示关联的正品 -->
             <div v-else-if="row.b_page_product_id">
@@ -332,7 +332,7 @@
                 >
                   <div style="display: flex; align-items: center; justify-content: space-between">
                     <span>{{ product.title }}</span>
-                    <span style="color: #999; font-size: 12px">¥{{ product.sell_price }}</span>
+                    <span style=" font-size: 12px;color: #999999">¥{{ product.sell_price }}</span>
                   </div>
                 </el-option>
               </el-select>
@@ -583,7 +583,7 @@
         <!-- 仿品选择区域 -->
         <el-card class="fake-selection-card" shadow="never">
           <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center">
+            <div style="display: flex; align-items: center; justify-content: space-between">
               <span style="font-weight: 600">选择要关联的仿品</span>
               <el-button type="primary" size="small" @click="handleCreateNewFake">
                 <el-icon><Plus /></el-icon>
@@ -624,7 +624,7 @@
               <div class="card-content">
                 <div class="card-title">{{ product.title }}</div>
                 <div class="card-price">¥{{ product.sell_price }}</div>
-                <el-tag type="warning" size="small" style="font-size: 10px; padding: 1px 4px">仿品</el-tag>
+                <el-tag type="warning" size="small" style=" padding: 1px 4px;font-size: 10px">仿品</el-tag>
               </div>
               <div class="card-check">
                 <el-radio :value="product.id" v-model="selectedFakeProductId"></el-radio>
@@ -1568,9 +1568,9 @@ onMounted(() => {
 /* 操作按钮 */
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   justify-content: center;
-  flex-wrap: wrap;
 }
 
 /* 分页 */
@@ -1733,25 +1733,25 @@ onMounted(() => {
 /* 图片上传样式 */
 .upload-demo .el-upload {
   position: relative;
+  width: 200px !important;
+  height: 80px !important;
   overflow: hidden;
   cursor: pointer;
   border: 1px dashed #d9d9d9;
   border-radius: 6px;
   transition: all 0.3s;
-  width: 200px !important;
-  height: 80px !important;
 }
 .upload-demo .el-upload:hover {
   border-color: #409eff;
 }
 .upload-demo .el-upload-list--picture-card .el-upload-list__item {
-  border: 1px solid #d9d9d9;
   width: 200px !important;
   height: 80px !important;
+  border: 1px solid #d9d9d9;
 }
 .upload-demo .el-upload__text {
-  font-size: 12px;
   margin-top: 8px;
+  font-size: 12px;
 }
 .upload-demo .el-icon--upload {
   font-size: 20px;
@@ -1779,57 +1779,48 @@ onMounted(() => {
 .product-dialog.el-dialog__wrapper {
   padding: 0;
 }
-
 .product-dialog .el-dialog {
-  margin: 0;
   width: 100vw;
   height: 100vh;
   max-height: 100vh;
+  margin: 0;
   border-radius: 0;
 }
-
 .product-dialog .el-dialog__header {
-  border-bottom: 1px solid #dcdfe6;
   padding: 20px 24px;
   background: #f8f9fa;
+  border-bottom: 1px solid #dcdfe6;
 }
-
 .product-dialog .el-dialog__body {
-  padding: 24px;
   max-height: calc(100vh - 120px);
+  padding: 24px;
   overflow-y: auto;
 }
-
 .product-dialog .el-dialog__footer {
-  border-top: 1px solid #dcdfe6;
   padding: 20px 24px;
   background: #f8f9fa;
+  border-top: 1px solid #dcdfe6;
 }
 
 /* 富文本编辑器样式优化 */
 .wang-editor-wrapper {
   transition: all 0.3s ease;
 }
-
 .wang-editor-wrapper.fullscreen {
   position: fixed;
-  top: 80px;
-  left: 20px;
-  right: 20px;
-  bottom: 20px;
+  inset: 80px 20px 20px;
   z-index: 2000;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  background: #fff;
   padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 20%);
 }
-
 .editor-controls {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
+  justify-content: flex-end;
   padding-top: 12px;
+  margin-top: 12px;
   border-top: 1px solid #dcdfe6;
 }
 
@@ -1839,126 +1830,96 @@ onMounted(() => {
   flex-direction: column;
   gap: 20px;
 }
-
 .current-product-card {
   border: 1px solid #e9ecef;
 }
-
 .product-summary {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
 }
-
 .fake-selection-card {
   border: 1px solid #e9ecef;
 }
-
 .search-section {
   margin-bottom: 20px;
 }
-
 .fake-products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 8px;
   min-height: 300px;
   max-height: 400px;
-  overflow-y: auto;
   padding: 8px;
+  overflow-y: auto;
 }
-
 .fake-product-card {
+  position: relative;
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
+  min-height: 45px;
   padding: 6px;
+  cursor: pointer;
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
   transition: all 0.3s;
-  position: relative;
-  min-height: 45px;
 }
-
 .fake-product-card:hover {
   border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+  box-shadow: 0 2px 8px rgb(64 158 255 / 20%);
 }
-
 .fake-product-card.active {
-  border-color: #409eff;
   background: #f0f8ff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgb(64 158 255 / 30%);
 }
-
 .card-content {
   flex: 1;
   min-width: 0;
 }
-
 .card-title {
-  font-weight: 500;
-  font-size: 12px;
   margin-bottom: 2px;
   overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.2;
 }
-
 .card-price {
-  font-weight: 600;
-  font-size: 11px;
-  color: #e6a23c;
   margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1;
+  color: #e6a23c;
 }
-
 .card-check {
   position: absolute;
   top: 4px;
   right: 4px;
 }
-
 .empty-state {
-  grid-column: 1 / -1;
   display: flex;
-  justify-content: center;
+  grid-column: 1 / -1;
   align-items: center;
+  justify-content: center;
   min-height: 200px;
 }
-
 .fake-pagination {
   display: flex;
   justify-content: center;
-  margin-top: 16px;
   padding-top: 16px;
+  margin-top: 16px;
   border-top: 1px solid #e9ecef;
 }
-
-.product-details {
-  flex: 1;
-}
-
-.product-title {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
 .product-meta {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
-
 .product-price {
-  font-weight: 600;
-  color: #e6a23c;
-}
-
-.price {
   font-weight: 600;
   color: #e6a23c;
 }
