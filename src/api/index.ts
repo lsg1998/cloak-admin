@@ -128,4 +128,7 @@ class RequestHttp {
   }
 }
 
-export default new RequestHttp(config);
+const http = new RequestHttp(config);
+
+export { http };
+export default http;

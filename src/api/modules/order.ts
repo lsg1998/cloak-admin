@@ -3,7 +3,7 @@ import { http } from "@/api";
 // 订单状态枚举
 export enum OrderStatus {
   PENDING = "pending",
-  CONFIRMED = "confirmed", 
+  CONFIRMED = "confirmed",
   PROCESSING = "processing",
   SHIPPED = "shipped",
   DELIVERED = "delivered",
@@ -93,7 +93,11 @@ export interface UpdateOrderStatusParams {
  * 获取订单列表
  */
 export const getOrderListApi = (params: OrderListParams = {}) => {
-  return http.get<OrderListResponse>("/admin/orders", { params });
+  // 过滤掉undefined的参数
+  const filteredParams = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+  return http.get<OrderListResponse>("/admin/orders", { params: filteredParams });
 };
 
 /**
@@ -128,7 +132,7 @@ export const batchDeleteOrdersApi = (ids: number[]) => {
  * 导出订单数据
  */
 export const exportOrdersApi = (params: OrderListParams = {}) => {
-  return http.get("/admin/orders/export", { 
+  return http.get("/admin/orders/export", {
     params,
     responseType: "blob"
   });

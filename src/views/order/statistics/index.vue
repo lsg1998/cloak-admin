@@ -87,13 +87,7 @@
 <script setup lang="ts" name="OrderStatistics">
 import { ref, reactive, onMounted, nextTick } from "vue";
 import { ElMessage } from "element-plus";
-import {
-  ShoppingCart,
-  Money,
-  Clock,
-  Check,
-  ArrowRight
-} from "@element-plus/icons-vue";
+import { ShoppingCart, Money, Clock, Check, ArrowRight } from "@element-plus/icons-vue";
 import * as echarts from "echarts";
 
 // 响应式数据
@@ -113,28 +107,28 @@ const statsCards = reactive([
     key: "total",
     label: "总订单数",
     value: "1,234",
-    icon: "ShoppingCart",
+    icon: ShoppingCart,
     color: "#409EFF"
   },
   {
     key: "amount",
     label: "总销售额",
     value: "¥123,456",
-    icon: "Money", 
+    icon: Money,
     color: "#67C23A"
   },
   {
     key: "pending",
     label: "待处理",
     value: "56",
-    icon: "Clock",
+    icon: Clock,
     color: "#E6A23C"
   },
   {
     key: "completed",
     label: "已完成",
     value: "1,178",
-    icon: "Check",
+    icon: Check,
     color: "#67C23A"
   }
 ]);
@@ -150,7 +144,7 @@ const recentOrders = ref([
     created_at: "2024-12-01 10:30:00"
   },
   {
-    order_number: "ORD20241201002", 
+    order_number: "ORD20241201002",
     customer_name: "李四",
     total_amount: "19999.00",
     currency: "JPY",
@@ -159,7 +153,7 @@ const recentOrders = ref([
   },
   {
     order_number: "ORD20241201003",
-    customer_name: "王五", 
+    customer_name: "王五",
     total_amount: "1999.00",
     currency: "JPY",
     status: "shipped",
@@ -171,7 +165,7 @@ const recentOrders = ref([
 const getStatusType = (status: string) => {
   const types = {
     pending: "warning",
-    confirmed: "primary", 
+    confirmed: "primary",
     processing: "info",
     shipped: "success",
     delivered: "success",
@@ -186,7 +180,7 @@ const getStatusText = (status: string) => {
   const texts = {
     pending: "待确认",
     confirmed: "已确认",
-    processing: "处理中", 
+    processing: "处理中",
     shipped: "已发货",
     delivered: "已送达",
     cancelled: "已取消",
@@ -198,7 +192,7 @@ const getStatusText = (status: string) => {
 // 初始化订单趋势图表
 const initOrderTrendChart = () => {
   const chart = echarts.init(orderTrendChart.value);
-  
+
   const option = {
     title: {
       text: "订单趋势",
@@ -226,7 +220,7 @@ const initOrderTrendChart = () => {
         position: "left"
       },
       {
-        type: "value", 
+        type: "value",
         name: "销售额",
         position: "right"
       }
@@ -252,9 +246,9 @@ const initOrderTrendChart = () => {
       }
     ]
   };
-  
+
   chart.setOption(option);
-  
+
   // 响应式调整
   window.addEventListener("resize", () => {
     chart.resize();
@@ -264,7 +258,7 @@ const initOrderTrendChart = () => {
 // 初始化订单状态分布图表
 const initOrderStatusChart = () => {
   const chart = echarts.init(orderStatusChart.value);
-  
+
   const option = {
     title: {
       text: "订单状态分布",
@@ -312,9 +306,9 @@ const initOrderStatusChart = () => {
       }
     ]
   };
-  
+
   chart.setOption(option);
-  
+
   // 响应式调整
   window.addEventListener("resize", () => {
     chart.resize();
@@ -338,10 +332,10 @@ const loadStatistics = async () => {
     //   start_date: dateRange.value[0],
     //   end_date: dateRange.value[1]
     // });
-    
+
     // 模拟数据加载
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     ElMessage.success("统计数据加载成功");
   } catch (error) {
     ElMessage.error("加载统计数据失败");
@@ -353,7 +347,7 @@ const loadStatistics = async () => {
 // 初始化
 onMounted(async () => {
   await loadStatistics();
-  
+
   // 等待DOM渲染完成后初始化图表
   nextTick(() => {
     initOrderTrendChart();
@@ -463,13 +457,13 @@ onMounted(async () => {
   .order-statistics {
     padding: 10px;
   }
-  
+
   .chart-header {
     flex-direction: column;
     gap: 10px;
     align-items: flex-start;
   }
-  
+
   .table-header {
     flex-direction: column;
     gap: 10px;

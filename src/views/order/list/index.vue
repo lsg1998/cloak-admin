@@ -265,10 +265,10 @@
             <div class="product-detail-info">
               <el-avatar :size="60" v-if="currentOrder.product_images && currentOrder.product_images[0]">
                 <img
-                   :src="currentOrder.product_images[0]"
-                   :alt="currentOrder.product_title"
-                   style="width: 100%; height: 100%; object-fit: cover"
-                 />
+                  :src="currentOrder.product_images[0]"
+                  :alt="currentOrder.product_title"
+                  style="width: 100%; height: 100%; object-fit: cover"
+                />
               </el-avatar>
               <el-avatar :size="60" v-else>
                 <el-icon><Box /></el-icon>
@@ -447,18 +447,18 @@ const handleExport = async () => {
     };
 
     const response = await exportOrdersApi(params);
-    
+
     // 创建下载链接
-    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-    
+
     ElMessage.success("导出成功");
   } catch (error) {
     ElMessage.error("导出失败");
@@ -494,7 +494,7 @@ const loadData = async () => {
       order_number: searchForm.order_number || undefined,
       customer_name: searchForm.customer_name || undefined,
       phone: searchForm.phone || undefined,
-      status: searchForm.status as OrderStatus || undefined,
+      status: (searchForm.status as OrderStatus) || undefined,
       start_date: searchForm.start_date || undefined,
       end_date: searchForm.end_date || undefined
     };
@@ -561,7 +561,7 @@ onMounted(() => {
 
 /* 订单号 */
 .order-number {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-weight: 500;
 }
 
