@@ -6,7 +6,7 @@ import { initDynamicRouter } from "@/routers/modules/dynamicRouter";
 import { staticRouter, errorRouter } from "@/routers/modules/staticRouter";
 import NProgress from "@/config/nprogress";
 
-const mode = import.meta.env.VITE_ROUTER_MODE;
+const mode = import.meta.env.VITE_ROUTER_MODE || "hash";
 
 const routerMode = {
   hash: () => createWebHashHistory(),
@@ -30,7 +30,7 @@ const routerMode = {
  * @param meta.isKeepAlive ==> 当前路由是否缓存
  * */
 const router = createRouter({
-  history: routerMode[mode](),
+  history: routerMode[mode] ? routerMode[mode]() : createWebHashHistory(),
   routes: [...staticRouter, ...errorRouter],
   strict: false,
   scrollBehavior: () => ({ left: 0, top: 0 })

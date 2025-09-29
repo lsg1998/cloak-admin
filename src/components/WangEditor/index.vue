@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts" name="WangEditor">
-import { nextTick, computed, inject, shallowRef, onBeforeUnmount } from "vue";
+import { nextTick, computed, inject, shallowRef, onBeforeUnmount, withDefaults, defineProps, defineEmits } from "vue";
 import { IToolbarConfig, IEditorConfig } from "@wangeditor/editor";
 import { Editor, Toolbar } from "@wangeditor/editor-for-vue";
 import { uploadImg, uploadVideo } from "@/api/modules/upload";
@@ -39,18 +39,16 @@ interface RichEditorProps {
   hideToolBar?: boolean; // 是否隐藏工具栏 ==> 非必传（默认为false）
   disabled?: boolean; // 是否禁用编辑器 ==> 非必传（默认为false）
 }
+
 const props = withDefaults(defineProps<RichEditorProps>(), {
-  toolbarConfig: () => {
-    return {
-      excludeKeys: []
-    };
-  },
-  editorConfig: () => {
-    return {
-      placeholder: "请输入内容...",
-      MENU_CONF: {}
-    };
-  },
+  value: "",
+  toolbarConfig: () => ({
+    excludeKeys: []
+  }),
+  editorConfig: () => ({
+    placeholder: "请输入内容...",
+    MENU_CONF: {}
+  }),
   height: "500px",
   mode: "default",
   hideToolBar: false,
@@ -98,7 +96,9 @@ props.editorConfig.MENU_CONF!["uploadImage"] = {
     formData.append("file", file);
     try {
       const { data } = await uploadImg(formData);
-      insertFn(data.fileUrl);
+      // 根据你的后端接口响应格式调整
+      const imageUrl = data.url || data.fileUrl || data;
+      insertFn(imageUrl);
     } catch (error) {
       console.log(error);
     }
@@ -124,7 +124,9 @@ props.editorConfig.MENU_CONF!["uploadVideo"] = {
     formData.append("file", file);
     try {
       const { data } = await uploadVideo(formData);
-      insertFn(data.fileUrl);
+      // 根据你的后端接口响应格式调整
+      const videoUrl = data.url || data.fileUrl || data;
+      insertFn(videoUrl);
     } catch (error) {
       console.log(error);
     }

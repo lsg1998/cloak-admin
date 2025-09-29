@@ -20,7 +20,19 @@ const config = {
   // 设置超时时间
   timeout: ResultEnum.TIMEOUT as number,
   // 跨域时候允许携带凭证
-  withCredentials: true
+  withCredentials: true,
+  // 参数序列化配置
+  paramsSerializer: {
+    serialize: (params: any) => {
+      const searchParams = new URLSearchParams();
+      for (const key in params) {
+        if (params[key] !== null && params[key] !== undefined && params[key] !== "") {
+          searchParams.append(key, params[key]);
+        }
+      }
+      return searchParams.toString();
+    }
+  }
 };
 
 const axiosCanceler = new AxiosCanceler();
