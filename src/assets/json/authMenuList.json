@@ -16,6 +16,80 @@
       }
     },
     {
+      "path": "/product",
+      "name": "product",
+      "redirect": "/product/list",
+      "meta": {
+        "icon": "Box",
+        "title": "商品管理",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
+        {
+          "path": "/product/list",
+          "name": "productList",
+          "component": "/product/list/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "商品列表",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        }
+      ]
+    },
+    {
+      "path": "/order",
+      "name": "order",
+      "redirect": "/order/list",
+      "meta": {
+        "icon": "ShoppingCart",
+        "title": "订单管理",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
+        {
+          "path": "/order/list",
+          "name": "orderList",
+          "component": "/order/list/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "订单列表",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        },
+        {
+          "path": "/order/statistics",
+          "name": "orderStatistics",
+          "component": "/order/statistics/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "订单统计",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        }
+      ]
+    },
+    {
       "path": "/dataScreen",
       "name": "dataScreen",
       "component": "/dataScreen/index",
