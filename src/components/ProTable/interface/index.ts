@@ -1,8 +1,30 @@
 import { VNode, ComponentPublicInstance, Ref } from "vue";
-import { BreakPoint, Responsive } from "@/components/Grid/interface";
 import { TableColumnCtx } from "element-plus/es/components/table/src/table-column/defaults";
-import { ProTableProps } from "@/components/ProTable/index.vue";
-import ProTable from "@/components/ProTable/index.vue";
+
+// 定义响应式断点类型
+export type BreakPoint = "xs" | "sm" | "md" | "lg" | "xl";
+
+export type Responsive = {
+  span?: number;
+  offset?: number;
+};
+
+// 前置声明，避免循环引用
+export interface ProTableProps {
+  columns: ColumnProps[]; // 列配置项
+  data?: any[]; // 静态 table data 数据
+  requestApi?: (params: any) => Promise<any>; // 请求表格数据的 api
+  requestAuto?: boolean; // 是否自动执行请求 api
+  requestError?: (params: any) => void; // 表格 api 请求错误监听
+  dataCallback?: (data: any) => any; // 返回数据的回调函数
+  title?: string; // 表格标题
+  pagination?: boolean; // 是否需要分页组件
+  initParam?: any; // 初始化请求参数
+  border?: boolean; // 是否带有纵向边框
+  toolButton?: ("refresh" | "setting" | "search")[] | boolean; // 是否显示表格功能按钮
+  rowKey?: string; // 行数据的 Key
+  searchCol?: number | Record<BreakPoint, number>; // 表格搜索项 每列占比配置
+}
 
 export interface EnumProps {
   label?: string; // 选项框显示的文字
@@ -55,20 +77,20 @@ export type FieldNamesProps = {
   children?: string;
 };
 
-export type RenderScope<T> = {
+export type RenderScope<T extends Record<string, any> = any> = {
   row: T;
   $index: number;
   column: TableColumnCtx<T>;
   [key: string]: any;
 };
 
-export type HeaderRenderScope<T> = {
+export type HeaderRenderScope<T extends Record<string, any> = any> = {
   $index: number;
   column: TableColumnCtx<T>;
   [key: string]: any;
 };
 
-export interface ColumnProps<T = any>
+export interface ColumnProps<T extends Record<string, any> = any>
   extends Partial<Omit<TableColumnCtx<T>, "type" | "children" | "renderCell" | "renderHeader">> {
   type?: TypeProps; // 列类型
   tag?: boolean | Ref<boolean>; // 是否是标签展示
@@ -83,4 +105,20 @@ export interface ColumnProps<T = any>
   _children?: ColumnProps<T>[]; // 多级表头
 }
 
-export type ProTableInstance = Omit<InstanceType<typeof ProTable>, keyof ComponentPublicInstance | keyof ProTableProps>;
+export type ProTableInstance = {
+  element: HTMLDivElement;
+  tableData: any[];
+  pageable: any;
+  searchParam: any;
+  searchInitParam: any;
+  getTableList: () => Promise<void>;
+  search: () => void;
+  reset: () => void;
+  handleSizeChange: (val: number) => void;
+  handleCurrentChange: (val: number) => void;
+  clearSelection: () => void;
+  enumMap: Map<string, any[]>;
+  isSelected: (row: any) => boolean;
+  selectedList: any[];
+  selectedListIds: string[];
+};

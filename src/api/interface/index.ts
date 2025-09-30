@@ -26,6 +26,7 @@ export interface ReqPage {
 // 文件上传模块
 export namespace Upload {
   export interface ResFileUrl {
+    url?: string;
     fileUrl: string;
   }
 }
@@ -37,6 +38,7 @@ export namespace Login {
     password: string;
   }
   export interface ResLogin {
+    access_token: string;
     token: string;
     user: ResUserInfo;
   }
