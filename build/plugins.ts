@@ -11,6 +11,7 @@ import viteCompression from "vite-plugin-compression";
 import vueSetupExtend from "unplugin-vue-setup-extend-plus/vite";
 import NextDevTools from "vite-plugin-vue-devtools";
 import { codeInspectorPlugin } from "code-inspector-plugin";
+import type { ViteEnv } from "./types";
 
 /**
  * 创建 vite 插件

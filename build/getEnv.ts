@@ -1,4 +1,5 @@
 import path from "path";
+import type { ViteEnv } from "./types";
 
 export function isDevFn(mode: string): boolean {
   return mode === "development";
@@ -30,7 +31,9 @@ export function wrapperEnv(envConf: Recordable): ViteEnv {
     if (envName === "VITE_PROXY") {
       try {
         realName = JSON.parse(realName);
-      } catch (error) {}
+      } catch (error) {
+        realName = [];
+      }
     }
     ret[envName] = realName;
   }
