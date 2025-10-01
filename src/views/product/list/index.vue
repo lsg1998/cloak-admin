@@ -934,7 +934,7 @@ const handleAdd = () => {
 
 // 查看
 const handleView = (row: Product) => {
-  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
+  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://gammtt.shop";
   const viewUrl = `${frontendUrl}/product/${row.id}`;
 
   // 在新标签页中打开
