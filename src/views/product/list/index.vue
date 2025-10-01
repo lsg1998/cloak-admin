@@ -416,6 +416,16 @@
           </div>
 
           <el-table :data="skuList" v-loading="skuLoading" stripe border style="width: 100%">
+            <el-table-column label="图片" width="80" align="center">
+              <template #default="{ row }">
+                <el-avatar :size="50" class="sku-avatar" v-if="row.main_image">
+                  <img :src="row.main_image" :alt="row.sku_name" style="width: 100%; height: 100%; object-fit: cover" />
+                </el-avatar>
+                <el-avatar :size="50" class="sku-avatar" v-else>
+                  <el-icon><Box /></el-icon>
+                </el-avatar>
+              </template>
+            </el-table-column>
             <el-table-column prop="sku_code" label="SKU编码" width="120" />
             <el-table-column prop="sku_name" label="SKU名称" width="150" />
             <el-table-column label="属性组合" min-width="200">
@@ -430,6 +440,14 @@
             <el-table-column prop="sell_price" label="销售价格" width="100" align="center">
               <template #default="{ row }">
                 <span class="price">¥{{ row.sell_price }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="discount_percent" label="折扣" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.discount_percent && row.discount_percent > 0" type="success" size="small">
+                  {{ row.discount_percent }}%
+                </el-tag>
+                <span v-else style="color: #999999">--</span>
               </template>
             </el-table-column>
             <el-table-column prop="stock_quantity" label="库存" width="80" align="center" />
@@ -468,17 +486,27 @@
         </el-row>
 
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="12">
             <el-form-item label="销售价格" prop="sell_price">
               <el-input-number v-model="skuForm.sell_price" :min="0" :precision="2" style="width: 100%" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="12">
             <el-form-item label="原价" prop="origin_price">
               <el-input-number v-model="skuForm.origin_price" :min="0" :precision="2" style="width: 100%" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="折扣(%)" prop="discount_percent">
+              <el-input-number v-model="skuForm.discount_percent" :min="0" :max="100" :precision="0" style="width: 100%">
+                <template #append>%</template>
+              </el-input-number>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="成本价" prop="cost_price">
               <el-input-number v-model="skuForm.cost_price" :min="0" :precision="2" style="width: 100%" />
             </el-form-item>
@@ -498,16 +526,38 @@
           </el-col>
         </el-row>
 
+        <el-form-item label="SKU图片" prop="main_image">
+          <ProductImg
+            v-model:image-url="skuForm.main_image"
+            :file-size="2"
+            :file-type="['image/jpg', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']"
+            :drag="true"
+            width="120px"
+            height="120px"
+          />
+        </el-form-item>
+
         <el-form-item label="SKU规格" prop="attributes">
           <div class="sku-specs">
+            <!-- 规格说明 -->
+            <el-alert title="规格设置说明" type="info" :closable="false" show-icon style="margin-bottom: 16px">
+              <template #default>
+                <div>
+                  <p>• 每个SKU的同一属性只能设置一个值（如：颜色只能是红色或蓝色，不能同时是两种）</p>
+                  <p>• 不同的属性值组合应该创建不同的SKU</p>
+                  <p>• 示例：颜色=红色，尺寸=L 为一个SKU；颜色=蓝色，尺寸=L 为另一个SKU</p>
+                </div>
+              </template>
+            </el-alert>
+
             <!-- 添加新规格 -->
             <div class="add-spec-form">
               <el-row :gutter="10">
                 <el-col :span="8">
-                  <el-input v-model="newSpecName" placeholder="规格名称，如：颜色" />
+                  <el-input v-model="newSpecName" placeholder="规格名称，如：颜色" :maxlength="20" show-word-limit />
                 </el-col>
                 <el-col :span="12">
-                  <el-input v-model="newSpecValue" placeholder="规格值，如：红色" />
+                  <el-input v-model="newSpecValue" placeholder="规格值，如：红色" :maxlength="50" show-word-limit />
                 </el-col>
                 <el-col :span="4">
                   <el-button type="primary" @click="addSkuSpec" :disabled="!newSpecName || !newSpecValue">
@@ -534,8 +584,63 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="主图URL" prop="main_image">
-          <el-input v-model="skuForm.main_image" placeholder="请输入主图URL" />
+        <el-form-item label="主图设置" prop="main_image">
+          <div class="image-input-section">
+            <!-- 图片输入方式选择 -->
+            <div class="input-mode-selector">
+              <el-radio-group v-model="imageInputMode" @change="handleImageInputModeChange">
+                <el-radio value="url">
+                  <el-icon><Link /></el-icon>
+                  URL输入
+                </el-radio>
+                <el-radio value="upload">
+                  <el-icon><UploadFilled /></el-icon>
+                  文件上传
+                </el-radio>
+              </el-radio-group>
+            </div>
+
+            <!-- URL输入模式 -->
+            <div v-if="imageInputMode === 'url'" class="url-input-mode">
+              <el-input v-model="skuForm.main_image" placeholder="请输入图片URL地址" clearable>
+                <template #prepend>
+                  <el-icon><Link /></el-icon>
+                </template>
+              </el-input>
+              <!-- URL预览 -->
+              <div v-if="skuForm.main_image" class="url-preview">
+                <el-image
+                  :src="skuForm.main_image"
+                  fit="cover"
+                  style="width: 80px; height: 80px; border-radius: 4px"
+                  :preview-src-list="[skuForm.main_image]"
+                  preview-teleported
+                >
+                  <template #error>
+                    <div class="image-error">
+                      <el-icon><Picture /></el-icon>
+                      <span>加载失败</span>
+                    </div>
+                  </template>
+                </el-image>
+              </div>
+            </div>
+
+            <!-- 文件上传模式 -->
+            <div v-if="imageInputMode === 'upload'" class="upload-mode">
+              <ProductImg
+                v-model:image-url="skuForm.main_image"
+                :height="'120px'"
+                :width="'120px'"
+                :file-size="2"
+                :file-type="['image/jpeg', 'image/png', 'image/gif', 'image/webp']"
+              >
+                <template #tip>
+                  <div class="upload-tip">支持 JPG、PNG、GIF、WebP 格式，文件大小不超过 2MB</div>
+                </template>
+              </ProductImg>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
 
@@ -664,7 +769,7 @@
 </template>
 
 <script setup lang="ts" name="ProductList">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -679,7 +784,9 @@ import {
   Setting,
   FullScreen,
   ScaleToOriginal,
-  UploadFilled
+  UploadFilled,
+  Link,
+  Picture
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -693,6 +800,7 @@ import {
 } from "@/api/modules/product";
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
 import WangEditor from "@/components/WangEditor/index.vue";
+import ProductImg from "@/components/Upload/ProductImg.vue";
 
 // 响应式数据
 const loading = ref(false);
@@ -714,6 +822,8 @@ const skuList = ref<ProductSku[]>([]);
 const newSpecName = ref("");
 const newSpecValue = ref("");
 const skuSpecs = ref<Array<{ name: string; value: string }>>([]);
+// 图片输入模式
+const imageInputMode = ref("url");
 
 // 搜索表单
 const searchForm = reactive({
@@ -845,6 +955,25 @@ const skuRules = {
   sell_price: [{ required: true, message: "请输入销售价格", trigger: "blur" }],
   stock_quantity: [{ required: true, message: "请输入库存数量", trigger: "blur" }]
 };
+
+// 自动计算折扣百分比
+const calculateDiscount = () => {
+  if (skuForm.origin_price > 0 && skuForm.sell_price > 0) {
+    const discount = Math.round(((skuForm.origin_price - skuForm.sell_price) / skuForm.origin_price) * 100);
+    skuForm.discount_percent = Math.max(0, Math.min(100, discount));
+  } else {
+    skuForm.discount_percent = 0;
+  }
+};
+
+// 监听价格变化自动计算折扣
+watch(
+  () => [skuForm.sell_price, skuForm.origin_price],
+  () => {
+    calculateDiscount();
+  },
+  { deep: true }
+);
 
 // 获取状态类型
 const getStatusType = (status: string) => {
@@ -1148,9 +1277,29 @@ const addSkuSpec = () => {
     return;
   }
 
+  const newSpecName_trimmed = newSpecName.value.trim();
+  const newSpecValue_trimmed = newSpecValue.value.trim();
+
+  // 检查是否已存在相同的属性名和值的组合
+  const existingSpec = skuSpecs.value.find(spec => spec.name === newSpecName_trimmed && spec.value === newSpecValue_trimmed);
+
+  if (existingSpec) {
+    ElMessage.warning(`规格 "${newSpecName_trimmed}: ${newSpecValue_trimmed}" 已存在，请勿重复添加`);
+    return;
+  }
+
+  // 检查是否已存在相同的属性名（一个SKU的同一属性只能有一个值）
+  const existingAttr = skuSpecs.value.find(spec => spec.name === newSpecName_trimmed);
+  if (existingAttr) {
+    ElMessage.warning(
+      `属性 "${newSpecName_trimmed}" 已存在值 "${existingAttr.value}"，一个SKU的同一属性只能设置一个值。如需修改，请先删除现有规格。`
+    );
+    return;
+  }
+
   const newSpec = {
-    name: newSpecName.value.trim(),
-    value: newSpecValue.value.trim()
+    name: newSpecName_trimmed,
+    value: newSpecValue_trimmed
   };
 
   skuSpecs.value.push(newSpec);
@@ -1218,10 +1367,12 @@ const handleEditSku = (row: ProductSku) => {
 
   Object.assign(skuForm, skuEditData);
 
-  // 简化规格数据：将attributes转换为简单的规格格式
+  // 改进的规格数据处理：保持属性ID信息
   skuSpecs.value = row.attributes.map(attr => ({
-    name: attr.attribute_name || "",
-    value: attr.value || ""
+    name: attr.attribute_name || attr.display_name || "",
+    value: attr.value || attr.display_value || "",
+    attribute_id: attr.attribute_id || null,
+    attribute_value_id: attr.attribute_value_id || null
   }));
 
   skuFormDialogVisible.value = true;
@@ -1238,18 +1389,47 @@ const handleDeleteSku = (row: ProductSku) => {
       await deleteSkuApi(row.id);
       ElMessage.success("删除成功");
       await loadSkuData(currentProduct.value?.id || "");
-    } catch (error) {
-      ElMessage.error("删除失败");
+    } catch (error: any) {
+      console.error("删除SKU失败:", error);
+
+      // 处理不同类型的错误
+      let errorMessage = "删除失败";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      ElMessage.error(errorMessage);
     }
   });
 };
 
-// 简化SKU属性转换
+// 简化SKU属性转换 - 改进版本，保持属性ID信息
 const convertSpecsToAttributes = () => {
-  return skuSpecs.value.map(spec => ({
-    attribute_name: spec.name,
-    value: spec.value
-  }));
+  // 检查是否有重复的属性名
+  const attributeNames = skuSpecs.value.map(spec => spec.name);
+  const duplicateNames = attributeNames.filter((name, index) => attributeNames.indexOf(name) !== index);
+
+  if (duplicateNames.length > 0) {
+    ElMessage.error(`检测到重复的属性名: ${duplicateNames.join(", ")}，请检查规格设置`);
+    throw new Error("存在重复的属性名");
+  }
+
+  return skuSpecs.value.map(spec => {
+    // 如果有属性ID信息，优先使用ID格式
+    if (spec.attribute_id && spec.attribute_value_id) {
+      return {
+        attribute_id: spec.attribute_id,
+        attribute_value_id: spec.attribute_value_id
+      };
+    }
+    // 否则使用名称格式（向后兼容）
+    return {
+      attribute_name: spec.name,
+      value: spec.value
+    };
+  });
 };
 
 // 提交SKU
@@ -1275,13 +1455,26 @@ const handleSubmitSku = async () => {
         }
         skuFormDialogVisible.value = false;
         await loadSkuData(currentProduct.value?.id || "");
-      } catch (error) {
+      } catch (error: any) {
+        // 检查是否是属性重复错误
+        if (error.message === "存在重复的属性名") {
+          // 错误已经在convertSpecsToAttributes中显示了
+          return;
+        }
         ElMessage.error(skuForm.id ? "更新失败" : "添加失败");
       } finally {
         skuSubmitLoading.value = false;
       }
     }
   });
+};
+
+// 图片输入模式切换处理
+const handleImageInputModeChange = (mode: string) => {
+  // 切换模式时清空当前图片
+  if (mode !== imageInputMode.value) {
+    skuForm.main_image = "";
+  }
 };
 
 // 商品类型变化处理
@@ -1467,6 +1660,69 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 图片输入方式选择样式 */
+.image-input-section {
+  .input-mode-selector {
+    margin-bottom: 16px;
+  }
+
+  .input-mode-selector .el-radio-group {
+    display: flex;
+    gap: 16px;
+  }
+
+  .input-mode-selector .el-radio {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border: 1px solid #dcdfe6;
+    border-radius: 6px;
+    transition: all 0.3s;
+  }
+
+  .input-mode-selector .el-radio:hover {
+    border-color: #409eff;
+    background-color: #f0f8ff;
+  }
+
+  .input-mode-selector .el-radio.is-checked {
+    border-color: #409eff;
+    background-color: #f0f8ff;
+    color: #409eff;
+  }
+
+  .url-preview {
+    margin-top: 12px;
+  }
+
+  .image-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    background-color: #f5f7fa;
+    border: 1px dashed #dcdfe6;
+    border-radius: 4px;
+    color: #909399;
+    font-size: 12px;
+  }
+
+  .image-error .el-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+
+  .upload-tip {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #909399;
+    text-align: center;
+  }
+}
+
 .product-management {
   min-height: 100vh;
   padding: 20px;

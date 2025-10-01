@@ -1,4 +1,4 @@
-import { VNode, ComponentPublicInstance, Ref } from "vue";
+import { VNode, Ref } from "vue";
 import { TableColumnCtx } from "element-plus/es/components/table/src/table-column/defaults";
 
 // 定义响应式断点类型
