@@ -78,6 +78,12 @@ class RequestHttp {
         const userStore = useUserStore();
         axiosCanceler.removePending(config);
         config.loading && tryHideFullScreenLoading();
+
+        // 如果是blob类型的响应（文件下载），直接返回response对象
+        if (config.responseType === "blob") {
+          return response;
+        }
+
         // 登录失效
         if (data.code == ResultEnum.OVERDUE) {
           userStore.setToken("");

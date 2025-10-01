@@ -447,13 +447,59 @@ const handleExport = async () => {
     };
 
     const response = await exportOrdersApi(params);
+    // console.log("导出API响应:", response);
+    // console.log("响应数据类型:", typeof response);
+    // console.log("响应数据:", response);
+
+    // 检查响应数据 - API拦截器返回完整response对象
+    let blobData;
+    let csvData;
+
+    // 处理不同类型的响应数据
+    if (response && response.data) {
+      // 标准的axios响应格式
+      csvData = response.data;
+    } else if (typeof response === "string" && response.trim()) {
+      // 直接返回字符串数据
+      csvData = response;
+    } else {
+      ElMessage.warning("没有数据可导出");
+      return;
+    }
+
+    // console.log("CSV数据类型:", typeof csvData);
+    // console.log("CSV数据长度:", csvData ? csvData.length : 0);
+
+    // 检查数据是否为空
+    if (!csvData || (typeof csvData === "string" && csvData.trim() === "")) {
+      ElMessage.warning("导出的数据为空");
+      return;
+    }
+
+    // 创建blob数据
+    if (csvData instanceof Blob) {
+      blobData = csvData;
+    } else if (typeof csvData === "string") {
+      blobData = new Blob([csvData], { type: "text/csv; charset=utf-8" });
+    } else {
+      // 尝试将其他类型转换为字符串
+      const dataStr = typeof csvData === "object" ? JSON.stringify(csvData) : String(csvData);
+      blobData = new Blob([dataStr], { type: "text/csv; charset=utf-8" });
+    }
+
+    // 检查blob大小
+    if (blobData.size === 0) {
+      ElMessage.warning("导出的数据为空");
+      return;
+    }
+
+    // console.log("Blob数据大小:", blobData.size, "字节");
 
     // 创建下载链接
-    const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blobData);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -461,6 +507,7 @@ const handleExport = async () => {
 
     ElMessage.success("导出成功");
   } catch (error) {
+    console.error("导出失败:", error);
     ElMessage.error("导出失败");
   } finally {
     exportLoading.value = false;

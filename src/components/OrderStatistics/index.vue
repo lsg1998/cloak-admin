@@ -1,5 +1,5 @@
 <template>
-  <div class="order-statistics">
+  <div class="order-statistics-component">
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-cards">
       <el-col :xs="24" :sm="12" :md="6" v-for="stat in statsCards" :key="stat.key">
@@ -52,7 +52,7 @@
       </el-col>
     </el-row>
 
-    <!-- 数据表格 -->
+    <!-- 最近订单表格 -->
     <el-card class="table-card" shadow="never">
       <template #header>
         <div class="table-header">
@@ -84,7 +84,7 @@
   </div>
 </template>
 
-<script setup lang="ts" name="OrderStatistics">
+<script setup lang="ts">
 import { ref, reactive, onMounted, nextTick } from "vue";
 import { ElMessage } from "element-plus";
 import { ShoppingCart, Money, Clock, Check, ArrowRight } from "@element-plus/icons-vue";
@@ -159,9 +159,25 @@ const getStatusText = (status: string) => {
 // 更新统计卡片数据
 const updateStatsCards = (data: OrderStatistics) => {
   statsCards[0].value = data.total_orders.toLocaleString();
-  statsCards[1].value = `¥${data.total_amount.toLocaleString()}`;
+
+  // 根据货币类型显示正确的符号
+  const currencySymbol = getCurrencySymbol(data.currency);
+  statsCards[1].value = `${currencySymbol}${data.total_amount.toLocaleString()}`;
+
   statsCards[2].value = data.pending_orders.toLocaleString();
   statsCards[3].value = data.completed_orders.toLocaleString();
+};
+
+// 获取货币符号
+const getCurrencySymbol = (currency: string) => {
+  const symbols = {
+    JPY: "¥",
+    USD: "$",
+    EUR: "€",
+    CNY: "¥",
+    GBP: "£"
+  };
+  return symbols[currency] || currency;
 };
 
 // 初始化订单趋势图表
@@ -319,7 +335,7 @@ const loadStatistics = async () => {
     const { data } = await getOrderStatisticsApi({
       start_date: dateRange.value[0],
       end_date: dateRange.value[1],
-      limit: 10
+      limit: 5 // 首页只显示5条最近订单
     });
 
     statisticsData.value = data;
@@ -332,8 +348,6 @@ const loadStatistics = async () => {
     await nextTick();
     initOrderTrendChart(data);
     initOrderStatusChart(data);
-
-    ElMessage.success("统计数据加载成功");
   } catch (error) {
     console.error("加载统计数据失败:", error);
     ElMessage.error("加载统计数据失败");
@@ -349,10 +363,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.order-statistics {
-  padding: 20px;
-  background: #f5f7fa;
-  min-height: 100vh;
+.order-statistics-component {
+  width: 100%;
 }
 
 /* 统计卡片 */
@@ -446,10 +458,6 @@ onMounted(async () => {
 
 /* 响应式设计 */
 @media (width <= 768px) {
-  .order-statistics {
-    padding: 10px;
-  }
-
   .chart-header {
     flex-direction: column;
     gap: 10px;

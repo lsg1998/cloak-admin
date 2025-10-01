@@ -137,3 +137,46 @@ export const exportOrdersApi = (params: OrderListParams = {}) => {
     responseType: "blob"
   });
 };
+
+// 订单统计数据类型
+export interface OrderStatistics {
+  // 基础统计
+  total_orders: number;
+  today_orders: number;
+  pending_orders: number;
+  completed_orders: number;
+  total_amount: number;
+  today_amount: number;
+  currency: string; // 主要货币类型
+
+  // 趋势数据
+  trend_data: {
+    dates: string[];
+    order_counts: number[];
+    amounts: number[];
+  };
+
+  // 状态分布
+  status_distribution: {
+    name: string;
+    value: number;
+    status: string;
+  }[];
+
+  // 最近订单
+  recent_orders: Order[];
+}
+
+// 订单统计查询参数
+export interface OrderStatisticsParams {
+  start_date?: string;
+  end_date?: string;
+  limit?: number; // 最近订单数量限制
+}
+
+/**
+ * 获取订单统计数据
+ */
+export const getOrderStatisticsApi = (params: OrderStatisticsParams = {}) => {
+  return http.get<OrderStatistics>("/admin/orders/statistics", { params });
+};

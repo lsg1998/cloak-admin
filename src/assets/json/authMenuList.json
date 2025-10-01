@@ -997,6 +997,20 @@
             "isAffix": false,
             "isKeepAlive": true
           }
+        },
+        {
+          "path": "/system/settingsManage",
+          "name": "settingsManage",
+          "component": "/system/settingsManage/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "网站设置",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         }
       ]
     },
