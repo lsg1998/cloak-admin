@@ -8,7 +8,8 @@ export enum OrderStatus {
   SHIPPED = "shipped",
   DELIVERED = "delivered",
   CANCELLED = "cancelled",
-  REFUNDED = "refunded"
+  REFUNDED = "refunded",
+  DELETED = "deleted"
 }
 
 // 订单状态标签映射
@@ -19,7 +20,8 @@ export const OrderStatusLabels = {
   [OrderStatus.SHIPPED]: "已发货",
   [OrderStatus.DELIVERED]: "已送达",
   [OrderStatus.CANCELLED]: "已取消",
-  [OrderStatus.REFUNDED]: "已退款"
+  [OrderStatus.REFUNDED]: "已退款",
+  [OrderStatus.DELETED]: "已删除"
 };
 
 // 订单状态颜色映射
@@ -30,7 +32,8 @@ export const OrderStatusColors = {
   [OrderStatus.SHIPPED]: "success",
   [OrderStatus.DELIVERED]: "success",
   [OrderStatus.CANCELLED]: "danger",
-  [OrderStatus.REFUNDED]: "danger"
+  [OrderStatus.REFUNDED]: "danger",
+  [OrderStatus.DELETED]: "info"
 };
 
 // 订单接口数据类型
@@ -62,6 +65,7 @@ export interface Order {
   language_code?: string;
   ip_address?: string;
   user_agent?: string;
+  product_type?: "original" | "replica"; // 商品类型：正品/仿品
   // 关联商品信息
   product_title?: string;
   product_price?: number;

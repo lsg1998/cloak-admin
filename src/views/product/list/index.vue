@@ -262,14 +262,28 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="销售价格" prop="sell_price">
-              <el-input-number v-model="form.sell_price" :precision="2" :min="0" placeholder="请输入销售价格" style="width: 100%">
+              <el-input-number
+                v-model="form.sell_price"
+                :precision="2"
+                :min="0"
+                placeholder="请输入销售价格"
+                style="width: 100%"
+                @change="calculateProductDiscount"
+              >
                 <template #append>元</template>
               </el-input-number>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="原价" prop="origin_price">
-              <el-input-number v-model="form.origin_price" :precision="2" :min="0" placeholder="请输入原价" style="width: 100%">
+              <el-input-number
+                v-model="form.origin_price"
+                :precision="2"
+                :min="0"
+                placeholder="请输入原价"
+                style="width: 100%"
+                @change="calculateProductDiscount"
+              >
                 <template #append>元</template>
               </el-input-number>
             </el-form-item>
@@ -284,11 +298,13 @@
                 :precision="0"
                 :min="0"
                 :max="100"
-                placeholder="请输入折扣"
+                placeholder="自动计算"
                 style="width: 100%"
+                @change="calculateProductPrice"
               >
                 <template #append>%</template>
               </el-input-number>
+              <div class="form-tip">输入销售价和原价后自动计算，或手动输入折扣</div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -372,6 +388,7 @@
                 filterable
                 style="width: 100%"
                 @change="handleCloakRuleChange"
+                :loading="cloakRulesLoading"
               >
                 <el-option
                   v-for="rule in cloakRules"
@@ -388,6 +405,7 @@
                 </el-option>
               </el-select>
               <div class="form-tip">选择商品使用的斗篷规则，控制不同用户看到的内容</div>
+              <div class="form-tip" style="color: #909399; font-size: 12px">当前加载了 {{ cloakRules.length }} 个斗篷规则</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -527,12 +545,24 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="销售价格" prop="sell_price">
-              <el-input-number v-model="skuForm.sell_price" :min="0" :precision="2" style="width: 100%" />
+              <el-input-number
+                v-model="skuForm.sell_price"
+                :min="0"
+                :precision="2"
+                style="width: 100%"
+                @change="calculateSkuDiscount"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="原价" prop="origin_price">
-              <el-input-number v-model="skuForm.origin_price" :min="0" :precision="2" style="width: 100%" />
+              <el-input-number
+                v-model="skuForm.origin_price"
+                :min="0"
+                :precision="2"
+                style="width: 100%"
+                @change="calculateSkuDiscount"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -540,9 +570,17 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="折扣(%)" prop="discount_percent">
-              <el-input-number v-model="skuForm.discount_percent" :min="0" :max="100" :precision="0" style="width: 100%">
+              <el-input-number
+                v-model="skuForm.discount_percent"
+                :min="0"
+                :max="100"
+                :precision="0"
+                style="width: 100%"
+                @change="calculateSkuPrice"
+              >
                 <template #append>%</template>
               </el-input-number>
+              <div class="form-tip">输入销售价和原价后自动计算，或手动输入折扣</div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -1096,12 +1134,22 @@ const handleAdd = () => {
     status: "active",
     product_type: "original",
     b_page_product_id: "",
+    cloak_rule_id: null, // 重置斗篷规则
     country: "JA"
   });
 
   // 重置相关状态
   imageFiles.value = [];
   originalProducts.value = [];
+
+  // 确保斗篷规则已加载（避免重复加载）
+  if (cloakRules.value.length === 0 && !cloakRulesLoading.value) {
+    console.log("斗篷规则为空，重新加载...");
+    loadCloakRules();
+  }
+
+  console.log("添加商品时斗篷规则数量:", cloakRules.value.length);
+  console.log("斗篷规则列表:", cloakRules.value);
 
   dialogVisible.value = true;
 };
@@ -1121,6 +1169,11 @@ const handleView = (row: Product) => {
 const handleEdit = (row: Product) => {
   dialogTitle.value = "编辑商品";
 
+  // 调试：打印原始商品数据
+  console.log("编辑商品原始数据:", row);
+  console.log("原始cloak_rule_id:", row.cloak_rule_id);
+  console.log("原始cloak_rule_id类型:", typeof row.cloak_rule_id);
+
   // 转换数字字段类型
   const editData = {
     ...row,
@@ -1129,8 +1182,12 @@ const handleEdit = (row: Product) => {
     discount: parseFloat(row.discount) || 0,
     product_type: row.product_type || "original",
     b_page_product_id: row.b_page_product_id || "",
-    country: row.country || "JA"
+    country: row.country || "JA",
+    cloak_rule_id: row.cloak_rule_id || null // 确保斗篷规则ID被正确设置
   };
+
+  console.log("处理后的编辑数据:", editData);
+  console.log("处理后的cloak_rule_id:", editData.cloak_rule_id);
 
   Object.assign(form, editData);
 
@@ -1147,7 +1204,15 @@ const handleEdit = (row: Product) => {
     }
   }));
 
-  // 初始化富文本编辑器状态
+  // 确保斗篷规则已加载（避免重复加载）
+  if (cloakRules.value.length === 0 && !cloakRulesLoading.value) {
+    console.log("编辑商品时斗篷规则为空，重新加载...");
+    loadCloakRules();
+  }
+
+  console.log("编辑商品时斗篷规则数量:", cloakRules.value.length);
+  console.log("编辑商品时斗篷规则ID:", form.cloak_rule_id);
+  console.log("斗篷规则列表:", cloakRules.value);
 
   dialogVisible.value = true;
 };
@@ -1178,16 +1243,24 @@ const handleSubmit = async () => {
     if (valid) {
       submitLoading.value = true;
       try {
+        // 调试：打印提交的数据
+        console.log("提交表单数据:", form);
+        console.log("斗篷规则ID:", form.cloak_rule_id);
+        console.log("斗篷规则ID类型:", typeof form.cloak_rule_id);
+
         if (form.id) {
+          console.log("更新商品，ID:", form.id);
           await updateProductApi(form.id, form);
           ElMessage.success("更新成功");
         } else {
+          console.log("创建新商品");
           await createProductApi(form);
           ElMessage.success("添加成功");
         }
         dialogVisible.value = false;
         loadData();
       } catch (error) {
+        console.error("提交失败:", error);
         ElMessage.error(form.id ? "更新失败" : "添加失败");
       } finally {
         submitLoading.value = false;
@@ -1286,6 +1359,8 @@ const loadData = async () => {
     };
 
     const { data } = await getProductListApi(params);
+    console.log("商品列表API响应:", data);
+    console.log("第一个商品数据:", data.list[0]);
     tableData.value = data.list;
     pagination.total = data.total;
   } catch (error) {
@@ -1535,6 +1610,52 @@ const handleProductTypeChange = (value: string) => {
   }
 };
 
+// 商品折扣自动计算
+const calculateProductDiscount = () => {
+  const sellPrice = form.sell_price || 0;
+  const originPrice = form.origin_price || 0;
+
+  if (originPrice > 0 && sellPrice > 0) {
+    const discount = Math.round(((originPrice - sellPrice) / originPrice) * 100);
+    form.discount = Math.max(0, Math.min(100, discount));
+  } else if (originPrice === 0 || sellPrice === 0) {
+    form.discount = 0;
+  }
+};
+
+// 商品价格自动计算（根据折扣）
+const calculateProductPrice = () => {
+  const originPrice = form.origin_price || 0;
+  const discount = form.discount || 0;
+
+  if (originPrice > 0 && discount >= 0) {
+    form.sell_price = Math.round(originPrice * (1 - discount / 100) * 100) / 100;
+  }
+};
+
+// SKU折扣自动计算
+const calculateSkuDiscount = () => {
+  const sellPrice = skuForm.sell_price || 0;
+  const originPrice = skuForm.origin_price || 0;
+
+  if (originPrice > 0 && sellPrice > 0) {
+    const discount = Math.round(((originPrice - sellPrice) / originPrice) * 100);
+    skuForm.discount_percent = Math.max(0, Math.min(100, discount));
+  } else if (originPrice === 0 || sellPrice === 0) {
+    skuForm.discount_percent = 0;
+  }
+};
+
+// SKU价格自动计算（根据折扣）
+const calculateSkuPrice = () => {
+  const originPrice = skuForm.origin_price || 0;
+  const discount = skuForm.discount_percent || 0;
+
+  if (originPrice > 0 && discount >= 0) {
+    skuForm.sell_price = Math.round(originPrice * (1 - discount / 100) * 100) / 100;
+  }
+};
+
 // 搜索正品商品
 const searchOriginalProducts = async (query: string) => {
   if (!query) {
@@ -1674,6 +1795,7 @@ const handleCreateNewFake = () => {
     status: "draft", // 默认草稿状态
     product_type: "fake",
     b_page_product_id: currentOriginalProduct.value.id,
+    cloak_rule_id: null, // 重置斗篷规则
     country: currentOriginalProduct.value.country || "JA" // 继承正品的国家设置
   });
 
@@ -1700,11 +1822,28 @@ const handleCreateNewFake = () => {
 
 // 斗篷规则相关方法
 const loadCloakRules = async () => {
+  // 防止重复加载
+  if (cloakRulesLoading.value) {
+    console.log("斗篷规则正在加载中，跳过重复请求");
+    return;
+  }
+
   try {
     cloakRulesLoading.value = true;
     const response = await cloakRuleApi.getCloakRules({ page: 1, size: 1000 });
-    if (response.data.code === 200) {
-      cloakRules.value = response.data.data.list.filter((rule: CloakRule) => rule.is_active === 1);
+    console.log("斗篷规则API响应:", response);
+
+    // 修复响应结构判断：后端返回的是 {success: true, code: 200, message: '操作成功', data: {...}}
+    if (response.code === 200) {
+      const allRules = response.data.list;
+      const activeRules = allRules.filter((rule: CloakRule) => rule.is_active === 1);
+      console.log("所有规则:", allRules);
+      console.log("活跃规则:", activeRules);
+
+      cloakRules.value = activeRules;
+      console.log("设置后的cloakRules:", cloakRules.value);
+    } else {
+      console.error("斗篷规则API返回错误:", response);
     }
   } catch (error) {
     console.error("加载斗篷规则失败:", error);
@@ -1738,11 +1877,19 @@ const getModeText = (mode: string) => {
 
 // 斗篷规则改变处理
 const handleCloakRuleChange = (ruleId: number | null) => {
+  console.log("斗篷规则改变:", ruleId);
+  console.log("斗篷规则ID类型:", typeof ruleId);
+  form.cloak_rule_id = ruleId;
+
   if (ruleId) {
     const rule = cloakRules.value.find(r => r.id === ruleId);
     if (rule) {
       console.log("选择的斗篷规则:", rule);
+    } else {
+      console.warn("未找到对应的斗篷规则，ID:", ruleId);
     }
+  } else {
+    console.log("清空斗篷规则选择");
   }
 };
 

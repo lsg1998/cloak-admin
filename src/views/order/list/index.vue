@@ -130,9 +130,22 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="收货地址" min-width="200" show-overflow-tooltip>
+        <el-table-column label="收货地址" min-width="250" show-overflow-tooltip>
           <template #default="{ row }">
-            <div class="address-info">{{ row.province }}{{ row.city }}{{ row.district }}{{ row.address }}</div>
+            <div class="address-info">
+              <div class="address-line">
+                <span class="address-label">省市区:</span>
+                <span class="address-value">{{ getAddressString(row.province, row.city, row.district) }}</span>
+              </div>
+              <div class="address-line" v-if="row.postal_code">
+                <span class="address-label">邮编:</span>
+                <span class="address-value">{{ row.postal_code }}</span>
+              </div>
+              <div class="address-line" v-if="row.address">
+                <span class="address-label">详细:</span>
+                <span class="address-value">{{ row.address }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="total_amount" label="订单金额" width="120" align="center">
@@ -143,9 +156,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="payment_method" label="支付方式" width="100" align="center">
+        <el-table-column prop="payment_method" label="支付方式" width="120" align="center">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
+            <div class="payment-info">
+              <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
+              <div class="product-type" v-if="row.product_type">
+                <el-tag size="small" :type="getProductTypeColor(row.product_type)">
+                  {{ getProductTypeLabel(row.product_type) }}
+                </el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="订单状态" width="100" align="center">
@@ -163,19 +183,25 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="下单IP" width="200" align="center" show-overflow-tooltip>
+        <el-table-column prop="ip_address" label="下单IP" width="250" align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="ip-info" v-if="row.ip_address">
               <div class="ip-address">
                 <el-tag size="small" type="info">{{ row.ip_address }}</el-tag>
               </div>
-              <div class="ip-location" v-if="row.ip_info">
+              <div class="ip-location" v-if="row.ip_info && (row.ip_info.country || row.ip_info.city)">
                 <el-tag size="small" type="success" v-if="row.ip_info.country">
                   {{ row.ip_info.country }}
                 </el-tag>
                 <el-tag size="small" type="warning" v-if="row.ip_info.city" style="margin-left: 4px">
                   {{ row.ip_info.city }}
                 </el-tag>
+                <el-tag size="small" type="info" v-if="row.ip_info.organization" style="margin-left: 4px">
+                  {{ row.ip_info.organization }}
+                </el-tag>
+              </div>
+              <div class="ip-no-location" v-else>
+                <el-tag size="small" type="info" plain>未获取到地理位置</el-tag>
               </div>
             </div>
             <span v-else class="no-data">--</span>
@@ -287,8 +313,22 @@
           <el-descriptions-item label="联系电话">{{ currentOrder.phone }}</el-descriptions-item>
           <el-descriptions-item label="邮箱地址" :span="2">{{ currentOrder.email || "未填写" }}</el-descriptions-item>
           <el-descriptions-item label="收货地址" :span="2">
-            {{ currentOrder.province }}{{ currentOrder.city }}{{ currentOrder.district }}{{ currentOrder.address }}
-            <span v-if="currentOrder.postal_code">（{{ currentOrder.postal_code }}）</span>
+            <div class="address-detail">
+              <div class="address-line">
+                <span class="address-label">省市区:</span>
+                <span class="address-value">{{
+                  getAddressString(currentOrder.province, currentOrder.city, currentOrder.district)
+                }}</span>
+              </div>
+              <div class="address-line" v-if="currentOrder.postal_code">
+                <span class="address-label">邮编:</span>
+                <span class="address-value">{{ currentOrder.postal_code }}</span>
+              </div>
+              <div class="address-line" v-if="currentOrder.address">
+                <span class="address-label">详细地址:</span>
+                <span class="address-value">{{ currentOrder.address }}</span>
+              </div>
+            </div>
           </el-descriptions-item>
           <el-descriptions-item v-if="currentOrder.comments" label="客户备注" :span="2">
             {{ currentOrder.comments }}
@@ -622,6 +662,29 @@ const loadData = async () => {
   }
 };
 
+// 地址字符串处理函数
+const getAddressString = (province: string, city: string, district: string): string => {
+  return [province, city, district].filter(Boolean).join(" ") || "--";
+};
+
+// 商品类型标签
+const getProductTypeLabel = (type: string): string => {
+  const labels = {
+    original: "正品",
+    replica: "仿品"
+  };
+  return labels[type as keyof typeof labels] || type;
+};
+
+// 商品类型颜色
+const getProductTypeColor = (type: string): string => {
+  const colors = {
+    original: "success",
+    replica: "warning"
+  };
+  return colors[type as keyof typeof colors] || "info";
+};
+
 // 初始化
 onMounted(() => {
   loadData();
@@ -732,6 +795,46 @@ onMounted(() => {
   color: #666;
 }
 
+.address-line {
+  display: flex;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.address-label {
+  color: #909399;
+  margin-right: 4px;
+  min-width: 30px;
+  flex-shrink: 0;
+}
+
+.address-value {
+  color: #606266;
+  flex: 1;
+  word-break: break-all;
+}
+
+.address-detail {
+  line-height: 1.6;
+}
+
+.address-detail .address-line {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.address-detail .address-label {
+  color: #909399;
+  margin-right: 8px;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.address-detail .address-value {
+  color: #606266;
+  flex: 1;
+}
+
 /* 金额信息 */
 .amount-info {
   text-align: center;
@@ -744,6 +847,14 @@ onMounted(() => {
 .currency {
   font-size: 12px;
   color: #999;
+}
+
+/* 支付方式信息 */
+.payment-info {
+  text-align: center;
+}
+.product-type {
+  margin-top: 4px;
 }
 
 /* 时间信息 */
@@ -823,6 +934,12 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 2px;
+  margin-top: 4px;
+}
+
+.ip-no-location {
+  margin-top: 4px;
+  text-align: center;
 }
 
 .url-info {
