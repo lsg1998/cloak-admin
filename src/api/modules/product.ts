@@ -16,6 +16,9 @@ export interface Product {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  cloak_rule_id?: number;
+  cloak_rule_name?: string;
+  cloak_rule_mode?: string;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +53,7 @@ export interface CreateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  cloak_rule_id?: number;
 }
 
 export interface UpdateProductParams {
@@ -66,6 +70,7 @@ export interface UpdateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  cloak_rule_id?: number;
 }
 
 // 获取商品列表

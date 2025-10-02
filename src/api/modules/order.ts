@@ -56,6 +56,12 @@ export interface Order {
   confirmed_at?: string;
   shipped_at?: string;
   delivered_at?: string;
+  // 新增字段
+  pd_val?: string;
+  from_url?: string;
+  language_code?: string;
+  ip_address?: string;
+  user_agent?: string;
   // 关联商品信息
   product_title?: string;
   product_price?: number;

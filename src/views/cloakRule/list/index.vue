@@ -1,0 +1,545 @@
+<template>
+  <div class="cloak-rule-list">
+    <!-- 搜索表单 -->
+    <el-card class="search-card" shadow="never">
+      <el-form :model="searchForm" :inline="true" class="search-form">
+        <el-form-item label="规则名称">
+          <el-input
+            v-model="searchForm.name"
+            placeholder="请输入规则名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+        </el-form-item>
+        <el-form-item label="模式">
+          <el-select v-model="searchForm.mode" placeholder="请选择模式" clearable style="width: 150px">
+            <el-option label="斗篷" value="cloak" />
+            <el-option label="绿色" value="green" />
+            <el-option label="全开" value="open" />
+            <el-option label="审核" value="audit" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="searchForm.is_active" placeholder="请选择状态" clearable style="width: 120px">
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 操作按钮 -->
+    <el-card class="table-card" shadow="never">
+      <div class="table-header">
+        <div class="table-title">斗篷规则列表</div>
+        <div class="table-actions">
+          <el-button type="primary" @click="handleAdd">
+            <el-icon><Plus /></el-icon>
+            新增规则
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 表格 -->
+      <el-table v-loading="loading" :data="tableData" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="name" label="规则名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="mode" label="模式" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getModeTagType(row.mode)">
+              {{ getModeText(row.mode) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="target_regions" label="投放地区" width="120" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.target_regions && row.target_regions.length > 0">
+              {{ row.target_regions.join(", ") }}
+            </span>
+            <span v-else class="text-gray-400">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="blocked_organizations" label="屏蔽组织" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.blocked_organizations && row.blocked_organizations.length > 0">
+              {{ row.blocked_organizations.join(", ") }}
+            </span>
+            <span v-else class="text-gray-400">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="is_active" label="状态" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_active ? 'success' : 'danger'">
+              {{ row.is_active ? "启用" : "禁用" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="handleEdit(row)"> 编辑 </el-button>
+            <el-button type="danger" size="small" @click="handleDelete(row)"> 删除 </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.size"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 新增/编辑对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="800px"
+      :close-on-click-modal="false"
+      @close="handleDialogClose"
+    >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="120px" class="cloak-rule-form">
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="规则名称" prop="name">
+              <el-input v-model="formData.name" placeholder="请输入规则名称" maxlength="50" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="模式" prop="mode">
+              <el-radio-group v-model="formData.mode">
+                <el-tooltip content="只有投放地区客户能访问真实链接" placement="top">
+                  <el-radio value="cloak">斗篷</el-radio>
+                </el-tooltip>
+                <el-tooltip content="所有客户访问真实链接" placement="top">
+                  <el-radio value="open">全开</el-radio>
+                </el-tooltip>
+                <el-tooltip content="所有客户访问重定向链接" placement="top">
+                  <el-radio value="green">绿色</el-radio>
+                </el-tooltip>
+                <el-tooltip content="所有客户访问审核页面" placement="top">
+                  <el-radio value="audit">审核</el-radio>
+                </el-tooltip>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="投放地区">
+              <el-select v-model="formData.target_regions" multiple placeholder="请选择投放地区" style="width: 100%">
+                <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="状态">
+              <el-radio-group v-model="formData.is_active">
+                <el-radio :label="1">启用</el-radio>
+                <el-radio :label="0">禁用</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="屏蔽组织">
+          <el-select
+            v-model="formData.blocked_organizations"
+            multiple
+            filterable
+            allow-create
+            placeholder="请输入要屏蔽的组织关键词"
+            style="width: 100%"
+          >
+            <el-option label="Google" value="google" />
+            <el-option label="Facebook" value="facebook" />
+            <el-option label="Amazon" value="amazon" />
+            <el-option label="Microsoft" value="microsoft" />
+            <el-option label="Cloudflare" value="cloudflare" />
+          </el-select>
+        </el-form-item>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="屏蔽PC">
+              <el-radio-group v-model="formData.block_pc">
+                <el-radio :label="0">未开启</el-radio>
+                <el-radio :label="1">开启</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="屏蔽代理">
+              <el-radio-group v-model="formData.block_proxy">
+                <el-radio :label="0">未开启</el-radio>
+                <el-radio :label="1">开启</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="备注">
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入备注信息"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitLoading" @click="handleSubmit"> 确定 </el-button>
+        </div>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
+import { cloakRuleApi, type CloakRule, type CloakRuleFormData } from "@/api/modules/cloakRule";
+
+// 响应式数据
+const loading = ref(false);
+const submitLoading = ref(false);
+const dialogVisible = ref(false);
+const dialogTitle = ref("");
+const formRef = ref();
+
+// 国家选项（与商品管理保持一致）
+const countryOptions = [
+  { label: "日本", value: "JA" },
+  { label: "中国", value: "ZH" },
+  { label: "英国", value: "EN" },
+  { label: "斯洛伐克", value: "SK" },
+  { label: "斯洛文尼亚", value: "SI" },
+  { label: "波兰", value: "PL" },
+  { label: "葡萄牙", value: "PT" },
+  { label: "匈牙利", value: "HU" },
+  { label: "意大利", value: "IT" },
+  { label: "西班牙", value: "ES" },
+  { label: "捷克", value: "CZ" }
+];
+
+// 搜索表单
+const searchForm = reactive({
+  name: "",
+  mode: "",
+  is_active: null as number | null
+});
+
+// 分页数据
+const pagination = reactive({
+  page: 1,
+  size: 20,
+  total: 0
+});
+
+// 表格数据
+const tableData = ref<CloakRule[]>([]);
+const selectedRows = ref<CloakRule[]>([]);
+
+// 表单数据
+const formData = reactive<CloakRuleFormData>({
+  name: "",
+  target_regions: [],
+  mode: "cloak",
+  spider_whitelist: [],
+  block_pc: 0,
+  block_proxy: 0,
+  blocked_keywords: [],
+  allowed_countries: [],
+  blocked_countries: [],
+  allowed_organizations: [],
+  blocked_organizations: [],
+  description: "",
+  is_active: 1
+});
+
+// 表单验证规则
+const formRules = {
+  name: [
+    { required: true, message: "请输入规则名称", trigger: "blur" },
+    { min: 2, max: 50, message: "长度在 2 到 50 个字符", trigger: "blur" }
+  ],
+  mode: [{ required: true, message: "请选择模式", trigger: "change" }]
+};
+
+// 获取模式标签类型
+const getModeTagType = (mode: string) => {
+  const typeMap = {
+    cloak: "warning",
+    green: "success",
+    open: "info",
+    audit: "danger"
+  };
+  return typeMap[mode] || "info";
+};
+
+// 获取模式文本
+const getModeText = (mode: string) => {
+  const textMap = {
+    cloak: "斗篷",
+    green: "绿色",
+    open: "全开",
+    audit: "审核"
+  };
+  return textMap[mode] || mode;
+};
+
+// 格式化日期
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "--";
+  return new Date(dateStr).toLocaleString("zh-CN");
+};
+
+// 获取斗篷规则列表
+const getCloakRules = async () => {
+  try {
+    loading.value = true;
+    const params = {
+      page: pagination.page,
+      size: pagination.size,
+      ...searchForm
+    };
+
+    const response = await cloakRuleApi.getCloakRules(params);
+    if (response.code === 200) {
+      tableData.value = response.data.list;
+      pagination.total = response.data.total;
+    }
+  } catch (error) {
+    console.error("获取斗篷规则列表失败:", error);
+    ElMessage.error("获取斗篷规则列表失败");
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 搜索
+const handleSearch = () => {
+  pagination.page = 1;
+  getCloakRules();
+};
+
+// 重置搜索
+const handleReset = () => {
+  Object.assign(searchForm, {
+    name: "",
+    mode: "",
+    is_active: null
+  });
+  handleSearch();
+};
+
+// 分页大小改变
+const handleSizeChange = (size: number) => {
+  pagination.size = size;
+  pagination.page = 1;
+  getCloakRules();
+};
+
+// 当前页改变
+const handleCurrentChange = (page: number) => {
+  pagination.page = page;
+  getCloakRules();
+};
+
+// 选择改变
+const handleSelectionChange = (selection: CloakRule[]) => {
+  selectedRows.value = selection;
+};
+
+// 新增
+const handleAdd = () => {
+  dialogTitle.value = "新增斗篷规则";
+  resetForm();
+  dialogVisible.value = true;
+};
+
+// 编辑
+const handleEdit = (row: CloakRule) => {
+  dialogTitle.value = "编辑斗篷规则";
+  Object.assign(formData, {
+    ...row,
+    target_regions: row.target_regions || [],
+    spider_whitelist: row.spider_whitelist || [],
+    blocked_keywords: row.blocked_keywords || [],
+    allowed_countries: row.allowed_countries || [],
+    blocked_countries: row.blocked_countries || [],
+    allowed_organizations: row.allowed_organizations || [],
+    blocked_organizations: row.blocked_organizations || []
+  });
+  dialogVisible.value = true;
+};
+
+// 删除
+const handleDelete = async (row: CloakRule) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除规则"${row.name}"吗？`, "确认删除", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+
+    const response = await cloakRuleApi.deleteCloakRule(row.id);
+    if (response.code === 200) {
+      ElMessage.success("删除成功");
+      getCloakRules();
+    }
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("删除斗篷规则失败:", error);
+      ElMessage.error("删除失败");
+    }
+  }
+};
+
+// 重置表单
+const resetForm = () => {
+  Object.assign(formData, {
+    name: "",
+    target_regions: [],
+    mode: "cloak",
+    spider_whitelist: [],
+    block_pc: 0,
+    block_proxy: 0,
+    blocked_keywords: [],
+    allowed_countries: [],
+    blocked_countries: [],
+    allowed_organizations: [],
+    blocked_organizations: [],
+    redirect_url: "",
+    audit_url: "",
+    description: "",
+    is_active: 1
+  });
+  formRef.value?.clearValidate();
+};
+
+// 提交表单
+const handleSubmit = async () => {
+  try {
+    await formRef.value?.validate();
+
+    submitLoading.value = true;
+
+    const isEdit = dialogTitle.value.includes("编辑");
+    let response;
+
+    if (isEdit) {
+      const id = formData.id as number;
+      response = await cloakRuleApi.updateCloakRule(id, formData);
+    } else {
+      response = await cloakRuleApi.createCloakRule(formData);
+    }
+
+    if (response.code === 200) {
+      ElMessage.success(isEdit ? "更新成功" : "创建成功");
+      dialogVisible.value = false;
+      getCloakRules();
+    }
+  } catch (error) {
+    console.error("提交失败:", error);
+    ElMessage.error("提交失败");
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
+// 对话框关闭
+const handleDialogClose = () => {
+  resetForm();
+};
+
+// 组件挂载
+onMounted(() => {
+  getCloakRules();
+});
+</script>
+
+<style scoped>
+.cloak-rule-list {
+  padding: 20px;
+}
+
+.search-card {
+  margin-bottom: 20px;
+}
+
+.search-form {
+  margin-bottom: 0;
+}
+
+.table-card {
+  margin-bottom: 20px;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.table-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.cloak-rule-form {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.dialog-footer {
+  text-align: right;
+}
+
+.text-gray-400 {
+  color: #9ca3af;
+}
+</style>

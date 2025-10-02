@@ -163,6 +163,42 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column prop="ip_address" label="下单IP" width="200" align="center" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="ip-info" v-if="row.ip_address">
+              <div class="ip-address">
+                <el-tag size="small" type="info">{{ row.ip_address }}</el-tag>
+              </div>
+              <div class="ip-location" v-if="row.ip_info">
+                <el-tag size="small" type="success" v-if="row.ip_info.country">
+                  {{ row.ip_info.country }}
+                </el-tag>
+                <el-tag size="small" type="warning" v-if="row.ip_info.city" style="margin-left: 4px">
+                  {{ row.ip_info.city }}
+                </el-tag>
+              </div>
+            </div>
+            <span v-else class="no-data">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="language_code" label="语言" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" type="success" v-if="row.language_code">
+              {{ row.language_code.toUpperCase() }}
+            </el-tag>
+            <span v-else class="no-data">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="from_url" label="来源URL" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="url-info">
+              <el-link v-if="row.from_url" :href="row.from_url" target="_blank" type="primary" size="small">
+                {{ row.from_url.length > 50 ? row.from_url.substring(0, 50) + "..." : row.from_url }}
+              </el-link>
+              <span v-else class="no-data">--</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="280" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
@@ -279,6 +315,36 @@
                 <div class="product-quantity">数量: {{ currentOrder.quantity }}</div>
               </div>
             </div>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- 技术信息 -->
+        <el-descriptions title="技术信息" :column="2" border style="margin-top: 20px">
+          <el-descriptions-item label="下单IP">
+            <el-tag v-if="currentOrder.ip_address" type="info" size="small">{{ currentOrder.ip_address }}</el-tag>
+            <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="语言代码">
+            <el-tag v-if="currentOrder.language_code" type="success" size="small">
+              {{ currentOrder.language_code.toUpperCase() }}
+            </el-tag>
+            <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="页面追踪标识" :span="2">
+            <el-tag v-if="currentOrder.pd_val" type="warning" size="small">{{ currentOrder.pd_val }}</el-tag>
+            <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="来源URL" :span="2">
+            <el-link v-if="currentOrder.from_url" :href="currentOrder.from_url" target="_blank" type="primary" size="small">
+              {{ currentOrder.from_url }}
+            </el-link>
+            <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="浏览器信息" :span="2">
+            <div v-if="currentOrder.user_agent" class="user-agent-info">
+              <el-text size="small" type="info">{{ currentOrder.user_agent }}</el-text>
+            </div>
+            <span v-else class="no-data">--</span>
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -740,6 +806,37 @@ onMounted(() => {
   font-size: 14px;
   color: #666;
   margin-bottom: 4px;
+}
+
+/* 新增字段样式 */
+.ip-info {
+  text-align: center;
+}
+
+.ip-address {
+  margin-bottom: 4px;
+}
+
+.ip-location {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.url-info {
+  word-break: break-all;
+}
+
+.user-agent-info {
+  word-break: break-all;
+  max-width: 300px;
+}
+
+.no-data {
+  color: #999;
+  font-size: 12px;
 }
 
 /* 对话框 */

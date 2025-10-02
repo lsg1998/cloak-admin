@@ -51,23 +51,51 @@ echo [INFO] Starting vite build... >> %LOG_FILE%
 echo Build command: npx vite build --mode production
 echo Build command: npx vite build --mode production >> %LOG_FILE%
 
-npx vite build --mode production >> %LOG_FILE% 2>&1
+npx vite build --mode production
+set BUILD_EXIT_CODE=%errorlevel%
+echo Build completed with exit code: %BUILD_EXIT_CODE%
+echo Build completed with exit code: %BUILD_EXIT_CODE% >> %LOG_FILE%
+
+:: Log the build exit code for debugging
+echo [DEBUG] Build exit code: %BUILD_EXIT_CODE% >> %LOG_FILE%
+echo [DEBUG] Build exit code: %BUILD_EXIT_CODE%
 
 :: Check if build was successful
-if !errorlevel! neq 0 (
+if %BUILD_EXIT_CODE% neq 0 (
     echo [ERROR] Vite build failed! Please check log file: %LOG_FILE%
     echo [ERROR] Vite build failed! >> %LOG_FILE%
     pause
     exit /b 1
 )
 
-:: Check if dist directory exists
-if not exist "dist" (
-    echo [ERROR] Build completed but dist directory not found!
-    echo [ERROR] Build completed but dist directory not found! >> %LOG_FILE%
-    pause
-    exit /b 1
+:: Wait a moment for file system operations to complete
+echo [INFO] Waiting for build completion...
+echo [INFO] Waiting for build completion... >> %LOG_FILE%
+timeout /t 2 /nobreak >nul
+
+:: Check if dist directory exists (with retry)
+set RETRY_COUNT=0
+:check_dist
+if exist "dist" (
+    echo [SUCCESS] dist directory found!
+    echo [SUCCESS] dist directory found! >> %LOG_FILE%
+    goto :dist_found
 )
+
+set /a RETRY_COUNT+=1
+if %RETRY_COUNT% lss 5 (
+    echo [INFO] Waiting for dist directory... (attempt %RETRY_COUNT%/5)
+    echo [INFO] Waiting for dist directory... (attempt %RETRY_COUNT%/5) >> %LOG_FILE%
+    timeout /t 1 /nobreak >nul
+    goto :check_dist
+)
+
+echo [ERROR] Build completed but dist directory not found after 5 attempts!
+echo [ERROR] Build completed but dist directory not found after 5 attempts! >> %LOG_FILE%
+pause
+exit /b 1
+
+:dist_found
 
 :: Rename dist to admin-dist
 echo [INFO] Renaming dist directory to admin-dist...

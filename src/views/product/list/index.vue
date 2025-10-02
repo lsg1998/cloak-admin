@@ -155,6 +155,18 @@
             <el-tag type="primary" size="small">{{ row.country || "JA" }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="cloak_rule_name" label="斗篷规则" width="150" align="center">
+          <template #default="{ row }">
+            <div v-if="row.cloak_rule_name">
+              <el-tooltip :content="`规则: ${row.cloak_rule_name}`" placement="top">
+                <el-tag :type="getModeTagType(row.cloak_rule_mode)" size="small">
+                  {{ row.cloak_rule_name }}
+                </el-tag>
+              </el-tooltip>
+            </div>
+            <span v-else style="color: #999999">未设置</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small" effect="light">
@@ -341,7 +353,7 @@
           </el-col>
         </el-row>
 
-        <!-- 国家选择 -->
+        <!-- 国家选择和斗篷规则 -->
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="目标国家" prop="country">
@@ -349,6 +361,33 @@
                 <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
               </el-select>
               <div class="form-tip">选择商品投放的目标国家/地区</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="斗篷规则" prop="cloak_rule_id">
+              <el-select
+                v-model="form.cloak_rule_id"
+                placeholder="请选择斗篷规则"
+                clearable
+                filterable
+                style="width: 100%"
+                @change="handleCloakRuleChange"
+              >
+                <el-option
+                  v-for="rule in cloakRules"
+                  :key="rule.id"
+                  :label="`${rule.name} (${getModeText(rule.mode)})`"
+                  :value="rule.id"
+                >
+                  <div style="display: flex; align-items: center; justify-content: space-between">
+                    <span>{{ rule.name }}</span>
+                    <el-tag :type="getModeTagType(rule.mode)" size="small">
+                      {{ getModeText(rule.mode) }}
+                    </el-tag>
+                  </div>
+                </el-option>
+              </el-select>
+              <div class="form-tip">选择商品使用的斗篷规则，控制不同用户看到的内容</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -799,6 +838,7 @@ import {
   type ProductListParams
 } from "@/api/modules/product";
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
+import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
 import WangEditor from "@/components/WangEditor/index.vue";
 import ProductImg from "@/components/Upload/ProductImg.vue";
 
@@ -842,6 +882,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<Product[]>([]);
 
+// 斗篷规则数据
+const cloakRules = ref<CloakRule[]>([]);
+const cloakRulesLoading = ref(false);
+
 // 表单数据
 const form = reactive({
   id: null,
@@ -857,6 +901,7 @@ const form = reactive({
   status: "active",
   product_type: "original" as "original" | "fake",
   b_page_product_id: "",
+  cloak_rule_id: null as number | null,
   country: "JA"
 });
 
@@ -1653,9 +1698,58 @@ const handleCreateNewFake = () => {
   ElMessage.success(`已基于正品"${currentOriginalProduct.value.title}"创建仿品，请修改相关信息后保存`);
 };
 
+// 斗篷规则相关方法
+const loadCloakRules = async () => {
+  try {
+    cloakRulesLoading.value = true;
+    const response = await cloakRuleApi.getCloakRules({ page: 1, size: 1000 });
+    if (response.data.code === 200) {
+      cloakRules.value = response.data.data.list.filter((rule: CloakRule) => rule.is_active === 1);
+    }
+  } catch (error) {
+    console.error("加载斗篷规则失败:", error);
+    ElMessage.error("加载斗篷规则失败");
+  } finally {
+    cloakRulesLoading.value = false;
+  }
+};
+
+// 获取模式标签类型
+const getModeTagType = (mode: string) => {
+  const typeMap = {
+    cloak: "warning",
+    green: "success",
+    open: "info",
+    audit: "danger"
+  };
+  return typeMap[mode] || "info";
+};
+
+// 获取模式文本
+const getModeText = (mode: string) => {
+  const textMap = {
+    cloak: "斗篷",
+    green: "绿色",
+    open: "全开",
+    audit: "审核"
+  };
+  return textMap[mode] || mode;
+};
+
+// 斗篷规则改变处理
+const handleCloakRuleChange = (ruleId: number | null) => {
+  if (ruleId) {
+    const rule = cloakRules.value.find(r => r.id === ruleId);
+    if (rule) {
+      console.log("选择的斗篷规则:", rule);
+    }
+  }
+};
+
 // 初始化
 onMounted(() => {
   loadData();
+  loadCloakRules();
 });
 </script>
 

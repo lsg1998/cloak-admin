@@ -90,6 +90,36 @@
       ]
     },
     {
+      "path": "/cloakRule",
+      "name": "cloakRule",
+      "redirect": "/cloakRule/list",
+      "meta": {
+        "icon": "Setting",
+        "title": "斗篷管理",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
+        {
+          "path": "/cloakRule/list",
+          "name": "cloakRuleList",
+          "component": "/cloakRule/list/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "斗篷规则",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        }
+      ]
+    },
+    {
       "path": "/dataScreen",
       "name": "dataScreen",
       "component": "/dataScreen/index",
