@@ -4,6 +4,7 @@ import http from "@/api";
 export interface VisitorIp {
   id: number;
   ip_address: string;
+  product_id?: string;
   hostname?: string;
   city?: string;
   region?: string;
@@ -25,13 +26,16 @@ export interface VisitorIpListParams {
   page?: number;
   size?: number;
   ip?: string;
-  country?: string;
-  city?: string;
+  timeRange?: string;
+  visitorType?: string;
+  productId?: string;
 }
 
 export interface IpStatistics {
   totalIps: number;
   todayIps: number;
+  totalCountries: number;
+  totalCities: number;
   countryStats: Array<{
     country: string;
     count: number;
@@ -63,5 +67,10 @@ export const visitorIpApi = {
   // 删除访客IP记录
   deleteVisitorIp: (ip: string) => {
     return http.delete(`/admin/statistics/visitor-ips/${ip}`);
+  },
+
+  // 同步用户行为数据
+  syncBehaviorData: () => {
+    return http.post("/admin/statistics/sync-behavior-data");
   }
 };

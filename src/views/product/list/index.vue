@@ -198,7 +198,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="350" fixed="right" align="center">
+        <el-table-column label="操作" width="420" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button size="small" type="primary" link @click="handleView(row)">
@@ -2371,6 +2371,13 @@ onMounted(() => {
   background: #f0f8ff;
   border-color: #409eff;
   box-shadow: 0 2px 8px rgb(64 158 255 / 30%);
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 .card-content {
   flex: 1;

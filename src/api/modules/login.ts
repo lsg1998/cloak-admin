@@ -39,3 +39,8 @@ export const getAuthButtonListApi = () => {
 export const logoutApi = () => {
   return http.post(`/admin/auth/logout`);
 };
+
+// 修改密码
+export const changePasswordApi = (params: { old_password: string; new_password: string }) => {
+  return http.post(`/admin/auth/change-password`, params);
+};

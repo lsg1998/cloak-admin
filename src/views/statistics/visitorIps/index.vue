@@ -12,27 +12,42 @@
             @keyup.enter="handleSearch"
           />
         </el-form-item>
-        <el-form-item label="国家">
-          <el-input
-            v-model="searchForm.country"
-            placeholder="请输入国家"
-            clearable
-            style="width: 150px"
-            @keyup.enter="handleSearch"
-          />
+        <el-form-item label="时间筛选">
+          <el-select v-model="searchForm.timeRange" placeholder="请选择时间范围" clearable style="width: 150px">
+            <el-option label="当天" value="today" />
+            <el-option label="昨天" value="yesterday" />
+            <el-option label="本周" value="week" />
+            <el-option label="本月" value="month" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="城市">
+        <el-form-item label="访客类型">
+          <el-select v-model="searchForm.visitorType" placeholder="请选择类型" clearable style="width: 150px">
+            <el-option label="访客" value="visitor" />
+            <el-option label="爬虫" value="bot" />
+            <el-option label="代理" value="proxy" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商品筛选">
           <el-input
-            v-model="searchForm.city"
-            placeholder="请输入城市"
-            clearable
-            style="width: 150px"
-            @keyup.enter="handleSearch"
-          />
+            v-model="selectedProductName"
+            placeholder="点击选择商品"
+            readonly
+            style="width: 200px"
+            @click="productDialogVisible = true"
+          >
+            <template #suffix>
+              <el-icon v-if="searchForm.productId" @click.stop="clearProduct" style="cursor: pointer"><Close /></el-icon>
+              <el-icon v-else><Search /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
+          <el-button type="success" @click="handleSyncBehaviorData" :loading="syncLoading">
+            <el-icon><Connection /></el-icon>
+            一键同步轨迹
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -64,7 +79,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.countryStats.length }}</div>
+            <div class="stat-value">{{ statistics.totalCountries }}</div>
             <div class="stat-label">涉及国家</div>
           </div>
           <div class="stat-icon">
@@ -75,7 +90,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.cityStats.length }}</div>
+            <div class="stat-value">{{ statistics.totalCities }}</div>
             <div class="stat-label">涉及城市</div>
           </div>
           <div class="stat-icon">
@@ -109,7 +124,7 @@
             <div class="ip-address">{{ row.ip_address }}</div>
             <div class="ip-actions">
               <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
-              <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              <!-- <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button> -->
             </div>
           </div>
 
@@ -126,6 +141,12 @@
                 <div class="address-line">
                   <span class="label">时间:</span>
                   <span class="value">{{ formatDate(row.last_visit) }}</span>
+                </div>
+                <div class="address-line">
+                  <span class="label">来源:</span>
+                  <span class="value referer" :title="row.referer || '-'">
+                    {{ row.referer || "-" }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -156,10 +177,38 @@
                   <span class="label">系统:</span>
                   <span class="value">{{ getSystemInfo(row) || "-" }}</span>
                 </div>
+                <div class="type-line">
+                  <span class="label">商品:</span>
+                  <el-tag v-if="row.product_id" size="small" type="success">{{ row.product_id }}</el-tag>
+                  <span v-else class="value">-</span>
+                </div>
               </div>
             </div>
 
             <div class="ip-section">
+              <div class="section-title">用户轨迹</div>
+              <div class="behavior-info">
+                <div class="behavior-summary">
+                  <el-icon><Clock /></el-icon>
+                  <span class="duration-text" v-if="row.behaviorSummary">
+                    停留 {{ row.behaviorSummary.durationText || "0秒" }}
+                  </span>
+                  <span class="no-data-text" v-else>暂无轨迹数据</span>
+                </div>
+                <div class="behavior-actions">
+                  <el-button v-if="!row.behaviorSummary" type="warning" size="small" @click="handleFetchFromRedis(row)">
+                    <el-icon><Refresh /></el-icon>
+                    获取
+                  </el-button>
+                  <el-button type="primary" size="small" :disabled="!row.behaviorSummary" @click="handleViewTimeline(row)">
+                    <el-icon><View /></el-icon>
+                    查看详情
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="isBot(row) || isProxy(row)" class="ip-section">
               <div class="section-title">详细类型</div>
               <div class="detailed-type">
                 <div class="type-line">
@@ -193,6 +242,48 @@
         />
       </div>
     </el-card>
+
+    <!-- 商品选择对话框 -->
+    <el-dialog v-model="productDialogVisible" title="选择商品" width="800px" :close-on-click-modal="false">
+      <div class="product-select-dialog">
+        <el-input
+          v-model="productSearchKeyword"
+          placeholder="搜索商品标题或ID"
+          clearable
+          style="margin-bottom: 20px"
+          @input="handleProductSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-table
+          :data="filteredProductList"
+          v-loading="productLoading"
+          height="400"
+          highlight-current-row
+          @row-click="handleProductSelect"
+        >
+          <el-table-column prop="spu_id" label="商品ID" width="180" />
+          <el-table-column prop="title" label="商品标题" show-overflow-tooltip />
+          <el-table-column label="操作" width="100" align="center">
+            <template #default="scope">
+              <el-button type="primary" size="small" @click.stop="handleProductSelect(scope.row)">选择</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-model:current-page="productPagination.page"
+          v-model:page-size="productPagination.size"
+          :total="productPagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          style="margin-top: 20px"
+          @size-change="loadProducts"
+          @current-change="loadProducts"
+        />
+      </div>
+    </el-dialog>
 
     <!-- 详情对话框 -->
     <el-dialog v-model="detailDialogVisible" title="IP详情" width="600px" :close-on-click-modal="false">
@@ -252,25 +343,117 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 用户行为时间线弹窗 -->
+    <el-dialog v-model="timelineDialogVisible" title="用户行为轨迹" width="800px" :close-on-click-modal="false">
+      <div v-loading="timelineLoading" class="timeline-container">
+        <div v-if="currentTimeline" class="timeline-content">
+          <!-- 摘要信息 -->
+          <div class="timeline-header">
+            <el-descriptions :column="2" size="small" border>
+              <el-descriptions-item label="Session ID">
+                <el-text size="small" type="info">{{ currentTimeline.sessionId }}</el-text>
+              </el-descriptions-item>
+              <el-descriptions-item label="数据来源">
+                <el-tag :type="currentTimeline.source === 'redis' ? 'success' : 'info'" size="small">
+                  {{ currentTimeline.source === "redis" ? "Redis (实时)" : "MySQL (历史)" }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="进入时间">
+                {{ currentTimeline.enterTime }}
+              </el-descriptions-item>
+              <el-descriptions-item label="离开时间">
+                {{ currentTimeline.exitTime || "未离开" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="停留时长">
+                <el-text type="primary">{{ currentTimeline.durationText }}</el-text>
+              </el-descriptions-item>
+              <el-descriptions-item label="操作次数">
+                <el-text type="warning">{{ currentTimeline.actions.length }} 次</el-text>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 时间线 -->
+          <div class="timeline-list">
+            <el-timeline>
+              <el-timeline-item
+                v-for="action in currentTimeline.actions"
+                :key="action.sequence"
+                :timestamp="action.time"
+                :type="getActionType(action.type)"
+                placement="top"
+              >
+                <div class="timeline-item-content">
+                  <div class="action-description">
+                    <el-tag :type="getActionTagType(action.type)" size="small">
+                      {{ action.typeName }}
+                    </el-tag>
+                    <span class="action-text">{{ action.description }}</span>
+                  </div>
+                  <div v-if="action.detail" class="action-detail">
+                    <el-text size="small" type="info"> 详情: {{ JSON.stringify(action.detail) }} </el-text>
+                  </div>
+                </div>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
+        </div>
+        <el-empty v-else description="暂无轨迹数据" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Monitor, TrendCharts, Location, MapLocation, Refresh } from "@element-plus/icons-vue";
+import {
+  Monitor,
+  TrendCharts,
+  Location,
+  MapLocation,
+  Refresh,
+  Clock,
+  View,
+  Connection,
+  Search,
+  Close
+} from "@element-plus/icons-vue";
 import { visitorIpApi, type VisitorIp, type IpStatistics } from "@/api/modules/visitorIp";
+import { userBehaviorApi, type UserBehaviorTimeline } from "@/api/modules/userBehavior";
+import { getProductListApi } from "@/api/modules/product";
 
 // 响应式数据
 const loading = ref(false);
+const syncLoading = ref(false);
 const detailDialogVisible = ref(false);
 const currentVisitorIp = ref<VisitorIp | null>(null);
+
+// 用户行为时间线相关
+const timelineDialogVisible = ref(false);
+const timelineLoading = ref(false);
+const currentTimeline = ref<UserBehaviorTimeline | null>(null);
 
 // 搜索表单
 const searchForm = reactive({
   ip: "",
-  country: "",
-  city: ""
+  timeRange: "",
+  visitorType: "",
+  productId: ""
+});
+
+// 商品选择相关
+const productDialogVisible = ref(false);
+const productLoading = ref(false);
+const productList = ref<any[]>([]);
+const filteredProductList = ref<any[]>([]);
+const productSearchKeyword = ref("");
+const selectedProductName = ref("");
+const productPagination = reactive({
+  page: 1,
+  size: 20,
+  total: 0
 });
 
 // 分页数据
@@ -288,6 +471,8 @@ const tableData = ref<VisitorIp[]>([]);
 const statistics = ref<IpStatistics>({
   totalIps: 0,
   todayIps: 0,
+  totalCountries: 0,
+  totalCities: 0,
   countryStats: [],
   cityStats: []
 });
@@ -346,11 +531,58 @@ const getTypeColor = (row: VisitorIp) => {
   return "success";
 };
 
+// 判断是否为审核爬虫（来自大厂但UA异常）
+const isAuditBot = (row: VisitorIp) => {
+  const bigTechOrgs = ["google", "facebook", "twitter", "linkedin", "microsoft", "bytedance", "tiktok"];
+  const org = (row.organization || "").toLowerCase();
+  const userAgent = (row.user_agent || "").trim();
+
+  // 检查是否来自大厂组织
+  const isFromBigTech = bigTechOrgs.some(tech => org.includes(tech));
+
+  // 检查UA是否异常（为空或过短）
+  const hasAbnormalUA = !userAgent || userAgent.length < 20;
+
+  return isFromBigTech && hasAbnormalUA;
+};
+
 // 判断是否为爬虫
 const isBot = (row: VisitorIp) => {
-  const botKeywords = ["bot", "crawler", "spider", "scraper", "googlebot", "bingbot", "facebook", "twitter"];
+  // 先检查是否为审核爬虫
+  if (isAuditBot(row)) return true;
+
+  const botKeywords = [
+    "bot",
+    "crawler",
+    "spider",
+    "scraper",
+    "crawl",
+    "googlebot",
+    "bingbot",
+    "slurp",
+    "duckduckbot",
+    "facebook",
+    "facebookexternalhit",
+    "facebot",
+    "twitter",
+    "twitterbot",
+    "linkedin",
+    "linkedinbot",
+    "whatsapp",
+    "telegrambot",
+    "bytedance",
+    "bytespider",
+    "semrush",
+    "ahrefs",
+    "mj12bot",
+    "petalbot",
+    "yandex",
+    "baidu"
+  ];
   const userAgent = (row.user_agent || "").toLowerCase();
   const org = (row.organization || "").toLowerCase();
+
+  // 检查 user_agent 和 organization
   return botKeywords.some(keyword => userAgent.includes(keyword) || org.includes(keyword));
 };
 
@@ -366,11 +598,13 @@ const getDeviceInfo = (row: VisitorIp) => {
 // 获取系统信息
 const getSystemInfo = (row: VisitorIp) => {
   const userAgent = row.user_agent || "";
+  // 先检查移动设备，避免Android被识别为Linux
+  if (userAgent.includes("Android")) return "Android";
+  if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) return "iOS";
+  // 再检查桌面系统
   if (userAgent.includes("Windows")) return "Windows";
   if (userAgent.includes("Mac")) return "macOS";
   if (userAgent.includes("Linux")) return "Linux";
-  if (userAgent.includes("Android")) return "Android";
-  if (userAgent.includes("iOS")) return "iOS";
   return null;
 };
 
@@ -379,14 +613,25 @@ const getBotName = (row: VisitorIp) => {
   const userAgent = (row.user_agent || "").toLowerCase();
   const org = (row.organization || "").toLowerCase();
 
-  if (userAgent.includes("googlebot") || org.includes("google")) return "Googlebot";
-  if (userAgent.includes("bingbot") || org.includes("microsoft")) return "BingBot";
-  if (userAgent.includes("facebook") || org.includes("facebook")) return "Facebook Crawler";
-  if (userAgent.includes("twitter") || org.includes("twitter")) return "Twitter Bot";
+  // 优先检查审核爬虫
+  if (isAuditBot(row)) {
+    if (org.includes("google")) return "Google 审核爬虫";
+    if (org.includes("facebook")) return "Facebook 审核爬虫";
+    if (org.includes("twitter")) return "Twitter 审核爬虫";
+    if (org.includes("linkedin")) return "LinkedIn 审核爬虫";
+    if (org.includes("microsoft")) return "Microsoft 审核爬虫";
+    if (org.includes("bytedance") || org.includes("tiktok")) return "TikTok 审核爬虫";
+    return "审核爬虫";
+  }
+
+  if (userAgent.includes("googlebot") || (org.includes("google") && userAgent.includes("bot"))) return "Googlebot";
+  if (userAgent.includes("bingbot") || (org.includes("microsoft") && userAgent.includes("bot"))) return "BingBot";
+  if (userAgent.includes("facebook")) return "Facebook Crawler";
+  if (userAgent.includes("twitter")) return "Twitter Bot";
   if (userAgent.includes("ahrefs") || org.includes("ahrefs")) return "aHrefs Bot";
   if (userAgent.includes("httpx")) return "httpx";
   if (userAgent.includes("barkrowler")) return "Barkrowler";
-  if (isBot(row)) return "Generic Bot";
+  if (isBot(row)) return "通用爬虫";
   return null;
 };
 
@@ -395,10 +640,15 @@ const getBotDescription = (row: VisitorIp) => {
   const userAgent = (row.user_agent || "").toLowerCase();
   const org = (row.organization || "").toLowerCase();
 
-  if (userAgent.includes("googlebot") || org.includes("google")) return "搜索引擎蜘蛛";
-  if (userAgent.includes("bingbot") || org.includes("microsoft")) return "搜索引擎蜘蛛";
-  if (userAgent.includes("facebook") || org.includes("facebook")) return "社交媒体爬虫";
-  if (userAgent.includes("twitter") || org.includes("twitter")) return "社交媒体爬虫";
+  // 审核爬虫说明
+  if (isAuditBot(row)) {
+    return "广告/内容合规审核（无UA或异常UA）";
+  }
+
+  if (userAgent.includes("googlebot") || (org.includes("google") && userAgent.includes("bot"))) return "搜索引擎蜘蛛";
+  if (userAgent.includes("bingbot") || (org.includes("microsoft") && userAgent.includes("bot"))) return "搜索引擎蜘蛛";
+  if (userAgent.includes("facebook")) return "社交媒体爬虫";
+  if (userAgent.includes("twitter")) return "社交媒体爬虫";
   if (userAgent.includes("ahrefs") || org.includes("ahrefs")) return "SEO分析爬虫";
   if (isBot(row)) return "通用网络爬虫";
   return null;
@@ -450,10 +700,84 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     ip: "",
-    country: "",
-    city: ""
+    timeRange: "",
+    visitorType: "",
+    productId: ""
   });
+  selectedProductName.value = "";
   handleSearch();
+};
+
+// 加载商品列表
+const loadProducts = async () => {
+  try {
+    productLoading.value = true;
+    const { data } = await getProductListApi({
+      page: productPagination.page,
+      size: productPagination.size
+    });
+    productList.value = data.list || [];
+    filteredProductList.value = data.list || [];
+    productPagination.total = data.total || 0;
+  } catch (error: any) {
+    ElMessage.error("加载商品列表失败");
+  } finally {
+    productLoading.value = false;
+  }
+};
+
+// 搜索商品
+const handleProductSearch = () => {
+  if (!productSearchKeyword.value) {
+    filteredProductList.value = productList.value;
+    return;
+  }
+  const keyword = productSearchKeyword.value.toLowerCase();
+  filteredProductList.value = productList.value.filter(
+    product => product.title?.toLowerCase().includes(keyword) || product.spu_id?.toLowerCase().includes(keyword)
+  );
+};
+
+// 选择商品
+const handleProductSelect = (product: any) => {
+  searchForm.productId = product.spu_id;
+  selectedProductName.value = product.title;
+  productDialogVisible.value = false;
+  ElMessage.success(`已选择商品: ${product.title}`);
+};
+
+// 清除商品筛选
+const clearProduct = () => {
+  searchForm.productId = "";
+  selectedProductName.value = "";
+};
+
+// 一键同步用户轨迹
+const handleSyncBehaviorData = async () => {
+  try {
+    await ElMessageBox.confirm("确定要同步Redis中的用户行为数据到MySQL吗？", "同步确认", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+
+    syncLoading.value = true;
+    const { data } = await visitorIpApi.syncBehaviorData();
+
+    if (data.successCount > 0) {
+      ElMessage.success(`同步完成！成功: ${data.successCount} 条，失败: ${data.failCount} 条`);
+      // 刷新列表和统计
+      await Promise.all([getVisitorIps(), loadStatistics()]);
+    } else {
+      ElMessage.info("没有数据需要同步");
+    }
+  } catch (error: any) {
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "同步失败");
+    }
+  } finally {
+    syncLoading.value = false;
+  }
 };
 
 // 分页大小改变
@@ -488,33 +812,121 @@ const handleView = async (row: VisitorIp) => {
   }
 };
 
-// 删除
-const handleDelete = async (row: VisitorIp) => {
-  try {
-    await ElMessageBox.confirm(`确定要删除IP"${row.ip_address}"的记录吗？`, "确认删除", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning"
-    });
+// 删除（已隐藏）
+// const handleDelete = async (row: VisitorIp) => {
+//   try {
+//     await ElMessageBox.confirm(`确定要删除IP"${row.ip_address}"的记录吗？`, "确认删除", {
+//       confirmButtonText: "确定",
+//       cancelButtonText: "取消",
+//       type: "warning"
+//     });
 
-    const response = await visitorIpApi.deleteVisitorIp(row.ip_address);
+//     const response = await visitorIpApi.deleteVisitorIp(row.ip_address);
+//     if (response.code === 200) {
+//       ElMessage.success("删除成功");
+//       getVisitorIps();
+//       loadStatistics();
+//     }
+//   } catch (error) {
+//     if (error !== "cancel") {
+//       console.error("删除访客IP失败:", error);
+//       ElMessage.error("删除失败");
+//     }
+//   }
+// };
+
+// 手动从Redis获取用户行为数据
+const handleFetchFromRedis = async (row: any) => {
+  try {
+    const response = await userBehaviorApi.fetchFromRedis(row.ip_address);
     if (response.code === 200) {
-      ElMessage.success("删除成功");
-      getVisitorIps();
-      loadStatistics();
+      if (response.data) {
+        // 更新该行的数据
+        row.behaviorSummary = response.data;
+        ElMessage.success("获取成功（来自Redis）");
+      } else {
+        // 没有数据
+        ElMessage.info("Redis中暂无该IP的轨迹数据");
+      }
+    }
+  } catch (error: any) {
+    console.error("从Redis获取数据失败:", error);
+    ElMessage.error("获取失败");
+  }
+};
+
+// 查看用户行为时间线
+const handleViewTimeline = async (row: any) => {
+  try {
+    if (!row.behaviorSummary) {
+      ElMessage.warning("该IP暂无行为轨迹数据");
+      return;
+    }
+
+    timelineLoading.value = true;
+    timelineDialogVisible.value = true;
+    currentTimeline.value = null;
+
+    const params = {
+      sessionId: row.behaviorSummary.sessionId,
+      ip: row.ip_address,
+      productId: row.behaviorSummary.productId,
+      date: row.behaviorSummary.visitDate.replace(/-/g, "")
+    };
+
+    const response = await userBehaviorApi.getTimeline(params);
+    if (response.code === 200) {
+      currentTimeline.value = response.data;
     }
   } catch (error) {
-    if (error !== "cancel") {
-      console.error("删除访客IP失败:", error);
-      ElMessage.error("删除失败");
-    }
+    console.error("获取用户行为轨迹失败:", error);
+    ElMessage.error("获取用户行为轨迹失败");
+  } finally {
+    timelineLoading.value = false;
   }
+};
+
+// 获取操作类型对应的时间线类型
+const getActionType = (actionType: string): "primary" | "success" | "warning" | "danger" | "info" => {
+  const typeMap: Record<string, "primary" | "success" | "warning" | "danger" | "info"> = {
+    enter: "success",
+    leave: "info",
+    scroll: "primary",
+    click_sku: "warning",
+    select_province: "warning",
+    select_city: "warning",
+    fill_name: "warning",
+    fill_phone: "warning",
+    submit_order: "danger",
+    order_success: "success",
+    order_fail: "danger"
+  };
+  return typeMap[actionType] || "info";
+};
+
+// 获取操作类型对应的标签类型
+const getActionTagType = (actionType: string): "primary" | "success" | "warning" | "danger" | "info" => {
+  const typeMap: Record<string, "primary" | "success" | "warning" | "danger" | "info"> = {
+    enter: "success",
+    leave: "info",
+    scroll: "",
+    click_sku: "warning",
+    select_province: "primary",
+    select_city: "primary",
+    fill_name: "warning",
+    fill_phone: "warning",
+    submit_order: "danger",
+    order_success: "success",
+    order_fail: "danger"
+  };
+  return typeMap[actionType] || "info";
 };
 
 // 组件挂载
 onMounted(() => {
   getVisitorIps();
   loadStatistics();
+  loadProducts();
 });
 </script>
 
@@ -525,6 +937,16 @@ onMounted(() => {
 
 .search-card {
   margin-bottom: 20px;
+}
+
+.product-select-dialog {
+  .el-table {
+    cursor: pointer;
+  }
+
+  .el-table__row:hover {
+    background-color: #f5f7fa;
+  }
 }
 
 .search-form {
@@ -711,6 +1133,19 @@ onMounted(() => {
   flex: 1;
 }
 
+.value.referer {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #409eff;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .org-name {
   font-size: 14px;
   color: #303133;
@@ -746,5 +1181,99 @@ onMounted(() => {
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+/* 用户轨迹样式 */
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.behavior-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.behavior-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.behavior-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.duration-text {
+  font-size: 14px;
+  color: #409eff;
+  font-weight: 500;
+}
+
+.no-data-text {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 时间线弹窗样式 */
+.timeline-container {
+  min-height: 300px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.timeline-content {
+  padding: 10px 0;
+}
+
+.timeline-header {
+  margin-bottom: 24px;
+}
+
+.timeline-list {
+  margin-top: 20px;
+}
+
+.timeline-item-content {
+  padding: 8px 0;
+}
+
+.action-description {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.action-text {
+  font-size: 14px;
+  color: #303133;
+}
+
+.action-detail {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid #e4e7ed;
+}
+
+/* Element Plus 时间线样式覆盖 */
+:deep(.el-timeline-item__timestamp) {
+  font-size: 12px;
+  color: #909399;
+}
+
+:deep(.el-timeline-item__content) {
+  padding-bottom: 16px;
 }
 </style>

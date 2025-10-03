@@ -19,8 +19,31 @@ export interface Product {
   cloak_rule_id?: number;
   cloak_rule_name?: string;
   cloak_rule_mode?: string;
+  pixel_config?: PixelConfig;
+  pixel_enabled?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PixelConfig {
+  google_ads?: {
+    conversion_id: string;
+    conversion_label: string;
+    enabled: boolean;
+  };
+  facebook?: {
+    pixel_id: string;
+    enabled: boolean;
+  };
+  tiktok?: {
+    pixel_id: string;
+    enabled: boolean;
+  };
+  custom?: {
+    name: string;
+    code: string;
+    enabled: boolean;
+  }[];
 }
 
 export interface ProductListParams {
@@ -54,6 +77,8 @@ export interface CreateProductParams {
   b_page_product_id?: string;
   country?: string;
   cloak_rule_id?: number;
+  pixel_config?: PixelConfig;
+  pixel_enabled?: boolean;
 }
 
 export interface UpdateProductParams {
@@ -71,6 +96,8 @@ export interface UpdateProductParams {
   b_page_product_id?: string;
   country?: string;
   cloak_rule_id?: number;
+  pixel_config?: PixelConfig;
+  pixel_enabled?: boolean;
 }
 
 // 获取商品列表
@@ -123,4 +150,17 @@ export const updateFakeProductLinkApi = (fakeProductId: string, originalProductI
     product_type: "fake",
     b_page_product_id: originalProductId
   });
+};
+
+// 更新商品像素配置
+export const updateProductPixelConfigApi = (id: string, pixelConfig: PixelConfig, pixelEnabled: boolean) => {
+  return http.put(`/admin/products/${id}/pixel`, {
+    pixel_config: pixelConfig,
+    pixel_enabled: pixelEnabled
+  });
+};
+
+// 获取商品像素配置
+export const getProductPixelConfigApi = (id: string) => {
+  return http.get<{ pixel_config: PixelConfig; pixel_enabled: boolean }>(`/admin/products/${id}/pixel`);
 };

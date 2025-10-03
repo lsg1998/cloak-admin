@@ -120,6 +120,64 @@
       ]
     },
     {
+      "path": "/pixel",
+      "name": "pixel",
+      "redirect": "/pixel/management",
+      "meta": {
+        "icon": "Monitor",
+        "title": "像素管理",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
+        {
+          "path": "/pixel/management",
+          "name": "pixelManagement",
+          "component": "/pixel/management/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "像素配置",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        },
+        {
+          "path": "/pixel/analytics",
+          "name": "pixelAnalytics",
+          "component": "/pixel/analytics/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "跟踪数据",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        },
+        {
+          "path": "/pixel/templates",
+          "name": "pixelTemplates",
+          "component": "/pixel/templates/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "像素模板",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        }
+      ]
+    },
+    {
       "path": "/dataScreen",
       "name": "dataScreen",
       "component": "/dataScreen/index",
