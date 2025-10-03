@@ -155,6 +155,12 @@
             <el-tag type="primary" size="small">{{ row.country || "JA" }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="template" label="展示模板" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.template === 'shopline'" type="success" size="small"> Shopline </el-tag>
+            <el-tag v-else type="info" size="small"> Classic </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="cloak_rule_name" label="斗篷规则" width="150" align="center">
           <template #default="{ row }">
             <div v-if="row.cloak_rule_name">
@@ -406,6 +412,33 @@
               </el-select>
               <div class="form-tip">选择商品使用的斗篷规则，控制不同用户看到的内容</div>
               <div class="form-tip" style="color: #909399; font-size: 12px">当前加载了 {{ cloakRules.length }} 个斗篷规则</div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 展示模板选择 -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="展示模板" prop="template">
+              <el-select v-model="form.template" placeholder="请选择展示模板" style="width: 100%">
+                <el-option label="经典模板 (Classic)" value="classic">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="info" size="small">Classic</el-tag>
+                    <span>经典模板 - 单页表单设计</span>
+                  </div>
+                </el-option>
+                <el-option label="现代模板 (Shopline)" value="shopline">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="success" size="small">Shopline</el-tag>
+                    <span>现代模板 - 分离式结账设计</span>
+                  </div>
+                </el-option>
+              </el-select>
+              <div class="form-tip">
+                <strong>Classic:</strong> 传统单页设计，商品详情和表单在同一页
+                <br />
+                <strong>Shopline:</strong> 现代化设计，商品展示和结账分离，纯黑白简洁风格
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -940,7 +973,8 @@ const form = reactive({
   product_type: "original" as "original" | "fake",
   b_page_product_id: "",
   cloak_rule_id: null as number | null,
-  country: "JA"
+  country: "JA",
+  template: "classic" // 模板类型：classic 或 shopline
 });
 
 // 辅助输入字段
@@ -1183,6 +1217,7 @@ const handleEdit = (row: Product) => {
     product_type: row.product_type || "original",
     b_page_product_id: row.b_page_product_id || "",
     country: row.country || "JA",
+    template: row.template || "classic", // 确保模板字段被正确设置
     cloak_rule_id: row.cloak_rule_id || null // 确保斗篷规则ID被正确设置
   };
 
