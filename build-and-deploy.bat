@@ -102,7 +102,7 @@ echo [INFO] Renaming dist directory to admin-dist...
 echo [INFO] Renaming dist directory to admin-dist... >> %LOG_FILE%
 ren "dist" "admin-dist" >> %LOG_FILE% 2>&1
 
-if !errorlevel! neq 0 (
+if %errorlevel% neq 0 (
     echo [ERROR] Failed to rename directory!
     echo [ERROR] Failed to rename directory! >> %LOG_FILE%
     pause
@@ -123,7 +123,7 @@ echo [INFO] Starting Git operations... >> %LOG_FILE%
 
 :: Check if it's a git repository
 git status >nul 2>&1
-if !errorlevel! neq 0 (
+if %errorlevel% neq 0 (
     echo [WARNING] Current directory is not a Git repository, skipping Git operations
     echo [WARNING] Current directory is not a Git repository, skipping Git operations >> %LOG_FILE%
     goto :success
