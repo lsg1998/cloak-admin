@@ -275,11 +275,11 @@ const loadConfig = async () => {
       }
 
       // 加载 Facebook 配置
-      config.facebook_enabled = data.facebook_enabled || 0;
+      config.facebook_enabled = data.facebook_enabled || false;
       config.facebook_pixel_id = data.facebook_pixel_id || "";
 
       // 加载 TikTok 配置
-      config.tiktok_enabled = data.tiktok_enabled || 0;
+      config.tiktok_enabled = data.tiktok_enabled || false;
       config.tiktok_pixel_id = data.tiktok_pixel_id || "";
 
       // 加载自定义像素
@@ -290,6 +290,14 @@ const loadConfig = async () => {
           customPixels.value = [];
         }
       }
+    } else {
+      // 如果没有配置，设置默认值
+      config.facebook_enabled = false;
+      config.facebook_pixel_id = "";
+      config.tiktok_enabled = false;
+      config.tiktok_pixel_id = "";
+      customPixels.value = [];
+      googleAdsAccounts.value = [];
     }
   } catch (error) {
     ElMessage.error("加载配置失败");
@@ -340,16 +348,26 @@ const handleSaveAccount = async () => {
     if (editingIndex.value >= 0) {
       // 编辑
       googleAdsAccounts.value[editingIndex.value] = accountData;
-      ElMessage.success("账户更新成功");
     } else {
       // 添加
       googleAdsAccounts.value.push(accountData);
-      ElMessage.success("账户添加成功");
     }
 
+    // 立即保存到后端
+    await updateGlobalPixelConfigApi({
+      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
+      facebook_enabled: config.facebook_enabled,
+      facebook_pixel_id: config.facebook_pixel_id,
+      tiktok_enabled: config.tiktok_enabled,
+      tiktok_pixel_id: config.tiktok_pixel_id,
+      custom_pixels: JSON.stringify(customPixels.value)
+    });
+
     accountDialogVisible.value = false;
+    ElMessage.success(editingIndex.value >= 0 ? "账户更新成功" : "账户添加成功");
   } catch (error) {
     console.error(error);
+    ElMessage.error("保存失败，请重试");
   }
 };
 
@@ -363,29 +381,89 @@ const handleDeleteAccount = async (index: number) => {
     });
 
     googleAdsAccounts.value.splice(index, 1);
+
+    // 立即保存到后端
+    await updateGlobalPixelConfigApi({
+      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
+      facebook_enabled: config.facebook_enabled,
+      facebook_pixel_id: config.facebook_pixel_id,
+      tiktok_enabled: config.tiktok_enabled,
+      tiktok_pixel_id: config.tiktok_pixel_id,
+      custom_pixels: JSON.stringify(customPixels.value)
+    });
+
     ElMessage.success("删除成功");
   } catch (error) {
-    // 用户取消
+    if (error !== "cancel") {
+      console.error(error);
+      ElMessage.error("删除失败，请重试");
+    }
   }
 };
 
 // 状态变更
-const handleStatusChange = () => {
-  ElMessage.info("请点击下方保存按钮保存修改");
+const handleStatusChange = async () => {
+  try {
+    // 立即保存状态变更
+    await updateGlobalPixelConfigApi({
+      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
+      facebook_enabled: config.facebook_enabled,
+      facebook_pixel_id: config.facebook_pixel_id,
+      tiktok_enabled: config.tiktok_enabled,
+      tiktok_pixel_id: config.tiktok_pixel_id,
+      custom_pixels: JSON.stringify(customPixels.value)
+    });
+    ElMessage.success("状态已更新");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("状态更新失败，请重试");
+  }
 };
 
 // 添加自定义像素
-const addCustomPixel = () => {
+const addCustomPixel = async () => {
   customPixels.value.push({
     name: "",
     code: "",
     enabled: true
   });
+
+  try {
+    // 立即保存
+    await updateGlobalPixelConfigApi({
+      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
+      facebook_enabled: config.facebook_enabled,
+      facebook_pixel_id: config.facebook_pixel_id,
+      tiktok_enabled: config.tiktok_enabled,
+      tiktok_pixel_id: config.tiktok_pixel_id,
+      custom_pixels: JSON.stringify(customPixels.value)
+    });
+    ElMessage.success("自定义像素已添加");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("添加失败，请重试");
+  }
 };
 
 // 删除自定义像素
-const removeCustomPixel = (index: number) => {
+const removeCustomPixel = async (index: number) => {
   customPixels.value.splice(index, 1);
+
+  try {
+    // 立即保存
+    await updateGlobalPixelConfigApi({
+      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
+      facebook_enabled: config.facebook_enabled,
+      facebook_pixel_id: config.facebook_pixel_id,
+      tiktok_enabled: config.tiktok_enabled,
+      tiktok_pixel_id: config.tiktok_pixel_id,
+      custom_pixels: JSON.stringify(customPixels.value)
+    });
+    ElMessage.success("自定义像素已删除");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("删除失败，请重试");
+  }
 };
 
 // 保存所有配置

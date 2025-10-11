@@ -149,16 +149,16 @@
         </el-table-column>
 
         <el-table-column label="像素状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.pixel_enabled ? 'success' : 'info'" size="small">
-              {{ row.pixel_enabled ? "已启用" : "未启用" }}
+          <template #default>
+            <el-tag :type="globalPixelConfig?.enabled ? 'success' : 'info'" size="small">
+              {{ globalPixelConfig?.enabled ? "已启用" : "未启用" }}
             </el-tag>
           </template>
         </el-table-column>
 
         <el-table-column label="Google Ads" width="120" align="center">
-          <template #default="{ row }">
-            <div v-if="row.pixel_config?.google_ads?.enabled" class="pixel-status">
+          <template #default>
+            <div v-if="isGoogleAdsEnabled" class="pixel-status">
               <el-icon class="status-icon success"><Check /></el-icon>
               <span class="status-text">已配置</span>
             </div>
@@ -170,8 +170,8 @@
         </el-table-column>
 
         <el-table-column label="Facebook" width="120" align="center">
-          <template #default="{ row }">
-            <div v-if="row.pixel_config?.facebook?.enabled" class="pixel-status">
+          <template #default>
+            <div v-if="globalPixelConfig?.facebook_enabled" class="pixel-status">
               <el-icon class="status-icon success"><Check /></el-icon>
               <span class="status-text">已配置</span>
             </div>
@@ -183,8 +183,8 @@
         </el-table-column>
 
         <el-table-column label="TikTok" width="120" align="center">
-          <template #default="{ row }">
-            <div v-if="row.pixel_config?.tiktok?.enabled" class="pixel-status">
+          <template #default>
+            <div v-if="globalPixelConfig?.tiktok_enabled" class="pixel-status">
               <el-icon class="status-icon success"><Check /></el-icon>
               <span class="status-text">已配置</span>
             </div>
@@ -196,10 +196,8 @@
         </el-table-column>
 
         <el-table-column label="自定义像素" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.pixel_config?.custom?.length" type="warning" size="small">
-              {{ row.pixel_config.custom.length }} 个
-            </el-tag>
+          <template #default>
+            <el-tag v-if="globalPixelConfig?.custom_pixels" type="warning" size="small">已配置</el-tag>
             <span v-else style="color: #999999">--</span>
           </template>
         </el-table-column>
@@ -277,7 +275,7 @@
 </template>
 
 <script setup lang="ts" name="PixelManagement">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Search,
@@ -294,11 +292,13 @@ import {
   Share
 } from "@element-plus/icons-vue";
 import { getProductListApi, type Product } from "@/api/modules/product";
+import { getGlobalPixelConfigApi } from "@/api/modules/pixel";
 
 // 响应式数据
 const loading = ref(false);
 const configDialogVisible = ref(false);
 const currentProduct = ref<Product | null>(null);
+const globalPixelConfig = ref<any>(null);
 
 // 统计数据
 const stats = reactive({
@@ -324,6 +324,17 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<Product[]>([]);
+
+// 计算属性：判断Google Ads是否启用
+const isGoogleAdsEnabled = computed(() => {
+  if (!globalPixelConfig.value?.google_ads_accounts) return false;
+  try {
+    const accounts = JSON.parse(globalPixelConfig.value.google_ads_accounts);
+    return accounts.some((account: any) => account.enabled);
+  } catch (e) {
+    return false;
+  }
+});
 
 // 搜索
 const handleSearch = () => {
@@ -391,20 +402,24 @@ const openProductPixelConfig = () => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const params = {
-      page: pagination.current,
-      size: pagination.size,
-      title: searchForm.title || undefined,
-      status: undefined,
-      product_type: undefined
-    };
+    // 并行获取商品列表和全局像素配置
+    const [productsResponse, pixelResponse] = await Promise.all([
+      getProductListApi({
+        page: pagination.current,
+        size: pagination.size,
+        title: searchForm.title || undefined,
+        status: undefined,
+        product_type: undefined
+      }),
+      getGlobalPixelConfigApi()
+    ]);
 
-    const { data } = await getProductListApi(params);
-    tableData.value = data.list;
-    pagination.total = data.total;
+    tableData.value = productsResponse.data.list;
+    pagination.total = productsResponse.data.total;
+    globalPixelConfig.value = pixelResponse.data;
 
     // 计算统计数据
-    calculateStats(data.list);
+    calculateStats(productsResponse.data.list);
   } catch (error) {
     ElMessage.error("获取数据失败");
   } finally {
@@ -415,9 +430,31 @@ const loadData = async () => {
 // 计算统计数据
 const calculateStats = (products: Product[]) => {
   stats.totalProducts = products.length;
-  stats.enabledProducts = products.filter(p => p.pixel_enabled).length;
-  stats.googleAdsCount = products.filter(p => p.pixel_config?.google_ads?.enabled).length;
-  stats.facebookCount = products.filter(p => p.pixel_config?.facebook?.enabled).length;
+
+  // 基于全局像素配置计算统计数据
+  if (globalPixelConfig.value) {
+    const config = globalPixelConfig.value;
+    stats.enabledProducts = config.enabled ? products.length : 0;
+
+    // 解析Google Ads账户配置
+    let googleAdsEnabled = false;
+    if (config.google_ads_accounts) {
+      try {
+        const accounts = JSON.parse(config.google_ads_accounts);
+        googleAdsEnabled = accounts.some((account: any) => account.enabled);
+      } catch (e) {
+        console.error("解析Google Ads账户配置失败:", e);
+      }
+    }
+
+    stats.googleAdsCount = googleAdsEnabled ? products.length : 0;
+    stats.facebookCount = config.facebook_enabled ? products.length : 0;
+  } else {
+    // 如果没有全局配置，使用商品级别的配置
+    stats.enabledProducts = products.filter(p => p.pixel_enabled).length;
+    stats.googleAdsCount = products.filter(p => p.pixel_config?.google_ads?.enabled).length;
+    stats.facebookCount = products.filter(p => p.pixel_config?.facebook?.enabled).length;
+  }
 };
 
 // 初始化

@@ -1092,6 +1092,15 @@ watch(
   { deep: true }
 );
 
+// 监听商品主表单价格变化自动计算折扣
+watch(
+  () => [form.sell_price, form.origin_price],
+  () => {
+    calculateProductDiscount();
+  },
+  { deep: true }
+);
+
 // 获取状态类型
 const getStatusType = (status: string) => {
   const types = {
