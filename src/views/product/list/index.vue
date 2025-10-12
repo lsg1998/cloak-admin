@@ -443,6 +443,30 @@
           </el-col>
         </el-row>
 
+        <!-- 页面自定义设置 -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="页面主要颜色" prop="page_primary_color">
+              <el-input v-model="form.page_primary_color" placeholder="#007d65" style="width: 100%">
+                <template #prepend>#</template>
+              </el-input>
+              <div class="form-tip">设置页面主要颜色，默认为主题色 #007d65</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="头部跑马灯内容" prop="head_w_marquee">
+              <el-input
+                v-model="form.head_w_marquee"
+                type="textarea"
+                :rows="3"
+                placeholder="留空则显示产品标题"
+                style="width: 100%"
+              />
+              <div class="form-tip">设置头部跑马灯显示内容，留空则显示产品标题</div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 商品图片 -->
         <el-form-item label="商品图片" prop="image_urls">
           <el-upload
@@ -499,10 +523,20 @@
         <div class="sku-list-section">
           <div class="section-header">
             <h3>SKU列表</h3>
-            <el-button type="primary" @click="handleAddSku">
-              <el-icon><Plus /></el-icon>
-              添加SKU
-            </el-button>
+            <div class="sku-actions">
+              <el-button type="success" @click="handleBatchGenerateSku">
+                <el-icon><MagicStick /></el-icon>
+                批量生成SKU
+              </el-button>
+              <el-button type="primary" @click="handleAddSku">
+                <el-icon><Plus /></el-icon>
+                添加SKU
+              </el-button>
+              <el-button type="warning" @click="handleSortSku" v-if="skuList.length > 1">
+                <el-icon><Sort /></el-icon>
+                排序SKU
+              </el-button>
+            </div>
           </div>
 
           <el-table :data="skuList" v-loading="skuLoading" stripe border style="width: 100%">
@@ -557,6 +591,261 @@
           </el-table>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- SKU排序对话框 -->
+    <el-dialog
+      v-model="skuSortDialogVisible"
+      title="SKU分层排序"
+      width="1200px"
+      :fullscreen="sortDialogFullscreen"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div class="sku-sort-container" :class="{ fullscreen: sortDialogFullscreen }">
+        <div class="sort-header">
+          <el-alert title="分层排序说明" type="info" :closable="false" show-icon style="margin-bottom: 20px">
+            <template #default>
+              <div>
+                <p>• 第一层：按属性类型排序（如：size、color）</p>
+                <p>• 第二层：按属性值排序（如：size1、size2、size3）</p>
+                <p>• 拖拽项目可以调整显示顺序</p>
+              </div>
+            </template>
+          </el-alert>
+          <div class="sort-actions">
+            <el-button
+              type="primary"
+              :icon="sortDialogFullscreen ? 'ScaleToOriginal' : 'FullScreen'"
+              @click="toggleSortDialogFullscreen"
+              circle
+              size="small"
+            >
+              <el-icon>
+                <ScaleToOriginal v-if="sortDialogFullscreen" />
+                <FullScreen v-else />
+              </el-icon>
+            </el-button>
+          </div>
+        </div>
+
+        <div class="sort-tabs">
+          <el-tabs v-model="activeSortTab" type="card">
+            <el-tab-pane label="属性类型排序" name="attribute">
+              <div class="attribute-sort-section">
+                <div class="section-title">拖拽调整属性类型的显示顺序</div>
+                <div class="attribute-list">
+                  <div
+                    v-for="(attrType, index) in attributeTypeList"
+                    :key="attrType.name"
+                    class="attribute-item"
+                    :draggable="true"
+                    @dragstart="handleAttributeDragStart($event, index)"
+                    @dragover="handleDragOver($event)"
+                    @drop="handleAttributeDrop($event, index)"
+                  >
+                    <div class="attribute-content">
+                      <div class="sort-handle">
+                        <el-icon><Sort /></el-icon>
+                      </div>
+                      <div class="attribute-info">
+                        <div class="attribute-name">{{ attrType.name }}</div>
+                        <div class="attribute-count">{{ attrType.count }}个SKU</div>
+                      </div>
+                      <div class="sort-order">{{ index + 1 }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane
+              v-for="attrType in attributeTypeList"
+              :key="attrType.name"
+              :label="`${attrType.name}排序`"
+              :name="attrType.name"
+            >
+              <div class="value-sort-section">
+                <div class="section-title">{{ attrType.name }} 属性值排序</div>
+                <div class="value-list">
+                  <div
+                    v-for="(valueItem, index) in getValueList(attrType.name)"
+                    :key="`${attrType.name}-${valueItem.value}`"
+                    class="value-item"
+                    :draggable="true"
+                    @dragstart="handleValueDragStart($event, attrType.name, index)"
+                    @dragover="handleDragOver($event)"
+                    @drop="handleValueDrop($event, attrType.name, index)"
+                  >
+                    <div class="value-content">
+                      <div class="sort-handle">
+                        <el-icon><Sort /></el-icon>
+                      </div>
+                      <div class="value-info">
+                        <div class="value-name">{{ valueItem.value }}</div>
+                        <div class="value-count">{{ valueItem.count }}个SKU</div>
+                      </div>
+                      <div class="sort-order">{{ index + 1 }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="skuSortDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveSort" :loading="sortLoading"> 保存排序 </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 批量生成SKU对话框 -->
+    <el-dialog v-model="batchSkuDialogVisible" title="批量生成SKU" width="900px" :close-on-click-modal="false" destroy-on-close>
+      <div class="batch-sku-generator">
+        <el-alert title="批量生成说明" type="info" :closable="false" show-icon style="margin-bottom: 20px">
+          <template #default>
+            <div>
+              <p>• 可以一次性为商品生成多个不同规格的SKU</p>
+              <p>• 系统会自动创建所有规格组合的SKU</p>
+              <p>• 规格值输入：每行输入一个值，系统自动识别</p>
+              <p>• 示例：颜色(红、蓝) × 尺寸(M、L) = 4个SKU</p>
+            </div>
+          </template>
+        </el-alert>
+
+        <el-form :model="batchSkuForm" label-width="120px">
+          <!-- 基础信息 -->
+          <el-card class="form-card" shadow="never">
+            <template #header>
+              <span style="font-weight: 600">基础信息</span>
+            </template>
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="销售价格" required>
+                  <el-input-number
+                    v-model="batchSkuForm.sell_price"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    @change="calculateBatchDiscount"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="原价">
+                  <el-input-number
+                    v-model="batchSkuForm.origin_price"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    @change="calculateBatchDiscount"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="折扣(%)" prop="discount_percent">
+                  <el-input-number
+                    v-model="batchSkuForm.discount_percent"
+                    :min="0"
+                    :max="100"
+                    :precision="0"
+                    style="width: 100%"
+                    disabled
+                  >
+                    <template #append>%</template>
+                  </el-input-number>
+                  <div class="form-tip">根据销售价和原价自动计算</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="成本价">
+                  <el-input-number v-model="batchSkuForm.cost_price" :min="0" :precision="2" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="库存数量" required>
+                  <el-input-number v-model="batchSkuForm.stock_quantity" :min="0" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="成本价">
+                  <el-input-number v-model="batchSkuForm.cost_price" :min="0" :precision="2" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-card>
+
+          <!-- 规格配置 -->
+          <el-card class="form-card" shadow="never" style="margin-top: 20px">
+            <template #header>
+              <div style="display: flex; align-items: center; justify-content: space-between">
+                <span style="font-weight: 600">规格配置</span>
+                <el-button type="primary" size="small" @click="addBatchSpec">
+                  <el-icon><Plus /></el-icon>
+                  添加规格
+                </el-button>
+              </div>
+            </template>
+
+            <div v-for="(spec, index) in batchSkuForm.specs" :key="index" class="batch-spec-item">
+              <el-row :gutter="10" style="margin-bottom: 10px">
+                <el-col :span="6">
+                  <el-input v-model="spec.name" placeholder="规格名称，如：颜色" />
+                </el-col>
+                <el-col :span="14">
+                  <el-input
+                    v-model="spec.values"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="每行输入一个规格值，例如：&#10;红色&#10;蓝色&#10;绿色"
+                    style="resize: vertical"
+                  />
+                  <div class="form-tip">每行输入一个规格值，系统会自动识别</div>
+                </el-col>
+                <el-col :span="4">
+                  <el-button type="danger" size="small" @click="removeBatchSpec(index)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-col>
+              </el-row>
+            </div>
+
+            <!-- 预览生成的SKU -->
+            <div v-if="batchSkuPreview.length > 0" class="batch-preview">
+              <el-divider content-position="left">预览生成的SKU ({{ batchSkuPreview.length }}个)</el-divider>
+              <div class="preview-grid">
+                <div v-for="(sku, index) in batchSkuPreview" :key="index" class="preview-sku-item">
+                  <div class="sku-info">
+                    <div class="sku-name">{{ sku.sku_name }}</div>
+                    <div class="sku-specs">
+                      <el-tag v-for="attr in sku.attributes" :key="attr.name" size="small" class="spec-tag">
+                        {{ attr.name }}: {{ attr.value }}
+                      </el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="batchSkuDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleBatchSubmitSku" :loading="batchSkuLoading">
+            生成 {{ batchSkuPreview.length }} 个SKU
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <!-- 添加/编辑SKU对话框 -->
@@ -650,12 +939,14 @@
         <el-form-item label="SKU规格" prop="attributes">
           <div class="sku-specs">
             <!-- 规格说明 -->
-            <el-alert title="规格设置说明" type="info" :closable="false" show-icon style="margin-bottom: 16px">
+            <el-alert title="SKU规格设置说明" type="info" :closable="false" show-icon style="margin-bottom: 16px">
               <template #default>
                 <div>
-                  <p>• 每个SKU的同一属性只能设置一个值（如：颜色只能是红色或蓝色，不能同时是两种）</p>
-                  <p>• 不同的属性值组合应该创建不同的SKU</p>
-                  <p>• 示例：颜色=红色，尺寸=L 为一个SKU；颜色=蓝色，尺寸=L 为另一个SKU</p>
+                  <p>• <strong>每个SKU代表一个具体的商品规格组合</strong></p>
+                  <p>• 一个SKU的同一属性只能设置一个值（如：尺寸只能是M或L，不能同时是两种）</p>
+                  <p>• 如需不同规格，请创建多个SKU</p>
+                  <p>• 示例：红色M码为一个SKU，红色L码为另一个SKU</p>
+                  <p>• 提示：使用"添加SKU"按钮为每个规格组合创建独立的SKU</p>
                 </div>
               </template>
             </el-alert>
@@ -664,10 +955,10 @@
             <div class="add-spec-form">
               <el-row :gutter="10">
                 <el-col :span="8">
-                  <el-input v-model="newSpecName" placeholder="规格名称，如：颜色" :maxlength="20" show-word-limit />
+                  <el-input v-model="newSpecName" placeholder="规格名称，如：尺寸" :maxlength="20" show-word-limit />
                 </el-col>
                 <el-col :span="12">
-                  <el-input v-model="newSpecValue" placeholder="规格值，如：红色" :maxlength="50" show-word-limit />
+                  <el-input v-model="newSpecValue" placeholder="规格值，如：M" :maxlength="50" show-word-limit />
                 </el-col>
                 <el-col :span="4">
                   <el-button type="primary" @click="addSkuSpec" :disabled="!newSpecName || !newSpecValue">
@@ -676,6 +967,9 @@
                   </el-button>
                 </el-col>
               </el-row>
+              <div class="form-tip" style="margin-top: 8px; color: #909399; font-size: 12px">
+                提示：每个SKU只能设置一个属性值，如需不同规格请创建多个SKU
+              </div>
             </div>
 
             <!-- 显示已有规格 -->
@@ -687,7 +981,10 @@
                     <span class="spec-name">{{ spec.name }}</span>
                     <el-tag type="primary" size="small">{{ spec.value }}</el-tag>
                   </div>
-                  <el-button size="small" type="danger" link @click="removeSkuSpec(index)" icon="Delete"> 删除 </el-button>
+                  <div class="spec-actions">
+                    <el-button size="small" type="primary" link @click="editSkuSpec(index)" icon="Edit"> 编辑 </el-button>
+                    <el-button size="small" type="danger" link @click="removeSkuSpec(index)" icon="Delete"> 删除 </el-button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -896,7 +1193,9 @@ import {
   ScaleToOriginal,
   UploadFilled,
   Link,
-  Picture
+  Picture,
+  MagicStick,
+  Sort
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -910,6 +1209,7 @@ import {
 } from "@/api/modules/product";
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
+import http from "@/api";
 import WangEditor from "@/components/WangEditor/index.vue";
 import ProductImg from "@/components/Upload/ProductImg.vue";
 
@@ -974,7 +1274,9 @@ const form = reactive({
   b_page_product_id: "",
   cloak_rule_id: null as number | null,
   country: "JA",
-  template: "classic" // 模板类型：classic 或 shopline
+  template: "classic", // 模板类型：classic 或 shopline
+  page_primary_color: "#007d65", // 页面主要颜色
+  head_w_marquee: "" // 头部跑马灯内容
 });
 
 // 辅助输入字段
@@ -998,6 +1300,30 @@ const fakePagination = reactive({
   size: 12,
   total: 0
 });
+
+// 批量SKU生成相关
+const batchSkuDialogVisible = ref(false);
+const batchSkuLoading = ref(false);
+const batchSkuForm = reactive({
+  sell_price: 0,
+  origin_price: 0,
+  cost_price: 0,
+  discount_percent: 0,
+  stock_quantity: 1000,
+  specs: []
+});
+const batchSkuPreview = ref([]);
+
+// SKU排序相关
+const skuSortDialogVisible = ref(false);
+const sortLoading = ref(false);
+const activeSortTab = ref("attribute");
+const attributeTypeList = ref([]);
+const attributeValueList = ref({});
+const draggedAttributeIndex = ref(-1);
+const draggedValueIndex = ref(-1);
+const draggedValueAttrType = ref("");
+const sortDialogFullscreen = ref(false);
 
 // 富文本编辑器状态
 const isEditorFullscreen = ref(false);
@@ -1063,7 +1389,14 @@ const rules = {
     { required: true, message: "请输入商品标题", trigger: "blur" },
     { min: 2, max: 500, message: "商品标题长度在 2 到 500 个字符", trigger: "blur" }
   ],
-  status: [{ required: true, message: "请选择状态", trigger: "change" }]
+  status: [{ required: true, message: "请选择状态", trigger: "change" }],
+  page_primary_color: [
+    {
+      pattern: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
+      message: "请输入有效的颜色代码，如 #007d65",
+      trigger: "blur"
+    }
+  ]
 };
 
 // SKU表单验证规则
@@ -1434,7 +1767,7 @@ const loadSkuData = async (productId: string) => {
   }
 };
 
-// 简化的SKU规格管理方法
+// 简化的SKU规格管理方法 - 标准SKU设计
 const addSkuSpec = () => {
   if (!newSpecName.value.trim() || !newSpecValue.value.trim()) {
     ElMessage.warning("请输入规格名称和值");
@@ -1478,6 +1811,18 @@ const addSkuSpec = () => {
 const removeSkuSpec = (index: number) => {
   skuSpecs.value.splice(index, 1);
   ElMessage.success("规格删除成功");
+};
+
+// 编辑SKU规格
+const editSkuSpec = (index: number) => {
+  const spec = skuSpecs.value[index];
+  newSpecName.value = spec.name;
+  newSpecValue.value = spec.value;
+
+  // 删除当前规格，准备重新添加
+  skuSpecs.value.splice(index, 1);
+
+  ElMessage.info("请修改规格信息后点击添加按钮");
 };
 
 // 添加SKU
@@ -1569,7 +1914,7 @@ const handleDeleteSku = (row: ProductSku) => {
   });
 };
 
-// 简化SKU属性转换 - 改进版本，保持属性ID信息
+// 简化SKU属性转换 - 标准SKU设计
 const convertSpecsToAttributes = () => {
   // 检查是否有重复的属性名
   const attributeNames = skuSpecs.value.map(spec => spec.name);
@@ -1664,6 +2009,373 @@ const calculateProductDiscount = () => {
     form.discount = Math.max(0, Math.min(100, discount));
   } else if (originPrice === 0 || sellPrice === 0) {
     form.discount = 0;
+  }
+};
+
+// 批量SKU生成相关方法
+const handleBatchGenerateSku = () => {
+  // 重置表单
+  Object.assign(batchSkuForm, {
+    sell_price: 0,
+    origin_price: 0,
+    cost_price: 0,
+    discount_percent: 0,
+    stock_quantity: 1000,
+    specs: []
+  });
+  batchSkuPreview.value = [];
+  batchSkuDialogVisible.value = true;
+};
+
+// 计算批量SKU折扣
+const calculateBatchDiscount = () => {
+  const originPrice = batchSkuForm.origin_price || 0;
+  const sellPrice = batchSkuForm.sell_price || 0;
+
+  if (originPrice > 0 && sellPrice > 0) {
+    const discount = Math.round(((originPrice - sellPrice) / originPrice) * 100);
+    batchSkuForm.discount_percent = Math.max(0, Math.min(100, discount));
+  } else {
+    batchSkuForm.discount_percent = 0;
+  }
+};
+
+const addBatchSpec = () => {
+  batchSkuForm.specs.push({ name: "", values: "" });
+  updateBatchPreview();
+};
+
+const removeBatchSpec = (index: number) => {
+  batchSkuForm.specs.splice(index, 1);
+  updateBatchPreview();
+};
+
+// 更新批量SKU预览
+const updateBatchPreview = () => {
+  const validSpecs = batchSkuForm.specs.filter(spec => spec.name.trim() && spec.values.trim());
+
+  if (validSpecs.length === 0) {
+    batchSkuPreview.value = [];
+    return;
+  }
+
+  // 检查是否有重复的规格名称
+  const specNames = validSpecs.map(spec => spec.name.trim());
+  const duplicateNames = specNames.filter((name, index) => specNames.indexOf(name) !== index);
+
+  if (duplicateNames.length > 0) {
+    ElMessage.warning(`检测到重复的规格名称: ${duplicateNames.join(", ")}，请确保每个规格名称唯一`);
+    batchSkuPreview.value = [];
+    return;
+  }
+
+  // 解析所有规格值（按行分隔）
+  const specData = validSpecs.map(spec => ({
+    name: spec.name.trim(),
+    values: spec.values
+      .split("\n")
+      .map(v => v.trim())
+      .filter(v => v)
+  }));
+
+  // 生成所有组合
+  const combinations = generateCombinations(specData);
+
+  // 转换为SKU预览格式
+  batchSkuPreview.value = combinations.map(combo => {
+    const skuName = combo.map(attr => `${attr.name}:${attr.value}`).join(" ");
+    return {
+      sku_name: skuName,
+      attributes: combo
+    };
+  });
+};
+
+// 生成规格组合
+const generateCombinations = (specs: any[]) => {
+  if (specs.length === 0) return [];
+  if (specs.length === 1) {
+    return specs[0].values.map(value => [{ name: specs[0].name, value }]);
+  }
+
+  const result = [];
+  const firstSpec = specs[0];
+  const restSpecs = specs.slice(1);
+  const restCombinations = generateCombinations(restSpecs);
+
+  for (const value of firstSpec.values) {
+    for (const restCombo of restCombinations) {
+      result.push([{ name: firstSpec.name, value }, ...restCombo]);
+    }
+  }
+
+  return result;
+};
+
+// 监听规格变化，自动更新预览
+watch(
+  () => batchSkuForm.specs,
+  () => {
+    updateBatchPreview();
+  },
+  { deep: true }
+);
+
+// 批量提交SKU
+const handleBatchSubmitSku = async () => {
+  if (batchSkuPreview.value.length === 0) {
+    ElMessage.warning("请配置规格信息");
+    return;
+  }
+
+  if (!batchSkuForm.sell_price || !batchSkuForm.stock_quantity) {
+    ElMessage.warning("请填写销售价格和库存数量");
+    return;
+  }
+
+  // 检查是否有重复的规格名称
+  const validSpecs = batchSkuForm.specs.filter(spec => spec.name.trim() && spec.values.trim());
+  const specNames = validSpecs.map(spec => spec.name.trim());
+  const duplicateNames = specNames.filter((name, index) => specNames.indexOf(name) !== index);
+
+  if (duplicateNames.length > 0) {
+    ElMessage.error(`检测到重复的规格名称: ${duplicateNames.join(", ")}，请确保每个规格名称唯一`);
+    return;
+  }
+
+  batchSkuLoading.value = true;
+  try {
+    const baseTimestamp = Date.now();
+    const promises = batchSkuPreview.value.map(async (skuPreview, index) => {
+      // 为每个SKU生成唯一的编码，使用时间戳 + 索引 + 随机数
+      const uniqueTimestamp = baseTimestamp + index;
+      const randomSuffix = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, "0");
+
+      // 计算折扣百分比
+      const calculateDiscountPercent = () => {
+        const originPrice = batchSkuForm.origin_price || 0;
+        const sellPrice = batchSkuForm.sell_price || 0;
+
+        if (originPrice > 0 && sellPrice > 0) {
+          const discount = Math.round(((originPrice - sellPrice) / originPrice) * 100);
+          return Math.max(0, Math.min(100, discount));
+        }
+        return 0;
+      };
+
+      const skuData = {
+        product_id: currentProduct.value?.id || "",
+        sku_code: `SKU${uniqueTimestamp}${randomSuffix}`,
+        sku_name: skuPreview.sku_name,
+        sell_price: batchSkuForm.sell_price,
+        origin_price: batchSkuForm.origin_price,
+        cost_price: batchSkuForm.cost_price,
+        discount_percent: calculateDiscountPercent(),
+        stock_quantity: batchSkuForm.stock_quantity,
+        warning_stock: 10,
+        main_image: "",
+        status: "active",
+        attributes: skuPreview.attributes.map(attr => ({
+          attribute_name: attr.name,
+          value: attr.value
+        }))
+      };
+
+      return createSkuApi(skuData);
+    });
+
+    await Promise.all(promises);
+    ElMessage.success(`成功生成 ${batchSkuPreview.value.length} 个SKU`);
+    batchSkuDialogVisible.value = false;
+    await loadSkuData(currentProduct.value?.id || "");
+  } catch (error: any) {
+    console.error("批量生成SKU失败:", error);
+    ElMessage.error("批量生成失败");
+  } finally {
+    batchSkuLoading.value = false;
+  }
+};
+
+// SKU排序相关方法
+const handleSortSku = () => {
+  // 分析SKU属性，生成分层排序数据
+  analyzeSkuAttributes();
+  sortDialogFullscreen.value = false; // 重置全屏状态
+  skuSortDialogVisible.value = true;
+};
+
+// 切换排序对话框全屏状态
+const toggleSortDialogFullscreen = () => {
+  sortDialogFullscreen.value = !sortDialogFullscreen.value;
+};
+
+// 分析SKU属性，生成属性类型和属性值列表
+const analyzeSkuAttributes = () => {
+  const attributeMap = new Map();
+
+  skuList.value.forEach(sku => {
+    sku.attributes.forEach(attr => {
+      const attrName = attr.display_name || attr.attribute_name;
+      const attrValue = attr.display_value || attr.value;
+
+      if (!attributeMap.has(attrName)) {
+        attributeMap.set(attrName, new Map());
+      }
+
+      const valueMap = attributeMap.get(attrName);
+      if (!valueMap.has(attrValue)) {
+        valueMap.set(attrValue, []);
+      }
+      valueMap.get(attrValue).push(sku);
+    });
+  });
+
+  // 生成属性类型列表
+  attributeTypeList.value = Array.from(attributeMap.keys()).map(name => {
+    const valueMap = attributeMap.get(name);
+    const totalCount = Array.from(valueMap.values()).reduce((sum, skus) => sum + skus.length, 0);
+    return {
+      name,
+      count: totalCount,
+      values: Array.from(valueMap.keys())
+    };
+  });
+
+  // 生成属性值列表
+  attributeValueList.value = {};
+  attributeMap.forEach((valueMap, attrName) => {
+    attributeValueList.value[attrName] = Array.from(valueMap.keys()).map(value => {
+      const skus = valueMap.get(value);
+      return {
+        value,
+        count: skus.length,
+        skus: skus
+      };
+    });
+  });
+};
+
+// 获取指定属性类型的值列表
+const getValueList = (attrType: string) => {
+  return attributeValueList.value[attrType] || [];
+};
+
+// 属性类型拖拽处理
+const handleAttributeDragStart = (event: DragEvent, index: number) => {
+  draggedAttributeIndex.value = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+  }
+};
+
+const handleAttributeDrop = (event: DragEvent, dropIndex: number) => {
+  event.preventDefault();
+
+  if (draggedAttributeIndex.value === -1 || draggedAttributeIndex.value === dropIndex) {
+    return;
+  }
+
+  // 移动属性类型
+  const draggedItem = attributeTypeList.value[draggedAttributeIndex.value];
+  attributeTypeList.value.splice(draggedAttributeIndex.value, 1);
+  attributeTypeList.value.splice(dropIndex, 0, draggedItem);
+
+  draggedAttributeIndex.value = -1;
+};
+
+// 属性值拖拽处理
+const handleValueDragStart = (event: DragEvent, attrType: string, index: number) => {
+  draggedValueIndex.value = index;
+  draggedValueAttrType.value = attrType;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+  }
+};
+
+const handleValueDrop = (event: DragEvent, attrType: string, dropIndex: number) => {
+  event.preventDefault();
+
+  if (draggedValueIndex.value === -1 || draggedValueAttrType.value !== attrType || draggedValueIndex.value === dropIndex) {
+    return;
+  }
+
+  // 移动属性值
+  const valueList = attributeValueList.value[attrType];
+  const draggedItem = valueList[draggedValueIndex.value];
+  valueList.splice(draggedValueIndex.value, 1);
+  valueList.splice(dropIndex, 0, draggedItem);
+
+  draggedValueIndex.value = -1;
+  draggedValueAttrType.value = "";
+};
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+};
+
+const handleSaveSort = async () => {
+  if (attributeTypeList.value.length === 0) {
+    ElMessage.warning("没有属性需要排序");
+    return;
+  }
+
+  sortLoading.value = true;
+  try {
+    // 根据新的排序重新组织SKU列表
+    const newSkuList = [];
+
+    // 按属性类型顺序和属性值顺序重新排列SKU
+    attributeTypeList.value.forEach(attrType => {
+      const valueList = attributeValueList.value[attrType.name];
+      valueList.forEach(valueItem => {
+        valueItem.skus.forEach(sku => {
+          // 避免重复添加同一个SKU
+          if (!newSkuList.find(existingSku => existingSku.id === sku.id)) {
+            newSkuList.push(sku);
+          }
+        });
+      });
+    });
+
+    // 更新SKU列表
+    skuList.value = newSkuList;
+
+    // 保存排序到后端
+    await saveSkuSortToBackend(newSkuList);
+
+    ElMessage.success("排序保存成功");
+    skuSortDialogVisible.value = false;
+  } catch (error: any) {
+    console.error("保存排序失败:", error);
+    ElMessage.error("保存排序失败");
+  } finally {
+    sortLoading.value = false;
+  }
+};
+
+// 保存SKU排序到后端
+const saveSkuSortToBackend = async (sortedSkus: any[]) => {
+  try {
+    const sortData = sortedSkus.map((sku, index) => ({
+      sku_id: sku.id,
+      sort_order: index + 1
+    }));
+
+    const result = await http.put(`/admin/products/${currentProduct.value.id}/skus/sort`, {
+      sort_data: sortData
+    });
+
+    if (result.code !== 200) {
+      throw new Error(result.message || "保存排序失败");
+    }
+  } catch (error) {
+    console.error("保存排序到后端失败:", error);
+    throw error;
   }
 };
 
@@ -2262,6 +2974,11 @@ onMounted(() => {
   font-weight: 500;
   color: #606266;
 }
+.spec-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
 
 /* 表单提示样式 */
 .form-tip {
@@ -2461,6 +3178,237 @@ onMounted(() => {
   padding-top: 16px;
   margin-top: 16px;
   border-top: 1px solid #e9ecef;
+}
+
+/* 批量SKU生成样式 */
+.sku-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.batch-sku-generator .form-card {
+  margin-bottom: 20px;
+}
+
+.batch-spec-item {
+  margin-bottom: 15px;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.batch-spec-item:hover {
+  border-color: #c0c4cc;
+  background: #f5f7fa;
+}
+
+.batch-preview {
+  margin-top: 20px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.preview-sku-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.sku-info .sku-name {
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #303133;
+}
+
+.sku-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.spec-tag {
+  font-size: 11px;
+}
+
+/* SKU排序样式 */
+.sku-sort-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sort-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+  cursor: move;
+  transition: all 0.3s ease;
+}
+
+.sort-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.sort-item-content {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+}
+
+.sort-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #909399;
+  cursor: grab;
+}
+
+.sort-handle:active {
+  cursor: grabbing;
+}
+
+.sort-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-item-info .sku-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #303133;
+}
+
+.sort-item-info .sku-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sort-order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #f0f2f5;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 500;
+  color: #606266;
+}
+
+/* 分层排序样式 */
+.sort-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.sort-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sort-tabs {
+  margin-top: 20px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #303133;
+}
+
+.attribute-sort-section,
+.value-sort-section {
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.attribute-list,
+.value-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attribute-item,
+.value-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+  cursor: move;
+  transition: all 0.3s ease;
+}
+
+.attribute-item:hover,
+.value-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.attribute-content,
+.value-content {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+}
+
+.attribute-info,
+.value-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.attribute-name,
+.value-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #303133;
+  font-size: 14px;
+}
+
+.attribute-count,
+.value-count {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 全屏模式样式优化 */
+.sku-sort-container.fullscreen {
+  height: calc(100vh - 100px);
+}
+
+.sku-sort-container.fullscreen .sort-tabs {
+  height: calc(100vh - 180px);
+}
+
+.sku-sort-container.fullscreen .attribute-sort-section,
+.sku-sort-container.fullscreen .value-sort-section {
+  height: calc(100vh - 220px);
+  overflow-y: auto;
 }
 .product-meta {
   display: flex;
