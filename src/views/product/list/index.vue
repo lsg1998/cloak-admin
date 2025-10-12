@@ -958,7 +958,7 @@
                   <el-input v-model="newSpecName" placeholder="规格名称，如：尺寸" :maxlength="20" show-word-limit />
                 </el-col>
                 <el-col :span="12">
-                  <el-input v-model="newSpecValue" placeholder="规格值，如：M" :maxlength="50" show-word-limit />
+                  <el-input v-model="newSpecValue" placeholder="规格值，如：M" :maxlength="200" show-word-limit />
                 </el-col>
                 <el-col :span="4">
                   <el-button type="primary" @click="addSkuSpec" :disabled="!newSpecName || !newSpecValue">
