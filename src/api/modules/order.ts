@@ -138,16 +138,6 @@ export const batchDeleteOrdersApi = (ids: number[]) => {
   return http.delete("/admin/orders/batch", { data: { ids } });
 };
 
-/**
- * 导出订单数据
- */
-export const exportOrdersApi = (params: OrderListParams = {}) => {
-  return http.get("/admin/orders/export", {
-    params,
-    responseType: "blob"
-  });
-};
-
 // 订单统计数据类型
 export interface OrderStatistics {
   // 基础统计

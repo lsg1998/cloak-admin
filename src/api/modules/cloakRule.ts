@@ -6,6 +6,7 @@ export interface CloakRule {
   name: string;
   target_regions: string[];
   mode: "cloak" | "green" | "open" | "audit";
+  google_detection_mode: "DEFAULT" | "GOOGLE_STRICT" | "GOOGLE_LENIENT";
   spider_whitelist: string[];
   block_pc: number;
   block_proxy: number;
@@ -32,6 +33,7 @@ export interface CloakRuleFormData {
   name: string;
   target_regions: string[];
   mode: "cloak" | "green" | "open" | "audit";
+  google_detection_mode: "DEFAULT" | "GOOGLE_STRICT" | "GOOGLE_LENIENT";
   spider_whitelist: string[];
   block_pc: number;
   block_proxy: number;

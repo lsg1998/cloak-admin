@@ -57,6 +57,20 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column
+          prop="google_detection_mode"
+          label="谷歌检测"
+          width="120"
+          align="center"
+          v-if="tableData.some(row => row.mode === 'cloak')"
+        >
+          <template #default="{ row }">
+            <el-tag v-if="row.mode === 'cloak'" :type="getGoogleDetectionTagType(row.google_detection_mode)">
+              {{ getGoogleDetectionText(row.google_detection_mode) }}
+            </el-tag>
+            <span v-else class="text-gray-400">--</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="target_regions" label="投放地区" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.target_regions && row.target_regions.length > 0">
@@ -183,6 +197,20 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="谷歌检测模式" v-if="formData.mode === 'cloak'">
+          <el-radio-group v-model="googleDetectionMode" @change="updateDescription">
+            <el-tooltip content="使用系统默认的谷歌检测规则" placement="top">
+              <el-radio value="DEFAULT">默认</el-radio>
+            </el-tooltip>
+            <el-tooltip content="更激进的过滤规则：严格识别和过滤谷歌爬虫、审核系统，对可疑流量展示合规内容" placement="top">
+              <el-radio value="GOOGLE_STRICT">谷歌(严格)</el-radio>
+            </el-tooltip>
+            <el-tooltip content="较温和的过滤规则：只过滤明确的谷歌机器人" placement="top">
+              <el-radio value="GOOGLE_LENIENT">谷歌(宽松)</el-radio>
+            </el-tooltip>
+          </el-radio-group>
+        </el-form-item>
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="屏蔽PC">
@@ -237,6 +265,9 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("");
 const formRef = ref();
 
+// 谷歌检测模式
+const googleDetectionMode = ref("DEFAULT");
+
 // 国家选项（与商品管理保持一致）
 const countryOptions = [
   { label: "日本", value: "JA" },
@@ -275,6 +306,7 @@ const formData = reactive<CloakRuleFormData>({
   name: "",
   target_regions: [],
   mode: "cloak",
+  google_detection_mode: "DEFAULT",
   spider_whitelist: [],
   block_pc: 0,
   block_proxy: 0,
@@ -316,6 +348,51 @@ const getModeText = (mode: string) => {
     audit: "审核"
   };
   return textMap[mode] || mode;
+};
+
+// 获取谷歌检测模式标签类型
+const getGoogleDetectionTagType = (mode: string) => {
+  const typeMap = {
+    DEFAULT: "info",
+    GOOGLE_STRICT: "danger",
+    GOOGLE_LENIENT: "success"
+  };
+  return typeMap[mode] || "info";
+};
+
+// 获取谷歌检测模式文本
+const getGoogleDetectionText = (mode: string) => {
+  const textMap = {
+    DEFAULT: "默认",
+    GOOGLE_STRICT: "严格",
+    GOOGLE_LENIENT: "宽松"
+  };
+  return textMap[mode] || mode;
+};
+
+// 更新description字段以包含谷歌检测模式
+const updateDescription = () => {
+  let description = formData.description || "";
+
+  // 移除之前的谷歌检测模式标记
+  description = description.replace(/\[GOOGLE_\w+\]/g, "");
+
+  // 添加新的谷歌检测模式标记
+  if (googleDetectionMode.value !== "DEFAULT") {
+    description = `[${googleDetectionMode.value}] ${description}`.trim();
+  }
+
+  formData.description = description;
+};
+
+// 从description中解析谷歌检测模式
+const parseGoogleDetectionMode = (description: string) => {
+  if (description.includes("GOOGLE_STRICT")) {
+    return "GOOGLE_STRICT";
+  } else if (description.includes("GOOGLE_LENIENT")) {
+    return "GOOGLE_LENIENT";
+  }
+  return "DEFAULT";
 };
 
 // 格式化日期
@@ -401,6 +478,10 @@ const handleEdit = (row: CloakRule) => {
     allowed_organizations: row.allowed_organizations || [],
     blocked_organizations: row.blocked_organizations || []
   });
+
+  // 解析谷歌检测模式
+  googleDetectionMode.value = parseGoogleDetectionMode(row.description || "");
+
   dialogVisible.value = true;
 };
 
@@ -445,6 +526,10 @@ const resetForm = () => {
     description: "",
     is_active: 1
   });
+
+  // 重置谷歌检测模式
+  googleDetectionMode.value = "DEFAULT";
+
   formRef.value?.clearValidate();
 };
 
@@ -452,6 +537,9 @@ const resetForm = () => {
 const handleSubmit = async () => {
   try {
     await formRef.value?.validate();
+
+    // 在提交前更新description以包含谷歌检测模式
+    updateDescription();
 
     submitLoading.value = true;
 

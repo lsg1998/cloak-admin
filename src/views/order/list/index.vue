@@ -74,7 +74,7 @@
             <el-tag type="info" size="small">{{ pagination.total }} 条记录</el-tag>
           </div>
           <div class="table-actions">
-            <el-button size="small" @click="handleExport" :loading="exportLoading">
+            <el-button size="small" @click="handleExportDialog" :loading="exportLoading">
               <el-icon><Download /></el-icon>
               导出
             </el-button>
@@ -395,6 +395,9 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 导出字段选择对话框 -->
+    <ExportDialog v-model="exportDialogVisible" :available-fields="availableExportFields" @confirm="handleExportConfirm" />
   </div>
 </template>
 
@@ -402,13 +405,14 @@
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Box, Search, Refresh, Calendar, Edit, Delete, View, Download, ArrowDown } from "@element-plus/icons-vue";
+import * as XLSX from "xlsx";
+import ExportDialog from "@/components/ExportDialog/index.vue";
 import {
   getOrderListApi,
   getOrderDetailApi,
   updateOrderStatusApi,
   deleteOrderApi,
   batchDeleteOrdersApi,
-  exportOrdersApi,
   type Order,
   type OrderListParams,
   OrderStatus,
@@ -420,6 +424,7 @@ import {
 const loading = ref(false);
 const exportLoading = ref(false);
 const detailDialogVisible = ref(false);
+const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
 const selectedOrders = ref<Order[]>([]);
 
@@ -445,6 +450,51 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<Order[]>([]);
+
+// 可导出的字段定义
+const availableExportFields = [
+  // 基本信息
+  { key: "order_number", label: "订单号", group: "基本信息" },
+  { key: "customer_name", label: "客户姓名", group: "基本信息" },
+  { key: "phone", label: "手机号", group: "基本信息" },
+  { key: "email", label: "邮箱", group: "基本信息" },
+  { key: "status", label: "订单状态", group: "基本信息" },
+  { key: "created_at", label: "下单时间", group: "基本信息" },
+
+  // 商品信息
+  { key: "product_title", label: "商品标题", group: "商品信息" },
+  { key: "product_price", label: "商品价格", group: "商品信息" },
+  { key: "quantity", label: "数量", group: "商品信息" },
+  { key: "product_type", label: "商品类型", group: "商品信息" },
+
+  // 地址信息
+  { key: "province", label: "省份", group: "地址信息" },
+  { key: "city", label: "城市", group: "地址信息" },
+  { key: "district", label: "区县", group: "地址信息" },
+  { key: "address", label: "详细地址", group: "地址信息" },
+  { key: "postal_code", label: "邮编", group: "地址信息" },
+
+  // 金额信息
+  { key: "total_amount", label: "订单金额", group: "金额信息" },
+  { key: "currency", label: "货币类型", group: "金额信息" },
+  { key: "payment_method", label: "支付方式", group: "金额信息" },
+
+  // 时间信息
+  { key: "confirmed_at", label: "确认时间", group: "时间信息" },
+  { key: "shipped_at", label: "发货时间", group: "时间信息" },
+  { key: "delivered_at", label: "送达时间", group: "时间信息" },
+  { key: "updated_at", label: "更新时间", group: "时间信息" },
+
+  // 技术信息
+  { key: "ip_address", label: "IP地址", group: "技术信息" },
+  { key: "language_code", label: "语言代码", group: "技术信息" },
+  { key: "from_url", label: "来源URL", group: "技术信息" },
+  { key: "user_agent", label: "用户代理", group: "技术信息" },
+  { key: "pd_val", label: "PD值", group: "技术信息" },
+
+  // 其他信息
+  { key: "comments", label: "备注", group: "其他信息" }
+];
 
 // 搜索
 const handleSearch = () => {
@@ -538,12 +588,19 @@ const handleBatchDelete = () => {
   });
 };
 
-// 导出
-const handleExport = async () => {
+// 打开导出对话框
+const handleExportDialog = () => {
+  exportDialogVisible.value = true;
+};
+
+// 导出确认
+const handleExportConfirm = async (selectedFields: string[]) => {
   exportLoading.value = true;
   try {
+    // 获取所有订单数据（不分页）
     const params: OrderListParams = {
-      ...searchForm,
+      page: 1,
+      size: 10000, // 获取大量数据
       order_number: searchForm.order_number || undefined,
       customer_name: searchForm.customer_name || undefined,
       phone: searchForm.phone || undefined,
@@ -552,69 +609,128 @@ const handleExport = async () => {
       end_date: searchForm.end_date || undefined
     };
 
-    const response = await exportOrdersApi(params);
-    // console.log("导出API响应:", response);
-    // console.log("响应数据类型:", typeof response);
-    // console.log("响应数据:", response);
+    console.log("获取订单数据参数:", params);
+    console.log("选择的字段:", selectedFields);
 
-    // 检查响应数据 - API拦截器返回完整response对象
-    let blobData;
-    let csvData;
+    const { data } = await getOrderListApi(params);
+    const orders = data.list;
 
-    // 处理不同类型的响应数据
-    if (response && response.data) {
-      // 标准的axios响应格式
-      csvData = response.data;
-    } else if (typeof response === "string" && response.trim()) {
-      // 直接返回字符串数据
-      csvData = response;
-    } else {
-      ElMessage.warning("没有数据可导出");
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
       return;
     }
 
-    // console.log("CSV数据类型:", typeof csvData);
-    // console.log("CSV数据长度:", csvData ? csvData.length : 0);
+    console.log(`获取到 ${orders.length} 条订单数据`);
 
-    // 检查数据是否为空
-    if (!csvData || (typeof csvData === "string" && csvData.trim() === "")) {
-      ElMessage.warning("导出的数据为空");
-      return;
-    }
+    // 字段标签映射
+    const fieldLabels: { [key: string]: string } = {
+      id: "订单ID",
+      order_number: "订单号",
+      customer_name: "客户姓名",
+      phone: "手机号",
+      email: "邮箱",
+      status: "订单状态",
+      created_at: "下单时间",
+      updated_at: "更新时间",
+      product_title: "商品标题",
+      product_price: "商品价格",
+      quantity: "数量",
+      product_type: "商品类型",
+      province: "省份",
+      city: "城市",
+      district: "区县",
+      address: "详细地址",
+      postal_code: "邮编",
+      total_amount: "订单金额",
+      currency: "货币类型",
+      payment_method: "支付方式",
+      ip_address: "IP地址",
+      language_code: "语言代码",
+      from_url: "来源URL",
+      user_agent: "用户代理",
+      pd_val: "PD值",
+      comments: "备注"
+    };
 
-    // 创建blob数据
-    if (csvData instanceof Blob) {
-      blobData = csvData;
-    } else if (typeof csvData === "string") {
-      blobData = new Blob([csvData], { type: "text/csv; charset=utf-8" });
-    } else {
-      // 尝试将其他类型转换为字符串
-      const dataStr = typeof csvData === "object" ? JSON.stringify(csvData) : String(csvData);
-      blobData = new Blob([dataStr], { type: "text/csv; charset=utf-8" });
-    }
+    // 状态标签映射
+    const statusLabels: { [key: string]: string } = {
+      pending: "待确认",
+      confirmed: "已确认",
+      processing: "处理中",
+      shipped: "已发货",
+      delivered: "已送达",
+      cancelled: "已取消",
+      refunded: "已退款",
+      deleted: "已删除"
+    };
 
-    // 检查blob大小
-    if (blobData.size === 0) {
-      ElMessage.warning("导出的数据为空");
-      return;
-    }
+    // 商品类型标签映射
+    const productTypeLabels: { [key: string]: string } = {
+      original: "正品",
+      replica: "仿品"
+    };
 
-    // console.log("Blob数据大小:", blobData.size, "字节");
+    // 准备Excel数据
+    const excelData: any[][] = [];
 
-    // 创建下载链接
-    const url = window.URL.createObjectURL(blobData);
+    // 添加表头
+    const headers = selectedFields.map(field => fieldLabels[field] || field);
+    excelData.push(headers);
+
+    // 添加数据行
+    orders.forEach(order => {
+      const row: any[] = [];
+      selectedFields.forEach(field => {
+        let value = order[field] || "";
+
+        // 特殊处理某些字段
+        if (field === "status") {
+          value = statusLabels[value] || value;
+        } else if (field === "product_type") {
+          value = productTypeLabels[value] || value;
+        } else if (field === "total_amount" || field === "product_price") {
+          value = parseFloat(value) || 0;
+        } else if (field === "quantity") {
+          value = parseInt(value) || 0;
+        }
+
+        row.push(value);
+      });
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = selectedFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "订单列表");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    ElMessage.success("导出成功");
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据`);
   } catch (error) {
     console.error("导出失败:", error);
-    ElMessage.error("导出失败");
+    ElMessage.error("导出失败：" + (error as Error).message);
   } finally {
     exportLoading.value = false;
   }
