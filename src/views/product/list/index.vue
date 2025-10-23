@@ -146,6 +146,10 @@
                   已关联
                 </el-tag>
               </el-tooltip>
+              <el-button size="small" type="danger" link @click="handleCancelAssociation(row)" style="margin-left: 8px">
+                <el-icon><Close /></el-icon>
+                取消关联
+              </el-button>
             </div>
             <span v-else style="color: #f56c6c">未关联</span>
           </template>
@@ -158,10 +162,11 @@
         <el-table-column prop="template" label="展示模板" width="120" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.template === 'shopline'" type="success" size="small"> Shopline </el-tag>
+            <el-tag v-else-if="row.template === 'standard'" type="warning" size="small"> Standard </el-tag>
             <el-tag v-else type="info" size="small"> Classic </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="cloak_rule_name" label="斗篷规则" width="150" align="center">
+        <el-table-column prop="cloak_rule_name" label="斗篷规则" width="200" align="center">
           <template #default="{ row }">
             <div v-if="row.cloak_rule_name">
               <el-tooltip :content="`规则: ${row.cloak_rule_name}`" placement="top">
@@ -169,6 +174,10 @@
                   {{ row.cloak_rule_name }}
                 </el-tag>
               </el-tooltip>
+              <el-button size="small" type="danger" link @click="handleCancelCloakRule(row)" style="margin-left: 8px">
+                <el-icon><Close /></el-icon>
+                取消设置
+              </el-button>
             </div>
             <span v-else style="color: #999999">未设置</span>
           </template>
@@ -433,11 +442,19 @@
                     <span>现代模板 - 分离式结账设计</span>
                   </div>
                 </el-option>
+                <el-option label="标准模板 (Standard)" value="standard">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="warning" size="small">Standard</el-tag>
+                    <span>标准模板 - 模块化高性能设计</span>
+                  </div>
+                </el-option>
               </el-select>
               <div class="form-tip">
                 <strong>Classic:</strong> 传统单页设计，商品详情和表单在同一页
                 <br />
                 <strong>Shopline:</strong> 现代化设计，商品展示和结账分离，纯黑白简洁风格
+                <br />
+                <strong>Standard:</strong> 🔥 新版标准模板，模块化架构，高性能，易通过Google审核
               </div>
             </el-form-item>
           </el-col>
@@ -446,11 +463,94 @@
         <!-- 页面自定义设置 -->
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="页面主要颜色" prop="page_primary_color">
-              <el-input v-model="form.page_primary_color" placeholder="#007d65" style="width: 100%">
-                <template #prepend>#</template>
-              </el-input>
-              <div class="form-tip">设置页面主要颜色，默认为主题色 #007d65</div>
+            <el-form-item label="页面主题颜色" prop="page_primary_color">
+              <div style="display: flex; align-items: center; gap: 12px">
+                <!-- 颜色选择器 -->
+                <el-color-picker v-model="form.page_primary_color" show-alpha :predefine="presetColors" size="large" />
+
+                <!-- 颜色值显示 -->
+                <el-input v-model="form.page_primary_color" placeholder="#007d65" style="flex: 1">
+                  <template #prepend>HEX</template>
+                </el-input>
+                <!-- 预设主题快捷按钮 -->
+                <el-dropdown trigger="click" @command="handleThemeSelect">
+                  <el-button type="primary" plain>
+                    预设主题 <el-icon class="el-icon--right"><arrow-down /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="#007d65">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #007d65; border-radius: 3px"
+                          ></span>
+                          <span>森林绿（默认）</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#3498db">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #3498db; border-radius: 3px"
+                          ></span>
+                          <span>海洋蓝</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#e74c3c">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #e74c3c; border-radius: 3px"
+                          ></span>
+                          <span>日落红</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#f39c12">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #f39c12; border-radius: 3px"
+                          ></span>
+                          <span>晨曦橙</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#9b59b6">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #9b59b6; border-radius: 3px"
+                          ></span>
+                          <span>皇家紫</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#e91e63">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #e91e63; border-radius: 3px"
+                          ></span>
+                          <span>甜蜜粉</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#1abc9c">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #1abc9c; border-radius: 3px"
+                          ></span>
+                          <span>现代青</span>
+                        </div>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="#3f51b5">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <span
+                            style="display: inline-block; width: 16px; height: 16px; background: #3f51b5; border-radius: 3px"
+                          ></span>
+                          <span>深邃靛</span>
+                        </div>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+              <div class="form-tip">
+                🎨 <strong>主题色：</strong>系统会自动生成深色和浅色变体，应用于按钮、链接、标签等所有UI元素<br />
+                💡 <strong>提示：</strong>可以使用颜色选择器、直接输入hex值，或从预设主题中快速选择
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -1172,6 +1272,43 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 域名选择对话框 -->
+    <el-dialog v-model="viewDialogVisible" title="选择查看域名" width="500px" :close-on-click-modal="false">
+      <div v-if="currentViewProduct" class="domain-select-dialog">
+        <div class="product-info">
+          <h4>{{ currentViewProduct.title }}</h4>
+          <p>请选择要查看的域名：</p>
+        </div>
+
+        <el-radio-group v-model="selectedDomain" class="domain-options">
+          <el-radio v-for="domain in domainConfigs" :key="domain.id" :value="domain" class="domain-option">
+            <div class="domain-card">
+              <div class="domain-header">
+                <span class="domain-name">{{ domain.name }}</span>
+                <el-tag :type="domain.is_active ? 'success' : 'info'" size="small">
+                  {{ domain.is_active ? "启用" : "禁用" }}
+                </el-tag>
+              </div>
+              <div class="domain-url">
+                <el-icon><Link /></el-icon>
+                <span>{{ domain.protocol }}://{{ domain.domain }}</span>
+              </div>
+              <div v-if="domain.description" class="domain-description">
+                {{ domain.description }}
+              </div>
+            </div>
+          </el-radio>
+        </el-radio-group>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="viewDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmView" :disabled="!selectedDomain"> 确认查看 </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1195,7 +1332,8 @@ import {
   Link,
   Picture,
   MagicStick,
-  Sort
+  Sort,
+  Close
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -1203,12 +1341,14 @@ import {
   updateProductApi,
   deleteProductApi,
   getOriginalProductsApi,
-  updateFakeProductLinkApi,
+  updateProductFakeLinkApi,
+  updateProductCloakRuleApi,
   type Product,
   type ProductListParams
 } from "@/api/modules/product";
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
+import { getDomainConfigs, type DomainConfig } from "@/api/modules/domainConfig";
 import http from "@/api";
 import WangEditor from "@/components/WangEditor/index.vue";
 import ProductImg from "@/components/Upload/ProductImg.vue";
@@ -1217,6 +1357,12 @@ import ProductImg from "@/components/Upload/ProductImg.vue";
 const loading = ref(false);
 const submitLoading = ref(false);
 const dialogVisible = ref(false);
+
+// 域名选择相关
+const viewDialogVisible = ref(false);
+const currentViewProduct = ref<Product | null>(null);
+const domainConfigs = ref<DomainConfig[]>([]);
+const selectedDomain = ref<DomainConfig | null>(null);
 const dialogTitle = ref("");
 const formRef = ref();
 
@@ -1274,13 +1420,25 @@ const form = reactive({
   b_page_product_id: "",
   cloak_rule_id: null as number | null,
   country: "JA",
-  template: "classic", // 模板类型：classic 或 shopline
+  template: "classic", // 模板类型：classic、shopline 或 standard
   page_primary_color: "#007d65", // 页面主要颜色
   head_w_marquee: "" // 头部跑马灯内容
 });
 
 // 辅助输入字段
 const imageFiles = ref([]);
+
+// 🎨 预设主题颜色
+const presetColors = ref([
+  "#007d65", // 森林绿（默认）
+  "#3498db", // 海洋蓝
+  "#e74c3c", // 日落红
+  "#f39c12", // 晨曦橙
+  "#9b59b6", // 皇家紫
+  "#e91e63", // 甜蜜粉
+  "#1abc9c", // 现代青
+  "#3f51b5" // 深邃靛
+]);
 
 // 正品商品列表（供仿品选择）
 const originalProducts = ref<Product[]>([]);
@@ -1530,15 +1688,45 @@ const handleAdd = () => {
   dialogVisible.value = true;
 };
 
-// 查看
-const handleView = (row: Product) => {
-  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://gammtt.shop";
-  const viewUrl = `${frontendUrl}/product/${row.id}`;
+// 🎨 处理主题颜色选择
+const handleThemeSelect = (color: string) => {
+  form.page_primary_color = color;
+  ElMessage.success(`已切换到主题色：${color}`);
+};
+
+// 查看 - 显示域名选择对话框
+const handleView = async (row: Product) => {
+  currentViewProduct.value = row;
+
+  // 加载域名配置
+  try {
+    const response = await getDomainConfigs();
+    domainConfigs.value = response.data;
+    if (domainConfigs.value.length > 0) {
+      selectedDomain.value = domainConfigs.value[0];
+    }
+  } catch (error) {
+    console.error("加载域名配置失败:", error);
+    ElMessage.error("加载域名配置失败");
+  }
+
+  viewDialogVisible.value = true;
+};
+
+// 确认查看商品
+const confirmView = () => {
+  if (!currentViewProduct.value || !selectedDomain.value) {
+    ElMessage.warning("请选择域名");
+    return;
+  }
+
+  const viewUrl = `${selectedDomain.value.protocol}://${selectedDomain.value.domain}/product/${currentViewProduct.value.id}`;
 
   // 在新标签页中打开
   window.open(viewUrl, "_blank");
 
   ElMessage.success(`正在跳转到商品页面...`);
+  viewDialogVisible.value = false;
 };
 
 // 编辑
@@ -2519,12 +2707,60 @@ const handleConfirmFakeLink = async () => {
   }
 
   try {
-    await updateFakeProductLinkApi(selectedFakeProductId.value, currentOriginalProduct.value.id);
+    await updateProductFakeLinkApi(selectedFakeProductId.value, currentOriginalProduct.value.id);
     ElMessage.success("仿品关联成功");
     fakeProductDialogVisible.value = false;
     loadData(); // 刷新列表
   } catch (error) {
     ElMessage.error("仿品关联失败");
+  }
+};
+
+// 取消仿品关联
+const handleCancelAssociation = async (row: Product) => {
+  try {
+    await ElMessageBox.confirm(`确定要取消仿品 "${row.title}" 的关联吗？取消后该仿品将不再关联任何正品。`, "取消关联确认", {
+      confirmButtonText: "确定取消",
+      cancelButtonText: "取消",
+      type: "warning",
+      confirmButtonClass: "el-button--danger"
+    });
+
+    // 调用API取消关联
+    console.log("取消仿品关联，商品ID:", row.id);
+    await updateProductFakeLinkApi(row.id, null);
+    ElMessage.success("取消关联成功");
+    loadData(); // 刷新列表
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("取消关联失败");
+    }
+  }
+};
+
+// 取消斗篷规则设置
+const handleCancelCloakRule = async (row: Product) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要取消商品 "${row.title}" 的斗篷规则设置吗？取消后该商品将不再使用任何斗篷规则。`,
+      "取消斗篷规则确认",
+      {
+        confirmButtonText: "确定取消",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger"
+      }
+    );
+
+    // 调用API取消斗篷规则设置
+    console.log("取消斗篷规则设置，商品ID:", row.id);
+    await updateProductCloakRuleApi(row.id, null);
+    ElMessage.success("取消斗篷规则设置成功");
+    loadData(); // 刷新列表
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("取消斗篷规则设置失败");
+    }
   }
 };
 
@@ -3418,5 +3654,101 @@ onMounted(() => {
 .product-price {
   font-weight: 600;
   color: #e6a23c;
+}
+
+/* 域名选择对话框样式 */
+.domain-select-dialog {
+  padding: 20px 0;
+}
+
+.product-info {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.product-info h4 {
+  margin: 0 0 8px 0;
+  color: #303133;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.product-info p {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.domain-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.domain-option {
+  width: 100%;
+  margin: 0;
+}
+
+.domain-option .el-radio__input {
+  display: none;
+}
+
+.domain-option .el-radio__label {
+  width: 100%;
+  padding: 0;
+}
+
+.domain-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.domain-option:hover .domain-card {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.domain-option.is-checked .domain-card {
+  border-color: #409eff;
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.domain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.domain-name {
+  font-weight: 600;
+  color: #303133;
+  font-size: 14px;
+}
+
+.domain-url {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #606266;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.domain-url .el-icon {
+  font-size: 14px;
+}
+
+.domain-description {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>

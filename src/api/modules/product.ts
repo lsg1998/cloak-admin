@@ -144,20 +144,30 @@ export const getOriginalProductsApi = (search?: string) => {
   return http.get<Product[]>("/admin/products/original/list", { params });
 };
 
-// 更新仿品的关联正品
-export const updateFakeProductLinkApi = (fakeProductId: string, originalProductId: string) => {
-  return http.put(`/admin/products/${fakeProductId}`, {
-    product_type: "fake",
-    b_page_product_id: originalProductId
-  });
-};
-
 // 更新商品像素配置
 export const updateProductPixelConfigApi = (id: string, pixelConfig: PixelConfig, pixelEnabled: boolean) => {
   return http.put(`/admin/products/${id}/pixel`, {
     pixel_config: pixelConfig,
     pixel_enabled: pixelEnabled
   });
+};
+
+// 只更新商品斗篷规则
+export const updateProductCloakRuleApi = (id: string, cloakRuleId: string | null) => {
+  const data = {
+    cloak_rule_id: cloakRuleId
+  };
+  console.log("发送斗篷规则更新请求:", { id, data });
+  return http.put(`/admin/products/${id}/cloak-rule`, data);
+};
+
+// 只更新商品仿品关联
+export const updateProductFakeLinkApi = (id: string, originalProductId: string | null) => {
+  const data = {
+    b_page_product_id: originalProductId
+  };
+  console.log("发送仿品关联更新请求:", { id, data });
+  return http.put(`/admin/products/${id}/fake-link`, data);
 };
 
 // 获取商品像素配置

@@ -1113,6 +1113,20 @@
             "isAffix": false,
             "isKeepAlive": true
           }
+        },
+        {
+          "path": "/system/domainConfig",
+          "name": "domainConfig",
+          "component": "/domainConfig/list/index",
+          "meta": {
+            "icon": "Link",
+            "title": "域名配置",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         }
       ]
     },

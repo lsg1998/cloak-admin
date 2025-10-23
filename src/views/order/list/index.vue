@@ -52,6 +52,20 @@
             style="width: 240px"
           />
         </el-form-item>
+        <el-form-item label="商品筛选">
+          <el-input
+            v-model="selectedProductName"
+            placeholder="点击选择商品"
+            readonly
+            style="width: 200px"
+            @click="openProductDialog"
+          >
+            <template #suffix>
+              <el-icon v-if="searchForm.product_id" @click.stop="clearProduct" style="cursor: pointer"><Close /></el-icon>
+              <el-icon v-else><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -96,15 +110,6 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="order_number" label="订单号" width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="order-number">
-              <el-link type="primary" @click="handleViewDetail(row)">
-                {{ row.order_number }}
-              </el-link>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="商品信息" min-width="250" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="product-info">
@@ -145,51 +150,57 @@
                 <span class="address-label">详细:</span>
                 <span class="address-value">{{ row.address }}</span>
               </div>
+              <div class="address-line" v-if="row.comments && row.comments.trim()">
+                <span class="address-label">备注:</span>
+                <span class="address-value comments-value">{{ row.comments }}</span>
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="total_amount" label="订单金额" width="120" align="center">
+        <el-table-column label="支付信息" width="220" align="center">
           <template #default="{ row }">
-            <div class="amount-info">
-              <span class="amount">{{ row.total_amount || row.product_price * row.quantity }}</span>
-              <span class="currency">{{ row.currency || "JPY" }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="payment_method" label="支付方式" width="120" align="center">
-          <template #default="{ row }">
-            <div class="payment-info">
-              <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
-              <div class="product-type" v-if="row.product_type">
-                <el-tag size="small" :type="getProductTypeColor(row.product_type)">
+            <div class="payment-info-combined">
+              <div class="amount-info">
+                <span class="amount">{{ row.total_amount || row.product_price * row.quantity }}</span>
+                <span class="currency">{{ row.currency || "JPY" }}</span>
+              </div>
+              <div class="payment-method-info">
+                <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
+                <el-tag
+                  v-if="row.product_type"
+                  size="small"
+                  :type="getProductTypeColor(row.product_type)"
+                  style="margin-left: 4px"
+                >
                   {{ getProductTypeLabel(row.product_type) }}
                 </el-tag>
               </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="订单状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="OrderStatusColors[row.status]" size="small">
-              {{ OrderStatusLabels[row.status] || row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="下单时间" width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="time-info">
-              <el-icon class="time-icon"><Calendar /></el-icon>
-              <span>{{ row.created_at }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="ip_address" label="下单IP" width="250" align="center" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="ip-info" v-if="row.ip_address">
-              <div class="ip-address">
-                <el-tag size="small" type="info">{{ row.ip_address }}</el-tag>
+              <div class="status-info">
+                <el-tag :type="OrderStatusColors[row.status]" size="small">
+                  {{ OrderStatusLabels[row.status] || row.status }}
+                </el-tag>
               </div>
-              <div class="ip-location" v-if="row.ip_info && (row.ip_info.country || row.ip_info.city)">
+              <div class="time-info">
+                <el-icon class="time-icon"><Calendar /></el-icon>
+                <span>{{ row.created_at }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="IP/来源" min-width="300" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="ip-url-info">
+              <div class="ip-sk-row" v-if="row.ip_address">
+                <div class="ip-address">
+                  <el-tag size="small" type="info">{{ row.ip_address }}</el-tag>
+                </div>
+                <div class="sk-info" v-if="row.product_type">
+                  <el-tag size="small" :type="getProductTypeColor(row.product_type)">
+                    {{ getProductTypeLabel(row.product_type) }}
+                  </el-tag>
+                </div>
+              </div>
+              <div class="ip-location" v-if="row.ip_address && row.ip_info && (row.ip_info.country || row.ip_info.city)">
                 <el-tag size="small" type="success" v-if="row.ip_info.country">
                   {{ row.ip_info.country }}
                 </el-tag>
@@ -200,28 +211,17 @@
                   {{ row.ip_info.organization }}
                 </el-tag>
               </div>
-              <div class="ip-no-location" v-else>
+              <div class="ip-no-location" v-if="row.ip_address && (!row.ip_info || (!row.ip_info.country && !row.ip_info.city))">
                 <el-tag size="small" type="info" plain>未获取到地理位置</el-tag>
               </div>
-            </div>
-            <span v-else class="no-data">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="language_code" label="语言" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag size="small" type="success" v-if="row.language_code">
-              {{ row.language_code.toUpperCase() }}
-            </el-tag>
-            <span v-else class="no-data">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="from_url" label="来源URL" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="url-info">
-              <el-link v-if="row.from_url" :href="row.from_url" target="_blank" type="primary" size="small">
-                {{ row.from_url.length > 50 ? row.from_url.substring(0, 50) + "..." : row.from_url }}
-              </el-link>
-              <span v-else class="no-data">--</span>
+              <div class="url-section" v-if="row.from_url">
+                <div class="url-info">
+                  <el-link :href="row.from_url" target="_blank" type="primary" size="small">
+                    {{ row.from_url.length > 60 ? row.from_url.substring(0, 60) + "..." : row.from_url }}
+                  </el-link>
+                </div>
+              </div>
+              <div v-if="!row.ip_address && !row.from_url" class="no-data">--</div>
             </div>
           </template>
         </el-table-column>
@@ -330,7 +330,7 @@
               </div>
             </div>
           </el-descriptions-item>
-          <el-descriptions-item v-if="currentOrder.comments" label="客户备注" :span="2">
+          <el-descriptions-item v-if="currentOrder.comments && currentOrder.comments.trim()" label="客户备注" :span="2">
             {{ currentOrder.comments }}
           </el-descriptions-item>
         </el-descriptions>
@@ -397,16 +397,138 @@
     </el-dialog>
 
     <!-- 导出字段选择对话框 -->
-    <ExportDialog v-model="exportDialogVisible" :available-fields="availableExportFields" @confirm="handleExportConfirm" />
+    <!-- 匈牙利发货模板导出对话框 -->
+    <el-dialog v-model="exportDialogVisible" title="导出匈牙利发货订单" width="600px" :close-on-click-modal="false">
+      <div class="export-config">
+        <el-form :model="exportConfig" label-width="120px">
+          <el-form-item label="客户单号起始">
+            <el-input
+              v-model="exportConfig.customerNumberStart"
+              placeholder="请输入客户单号起始值，如：A1150"
+              style="width: 200px"
+            >
+              <template #prepend>A</template>
+            </el-input>
+            <div class="form-tip">将从 {{ exportConfig.customerNumberStart }} 开始递增</div>
+          </el-form-item>
+
+          <el-form-item label="运输方式">
+            <el-input v-model="exportConfig.transportMethod" placeholder="请输入运输方式" style="width: 300px" />
+          </el-form-item>
+
+          <el-form-item label="国家/地区">
+            <el-input v-model="exportConfig.country" placeholder="请输入国家/地区" style="width: 300px" />
+          </el-form-item>
+
+          <el-form-item label="规格信息">
+            <el-input v-model="exportConfig.specification" placeholder="请输入规格信息" style="width: 300px" />
+          </el-form-item>
+
+          <el-form-item label="SKU">
+            <el-input v-model="exportConfig.sku" placeholder="请输入SKU" style="width: 300px" />
+          </el-form-item>
+        </el-form>
+
+        <el-alert title="导出说明" type="info" show-icon :closable="false" style="margin-top: 20px">
+          <template #default>
+            <div class="export-description">
+              <p>将按照匈牙利发货模板格式导出订单数据，包含以下信息：</p>
+              <ul>
+                <li>✅ 收件人信息（姓名、邮箱、地址、电话等）</li>
+                <li>✅ 财务信息（代收货款币种、金额等）</li>
+                <li>✅ 商品信息（配货信息、货物类型、数量等）</li>
+                <li>✅ 地址备注1将自动填充原始联系地址内容</li>
+                <li>✅ 智能处理联系地址：如果联系地址以城市名开头，自动去掉城市名部分</li>
+                <li>
+                  ✅ 客户单号将自动生成：{{ exportConfig.customerNumberStart }}, A{{
+                    parseInt(exportConfig.customerNumberStart.substring(1)) + 1
+                  }}, A{{ parseInt(exportConfig.customerNumberStart.substring(1)) + 2 }}...
+                </li>
+              </ul>
+            </div>
+          </template>
+        </el-alert>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="exportDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="exportLoading" @click="handleHungaryExport">
+            <el-icon><Download /></el-icon>
+            确认导出
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 商品选择对话框 -->
+    <el-dialog v-model="productDialogVisible" title="选择商品" width="800px" :close-on-click-modal="false">
+      <div class="product-selector">
+        <div class="product-search">
+          <el-input
+            v-model="productSearchKeyword"
+            placeholder="搜索商品名称"
+            clearable
+            @input="searchProducts"
+            style="width: 300px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
+
+        <el-table
+          :data="productList"
+          v-loading="productLoading"
+          @selection-change="handleProductSelectionChange"
+          style="width: 100%; margin-top: 16px"
+        >
+          <el-table-column type="selection" width="55" />
+          <el-table-column prop="title" label="商品名称" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="sell_price" label="价格" width="100" align="center">
+            <template #default="{ row }">
+              <span>¥{{ row.sell_price }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="product_type" label="类型" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getProductTypeColor(row.product_type)" size="small">
+                {{ getProductTypeLabel(row.product_type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="product-pagination">
+          <el-pagination
+            v-model:current-page="productPagination.current"
+            v-model:page-size="productPagination.size"
+            :page-sizes="[10, 20, 50]"
+            :total="productPagination.total"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleProductSizeChange"
+            @current-change="handleProductCurrentChange"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="productDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmProductSelection" :disabled="selectedProducts.length === 0">
+            确定选择 ({{ selectedProducts.length }})
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts" name="OrderList">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Box, Search, Refresh, Calendar, Edit, Delete, View, Download, ArrowDown } from "@element-plus/icons-vue";
+import { Box, Search, Refresh, Calendar, Edit, Delete, View, Download, ArrowDown, Close } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
-import ExportDialog from "@/components/ExportDialog/index.vue";
 import {
   getOrderListApi,
   getOrderDetailApi,
@@ -419,6 +541,7 @@ import {
   OrderStatusLabels,
   OrderStatusColors
 } from "@/api/modules/order";
+import { getProductListApi, type Product } from "@/api/modules/product";
 
 // 响应式数据
 const loading = ref(false);
@@ -426,6 +549,15 @@ const exportLoading = ref(false);
 const detailDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
+
+// 导出配置
+const exportConfig = reactive({
+  customerNumberStart: "A1150",
+  transportMethod: "欧洲备货-30HU",
+  country: "斯洛伐克",
+  specification: "welding gun",
+  sku: "DH20251006*1"
+});
 const selectedOrders = ref<Order[]>([]);
 
 // 搜索表单
@@ -435,7 +567,8 @@ const searchForm = reactive({
   phone: "",
   status: "",
   start_date: "",
-  end_date: ""
+  end_date: "",
+  product_id: ""
 });
 
 // 日期范围
@@ -451,50 +584,18 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<Order[]>([]);
 
-// 可导出的字段定义
-const availableExportFields = [
-  // 基本信息
-  { key: "order_number", label: "订单号", group: "基本信息" },
-  { key: "customer_name", label: "客户姓名", group: "基本信息" },
-  { key: "phone", label: "手机号", group: "基本信息" },
-  { key: "email", label: "邮箱", group: "基本信息" },
-  { key: "status", label: "订单状态", group: "基本信息" },
-  { key: "created_at", label: "下单时间", group: "基本信息" },
-
-  // 商品信息
-  { key: "product_title", label: "商品标题", group: "商品信息" },
-  { key: "product_price", label: "商品价格", group: "商品信息" },
-  { key: "quantity", label: "数量", group: "商品信息" },
-  { key: "product_type", label: "商品类型", group: "商品信息" },
-
-  // 地址信息
-  { key: "province", label: "省份", group: "地址信息" },
-  { key: "city", label: "城市", group: "地址信息" },
-  { key: "district", label: "区县", group: "地址信息" },
-  { key: "address", label: "详细地址", group: "地址信息" },
-  { key: "postal_code", label: "邮编", group: "地址信息" },
-
-  // 金额信息
-  { key: "total_amount", label: "订单金额", group: "金额信息" },
-  { key: "currency", label: "货币类型", group: "金额信息" },
-  { key: "payment_method", label: "支付方式", group: "金额信息" },
-
-  // 时间信息
-  { key: "confirmed_at", label: "确认时间", group: "时间信息" },
-  { key: "shipped_at", label: "发货时间", group: "时间信息" },
-  { key: "delivered_at", label: "送达时间", group: "时间信息" },
-  { key: "updated_at", label: "更新时间", group: "时间信息" },
-
-  // 技术信息
-  { key: "ip_address", label: "IP地址", group: "技术信息" },
-  { key: "language_code", label: "语言代码", group: "技术信息" },
-  { key: "from_url", label: "来源URL", group: "技术信息" },
-  { key: "user_agent", label: "用户代理", group: "技术信息" },
-  { key: "pd_val", label: "PD值", group: "技术信息" },
-
-  // 其他信息
-  { key: "comments", label: "备注", group: "其他信息" }
-];
+// 商品筛选相关
+const productDialogVisible = ref(false);
+const productList = ref<Product[]>([]);
+const productLoading = ref(false);
+const productSearchKeyword = ref("");
+const selectedProducts = ref<Product[]>([]);
+const selectedProductName = ref("");
+const productPagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0
+});
 
 // 搜索
 const handleSearch = () => {
@@ -510,9 +611,11 @@ const handleReset = () => {
     phone: "",
     status: "",
     start_date: "",
-    end_date: ""
+    end_date: "",
+    product_id: ""
   });
   dateRange.value = null;
+  selectedProductName.value = "";
   handleSearch();
 };
 
@@ -593,8 +696,14 @@ const handleExportDialog = () => {
   exportDialogVisible.value = true;
 };
 
-// 导出确认
-const handleExportConfirm = async (selectedFields: string[]) => {
+// 匈牙利发货模板导出
+const handleHungaryExport = async () => {
+  await handleExportConfirm();
+  exportDialogVisible.value = false;
+};
+
+// 导出确认 - 匈牙利发货模板格式
+const handleExportConfirm = async () => {
   exportLoading.value = true;
   try {
     // 获取所有订单数据（不分页）
@@ -606,11 +715,11 @@ const handleExportConfirm = async (selectedFields: string[]) => {
       phone: searchForm.phone || undefined,
       status: (searchForm.status as OrderStatus) || undefined,
       start_date: searchForm.start_date || undefined,
-      end_date: searchForm.end_date || undefined
+      end_date: searchForm.end_date || undefined,
+      product_id: searchForm.product_id || undefined
     };
 
     console.log("获取订单数据参数:", params);
-    console.log("选择的字段:", selectedFields);
 
     const { data } = await getOrderListApi(params);
     const orders = data.list;
@@ -622,80 +731,160 @@ const handleExportConfirm = async (selectedFields: string[]) => {
 
     console.log(`获取到 ${orders.length} 条订单数据`);
 
-    // 字段标签映射
-    const fieldLabels: { [key: string]: string } = {
-      id: "订单ID",
-      order_number: "订单号",
-      customer_name: "客户姓名",
-      phone: "手机号",
-      email: "邮箱",
-      status: "订单状态",
-      created_at: "下单时间",
-      updated_at: "更新时间",
-      product_title: "商品标题",
-      product_price: "商品价格",
-      quantity: "数量",
-      product_type: "商品类型",
-      province: "省份",
-      city: "城市",
-      district: "区县",
-      address: "详细地址",
-      postal_code: "邮编",
-      total_amount: "订单金额",
-      currency: "货币类型",
-      payment_method: "支付方式",
-      ip_address: "IP地址",
-      language_code: "语言代码",
-      from_url: "来源URL",
-      user_agent: "用户代理",
-      pd_val: "PD值",
-      comments: "备注"
-    };
-
-    // 状态标签映射
-    const statusLabels: { [key: string]: string } = {
-      pending: "待确认",
-      confirmed: "已确认",
-      processing: "处理中",
-      shipped: "已发货",
-      delivered: "已送达",
-      cancelled: "已取消",
-      refunded: "已退款",
-      deleted: "已删除"
-    };
-
-    // 商品类型标签映射
-    const productTypeLabels: { [key: string]: string } = {
-      original: "正品",
-      replica: "仿品"
-    };
+    // 匈牙利发货模板字段映射（使用原始模板的表头）
+    const hungaryTemplateFields = [
+      "仓库编码",
+      "客户编码",
+      "客户单号",
+      "物流编码",
+      "物流网点",
+      "物流单号",
+      "物流单号2",
+      "运输方式",
+      "国家/地区",
+      "收件人姓名",
+      "邮箱",
+      "州,省",
+      "城市",
+      "联系地址",
+      "地址备注1",
+      "地址备注2",
+      "收件人电话",
+      "收件人邮编",
+      "代收货款币种",
+      "代收款金额",
+      "订单备注",
+      "配货信息",
+      "货物类型",
+      "规格信息",
+      "申报品数量",
+      "SKU",
+      "配货名称",
+      "申报币种",
+      "申报金额",
+      "税号类型"
+    ];
 
     // 准备Excel数据
     const excelData: any[][] = [];
 
     // 添加表头
-    const headers = selectedFields.map(field => fieldLabels[field] || field);
-    excelData.push(headers);
+    excelData.push(hungaryTemplateFields);
 
-    // 添加数据行
-    orders.forEach(order => {
+    // 在模板基础上添加新的订单数据
+    orders.forEach((order, index) => {
       const row: any[] = [];
-      selectedFields.forEach(field => {
-        let value = order[field] || "";
 
-        // 特殊处理某些字段
-        if (field === "status") {
-          value = statusLabels[value] || value;
-        } else if (field === "product_type") {
-          value = productTypeLabels[value] || value;
-        } else if (field === "total_amount" || field === "product_price") {
-          value = parseFloat(value) || 0;
-        } else if (field === "quantity") {
-          value = parseInt(value) || 0;
+      // 仓库编码 - 固定值
+      row.push("HU01");
+
+      // 客户编码 - 固定值
+      row.push("773");
+
+      // 客户单号 - 使用配置的起始值递增
+      const startNumber = parseInt(exportConfig.customerNumberStart.substring(1));
+      row.push(`A${startNumber + index}`);
+
+      // 物流编码 - 空
+      row.push("");
+
+      // 物流网点 - 空
+      row.push("");
+
+      // 物流单号 - 空
+      row.push("");
+
+      // 物流单号2 - 空
+      row.push("");
+
+      // 运输方式 - 使用配置的值
+      row.push(exportConfig.transportMethod);
+
+      // 国家/地区 - 使用配置的值
+      row.push(exportConfig.country);
+
+      // 收件人姓名
+      row.push(order.customer_name || "");
+
+      // 邮箱
+      row.push(order.email || "");
+
+      // 州,省
+      row.push(order.province || "");
+
+      // 城市
+      row.push(order.city || "");
+
+      // 处理联系地址规则：如果地址以城市名开头，去掉城市名部分
+      let processedAddress = order.address || "";
+      if (order.city && order.address) {
+        // 如果联系地址以城市名开头，去掉城市名部分
+        if (order.address.startsWith(order.city)) {
+          processedAddress = order.address.substring(order.city.length).trim();
+          // 如果去掉城市名后还有内容，使用处理后的地址；否则使用原地址
+          if (processedAddress) {
+            // 如果处理后的地址以逗号开头，去掉逗号
+            if (processedAddress.startsWith(",")) {
+              processedAddress = processedAddress.substring(1).trim();
+            }
+          } else {
+            processedAddress = order.address;
+          }
         }
+      }
 
-        row.push(value);
-      });
+      // 联系地址
+      row.push(processedAddress);
+
+      // 地址备注1 - 默认填充原始联系地址
+      row.push(order.address || "");
+
+      // 地址备注2 - 空
+      row.push("");
+
+      // 收件人电话
+      row.push(order.phone || "");
+
+      // 收件人邮编
+      row.push(order.postal_code || "");
+
+      // 代收货款币种
+      row.push(order.currency || "EUR");
+
+      // 代收款金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 订单备注 - 空
+      row.push("");
+
+      // 配货信息
+      row.push(order.product_title || "");
+
+      // 货物类型
+      row.push(order.product_type === "original" ? "P" : "R");
+
+      // 规格信息 - 使用配置的值
+      row.push(exportConfig.specification);
+
+      // 申报品数量
+      row.push(order.quantity || 1);
+
+      // SKU - 使用配置的值
+      row.push(exportConfig.sku);
+
+      // 配货名称
+      row.push(order.product_title || "");
+
+      // 申报币种
+      row.push(order.currency || "EUR");
+
+      // 申报金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 税号类型 - 空
+      row.push("");
+
+      // 添加到Excel数据中
       excelData.push(row);
     });
 
@@ -704,11 +893,11 @@ const handleExportConfirm = async (selectedFields: string[]) => {
     const ws = XLSX.utils.aoa_to_sheet(excelData);
 
     // 设置列宽
-    const colWidths = selectedFields.map(() => ({ wch: 15 }));
+    const colWidths = hungaryTemplateFields.map(() => ({ wch: 15 }));
     ws["!cols"] = colWidths;
 
     // 添加工作表到工作簿
-    XLSX.utils.book_append_sheet(wb, ws, "订单列表");
+    XLSX.utils.book_append_sheet(wb, ws, "匈牙利发货订单");
 
     // 生成Excel文件
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -721,13 +910,13 @@ const handleExportConfirm = async (selectedFields: string[]) => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.download = `匈牙利发货订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据`);
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为匈牙利发货模板`);
   } catch (error) {
     console.error("导出失败:", error);
     ElMessage.error("导出失败：" + (error as Error).message);
@@ -765,7 +954,8 @@ const loadData = async () => {
       phone: searchForm.phone || undefined,
       status: (searchForm.status as OrderStatus) || undefined,
       start_date: searchForm.start_date || undefined,
-      end_date: searchForm.end_date || undefined
+      end_date: searchForm.end_date || undefined,
+      product_id: searchForm.product_id || undefined
     };
 
     const { data } = await getOrderListApi(params);
@@ -799,6 +989,87 @@ const getProductTypeColor = (type: string): string => {
     replica: "warning"
   };
   return colors[type as keyof typeof colors] || "info";
+};
+
+// 商品筛选相关方法
+const openProductDialog = () => {
+  productDialogVisible.value = true;
+  productSearchKeyword.value = "";
+  selectedProducts.value = [];
+  productPagination.current = 1;
+  loadProducts();
+};
+
+const loadProducts = async () => {
+  productLoading.value = true;
+  try {
+    const params = {
+      page: productPagination.current,
+      size: productPagination.size,
+      title: productSearchKeyword.value || undefined
+    };
+
+    const response = await getProductListApi(params);
+
+    if (response && response.data) {
+      productList.value = response.data.list || [];
+      productPagination.total = response.data.total || 0;
+    } else {
+      productList.value = [];
+      productPagination.total = 0;
+    }
+  } catch (error) {
+    console.error("加载商品列表失败:", error);
+    ElMessage.error("加载商品列表失败");
+    productList.value = [];
+    productPagination.total = 0;
+  } finally {
+    productLoading.value = false;
+  }
+};
+
+const searchProducts = () => {
+  productPagination.current = 1;
+  loadProducts();
+};
+
+const handleProductSelectionChange = (selection: Product[]) => {
+  selectedProducts.value = selection;
+};
+
+const confirmProductSelection = () => {
+  if (selectedProducts.value.length === 0) {
+    ElMessage.warning("请选择商品");
+    return;
+  }
+
+  if (selectedProducts.value.length > 1) {
+    ElMessage.warning("只能选择一个商品");
+    return;
+  }
+
+  const product = selectedProducts.value[0];
+  searchForm.product_id = product.id;
+  selectedProductName.value = product.title;
+  productDialogVisible.value = false;
+  handleSearch();
+};
+
+const clearProduct = () => {
+  searchForm.product_id = "";
+  selectedProductName.value = "";
+  selectedProducts.value = [];
+  handleSearch();
+};
+
+const handleProductSizeChange = (size: number) => {
+  productPagination.size = size;
+  loadProducts();
+};
+
+const handleProductCurrentChange = (current: number) => {
+  productPagination.current = current;
+  loadProducts();
 };
 
 // 初始化
@@ -930,6 +1201,15 @@ onMounted(() => {
   word-break: break-all;
 }
 
+/* 备注行特殊样式 - 只限制备注为一行 */
+.comments-value {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
 .address-detail {
   line-height: 1.6;
 }
@@ -951,26 +1231,91 @@ onMounted(() => {
   flex: 1;
 }
 
-/* 金额信息 */
-.amount-info {
+/* 支付信息合并样式 */
+.payment-info-combined {
   text-align: center;
+  line-height: 1.5;
 }
-.amount {
+
+.payment-info-combined .amount-info {
+  margin-bottom: 6px;
+}
+
+.payment-info-combined .amount {
   font-weight: 600;
   color: #e6a23c;
   margin-right: 4px;
 }
-.currency {
+
+.payment-info-combined .currency {
   font-size: 12px;
   color: #999;
 }
 
-/* 支付方式信息 */
-.payment-info {
-  text-align: center;
+.payment-info-combined .payment-method-info {
+  margin-bottom: 6px;
 }
-.product-type {
-  margin-top: 4px;
+
+.payment-info-combined .status-info {
+  margin-bottom: 6px;
+}
+
+.payment-info-combined .time-info {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #666;
+}
+
+.payment-info-combined .time-icon {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* IP/来源合并样式 */
+.ip-url-info {
+  line-height: 1.5;
+}
+
+.ip-url-info .ip-sk-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ip-url-info .ip-address {
+  flex-shrink: 0;
+}
+
+.ip-url-info .sk-info {
+  flex-shrink: 0;
+}
+
+.ip-url-info .ip-location {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.ip-url-info .ip-no-location {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.ip-url-info .url-section {
+  margin-top: 6px;
+}
+
+.ip-url-info .url-info {
+  text-align: center;
+  word-break: break-all;
 }
 
 /* 时间信息 */
@@ -1075,6 +1420,43 @@ onMounted(() => {
 /* 对话框 */
 .dialog-footer {
   text-align: right;
+}
+
+/* 商品选择对话框样式 */
+.product-selector {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.product-search {
+  margin-bottom: 16px;
+}
+
+.product-pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+/* 导出配置对话框样式 */
+.export-config {
+  .form-tip {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
+  }
+
+  .export-description {
+    ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 4px 0;
+      font-size: 13px;
+    }
+  }
 }
 
 /* 响应式设计 */

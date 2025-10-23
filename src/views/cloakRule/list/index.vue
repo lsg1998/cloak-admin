@@ -99,9 +99,10 @@
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)"> 编辑 </el-button>
+            <el-button type="warning" size="small" @click="handleViewProducts(row)"> 查看商品 </el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)"> 删除 </el-button>
           </template>
         </el-table-column>
@@ -162,9 +163,31 @@
         <el-row :gutter="20">
           <el-col :span="24">
             <el-form-item label="投放地区">
-              <el-select v-model="formData.target_regions" multiple placeholder="请选择投放地区" style="width: 100%">
+              <el-select
+                v-model="formData.target_regions"
+                multiple
+                placeholder="请选择投放地区"
+                style="width: 100%"
+                @change="handleCountryChange"
+              >
                 <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
               </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="允许时区">
+              <el-select v-model="formData.allowed_timezones" multiple placeholder="请选择允许的时区" style="width: 100%">
+                <el-option
+                  v-for="timezone in timezoneOptions"
+                  :key="timezone.value"
+                  :label="timezone.label"
+                  :value="timezone.value"
+                />
+              </el-select>
+              <div class="form-tip">选择投放地区后会自动推荐对应时区，也可手动选择</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -283,6 +306,43 @@ const countryOptions = [
   { label: "捷克", value: "CZ" }
 ];
 
+// 时区选项
+const timezoneOptions = [
+  { label: "亚洲/东京 (日本)", value: "Asia/Tokyo" },
+  { label: "亚洲/上海 (中国)", value: "Asia/Shanghai" },
+  { label: "欧洲/伦敦 (英国)", value: "Europe/London" },
+  { label: "欧洲/布拉迪斯拉发 (斯洛伐克)", value: "Europe/Bratislava" },
+  { label: "欧洲/卢布尔雅那 (斯洛文尼亚)", value: "Europe/Ljubljana" },
+  { label: "欧洲/华沙 (波兰)", value: "Europe/Warsaw" },
+  { label: "欧洲/里斯本 (葡萄牙)", value: "Europe/Lisbon" },
+  { label: "欧洲/布达佩斯 (匈牙利)", value: "Europe/Budapest" },
+  { label: "欧洲/罗马 (意大利)", value: "Europe/Rome" },
+  { label: "欧洲/马德里 (西班牙)", value: "Europe/Madrid" },
+  { label: "欧洲/布拉格 (捷克)", value: "Europe/Prague" },
+  { label: "美国/纽约 (美国东部)", value: "America/New_York" },
+  { label: "美国/洛杉矶 (美国西部)", value: "America/Los_Angeles" },
+  { label: "欧洲/巴黎 (法国)", value: "Europe/Paris" },
+  { label: "欧洲/柏林 (德国)", value: "Europe/Berlin" },
+  { label: "亚洲/首尔 (韩国)", value: "Asia/Seoul" },
+  { label: "亚洲/新加坡 (新加坡)", value: "Asia/Singapore" },
+  { label: "澳大利亚/悉尼 (澳大利亚)", value: "Australia/Sydney" }
+];
+
+// 国家到时区的映射
+const countryToTimezoneMap = {
+  JA: "Asia/Tokyo",
+  ZH: "Asia/Shanghai",
+  EN: "Europe/London",
+  SK: "Europe/Bratislava",
+  SI: "Europe/Ljubljana",
+  PL: "Europe/Warsaw",
+  PT: "Europe/Lisbon",
+  HU: "Europe/Budapest",
+  IT: "Europe/Rome",
+  ES: "Europe/Madrid",
+  CZ: "Europe/Prague"
+};
+
 // 搜索表单
 const searchForm = reactive({
   name: "",
@@ -315,6 +375,7 @@ const formData = reactive<CloakRuleFormData>({
   blocked_countries: [],
   allowed_organizations: [],
   blocked_organizations: [],
+  allowed_timezones: [],
   description: "",
   is_active: 1
 });
@@ -485,6 +546,18 @@ const handleEdit = (row: CloakRule) => {
   dialogVisible.value = true;
 };
 
+// 查看使用该规则的商品
+const handleViewProducts = async (row: CloakRule) => {
+  try {
+    // 这里可以跳转到商品管理页面，并筛选使用该斗篷规则的商品
+    // 或者打开一个对话框显示相关商品
+    ElMessage.info(`查看使用规则"${row.name}"的商品功能待实现`);
+  } catch (error) {
+    console.error("查看商品失败:", error);
+    ElMessage.error("查看商品失败");
+  }
+};
+
 // 删除
 const handleDelete = async (row: CloakRule) => {
   try {
@@ -507,6 +580,24 @@ const handleDelete = async (row: CloakRule) => {
   }
 };
 
+// 处理国家变化
+const handleCountryChange = (selectedCountries: string[]) => {
+  // 根据选择的国家自动推荐对应的时区
+  const recommendedTimezones: string[] = [];
+
+  selectedCountries.forEach(country => {
+    const timezone = countryToTimezoneMap[country];
+    if (timezone && !recommendedTimezones.includes(timezone)) {
+      recommendedTimezones.push(timezone);
+    }
+  });
+
+  // 如果当前时区列表为空，或者用户没有手动选择过时区，则自动设置推荐的时区
+  if (formData.allowed_timezones.length === 0 || recommendedTimezones.length > 0) {
+    formData.allowed_timezones = recommendedTimezones;
+  }
+};
+
 // 重置表单
 const resetForm = () => {
   Object.assign(formData, {
@@ -521,6 +612,7 @@ const resetForm = () => {
     blocked_countries: [],
     allowed_organizations: [],
     blocked_organizations: [],
+    allowed_timezones: [],
     redirect_url: "",
     audit_url: "",
     description: "",
@@ -615,7 +707,13 @@ onMounted(() => {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .cloak-rule-form {

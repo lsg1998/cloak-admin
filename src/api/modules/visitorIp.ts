@@ -5,6 +5,8 @@ export interface VisitorIp {
   id: number;
   ip_address: string;
   product_id?: string;
+  access_address?: string;
+  product_type?: "original" | "fake";
   hostname?: string;
   city?: string;
   region?: string;
@@ -44,6 +46,11 @@ export interface IpStatistics {
     city: string;
     country: string;
     count: number;
+  }>;
+  productTypeStats: Array<{
+    product_type: string;
+    count: number;
+    percentage: number;
   }>;
 }
 
