@@ -141,7 +141,7 @@ export const deleteProductApi = (id: string) => {
 // 获取正品商品列表（供仿品选择）
 export const getOriginalProductsApi = (search?: string) => {
   const params = search ? { search } : {};
-  return http.get<Product[]>("/admin/products/original/list", { params });
+  return http.get<Product[]>("/admin/products/original/list", params);
 };
 
 // 更新商品像素配置

@@ -194,6 +194,36 @@
 
         <el-row :gutter="20">
           <el-col :span="24">
+            <el-form-item label="Referer白名单">
+              <el-select
+                v-model="formData.allowed_referers"
+                multiple
+                filterable
+                allow-create
+                placeholder="请输入允许的Referer来源（支持手动输入）"
+                style="width: 100%"
+              >
+                <el-option label="youtube.com" value="youtube.com" />
+                <el-option label="youtu.be" value="youtu.be" />
+                <el-option label="m.youtube.com" value="m.youtube.com" />
+                <el-option
+                  label="android-app://com.google.android.googlequicksearchbox"
+                  value="android-app://com.google.android.googlequicksearchbox"
+                />
+                <el-option label="facebook.com" value="facebook.com" />
+                <el-option label="instagram.com" value="instagram.com" />
+                <el-option label="twitter.com" value="twitter.com" />
+                <el-option label="tiktok.com" value="tiktok.com" />
+              </el-select>
+              <div class="form-tip">
+                白名单内的来源将显示正品页面。留空则使用默认白名单（YouTube、Android Google App）。可手动输入自定义域名
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
             <el-form-item label="状态">
               <el-radio-group v-model="formData.is_active">
                 <el-radio :label="1">启用</el-radio>
@@ -222,20 +252,20 @@
 
         <el-form-item label="谷歌检测模式" v-if="formData.mode === 'cloak'">
           <el-radio-group v-model="googleDetectionMode" @change="updateDescription">
-            <el-tooltip content="使用系统默认的谷歌检测规则" placement="top">
-              <el-radio value="DEFAULT">默认</el-radio>
+            <el-tooltip content="系统默认严格模式：激进过滤谷歌爬虫、审核系统、数据中心IP等" placement="top">
+              <el-radio value="DEFAULT">默认(严格)</el-radio>
             </el-tooltip>
-            <el-tooltip content="更激进的过滤规则：严格识别和过滤谷歌爬虫、审核系统，对可疑流量展示合规内容" placement="top">
+            <el-tooltip content="明确使用严格模式：检测hostname、机器人标识、数据中心IP、AS号码、可疑组织" placement="top">
               <el-radio value="GOOGLE_STRICT">谷歌(严格)</el-radio>
             </el-tooltip>
-            <el-tooltip content="较温和的过滤规则：只过滤明确的谷歌机器人" placement="top">
+            <el-tooltip content="较温和的过滤规则：只过滤明确的谷歌机器人，不检测数据中心IP和AS号码" placement="top">
               <el-radio value="GOOGLE_LENIENT">谷歌(宽松)</el-radio>
             </el-tooltip>
           </el-radio-group>
         </el-form-item>
 
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="屏蔽PC">
               <el-radio-group v-model="formData.block_pc">
                 <el-radio :label="0">未开启</el-radio>
@@ -243,12 +273,21 @@
               </el-radio-group>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="屏蔽代理">
               <el-radio-group v-model="formData.block_proxy">
                 <el-radio :label="0">未开启</el-radio>
                 <el-radio :label="1">开启</el-radio>
               </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="屏蔽空Referer">
+              <el-radio-group v-model="formData.block_empty_referer">
+                <el-radio :label="0">未开启</el-radio>
+                <el-radio :label="1">开启</el-radio>
+              </el-radio-group>
+              <div class="form-tip">开启后，无referer的访问将显示仿品</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -370,12 +409,14 @@ const formData = reactive<CloakRuleFormData>({
   spider_whitelist: [],
   block_pc: 0,
   block_proxy: 0,
+  block_empty_referer: 0,
   blocked_keywords: [],
   allowed_countries: [],
   blocked_countries: [],
   allowed_organizations: [],
   blocked_organizations: [],
   allowed_timezones: [],
+  allowed_referers: [],
   description: "",
   is_active: 1
 });
@@ -424,7 +465,7 @@ const getGoogleDetectionTagType = (mode: string) => {
 // 获取谷歌检测模式文本
 const getGoogleDetectionText = (mode: string) => {
   const textMap = {
-    DEFAULT: "默认",
+    DEFAULT: "默认(严格)",
     GOOGLE_STRICT: "严格",
     GOOGLE_LENIENT: "宽松"
   };
@@ -607,12 +648,14 @@ const resetForm = () => {
     spider_whitelist: [],
     block_pc: 0,
     block_proxy: 0,
+    block_empty_referer: 0,
     blocked_keywords: [],
     allowed_countries: [],
     blocked_countries: [],
     allowed_organizations: [],
     blocked_organizations: [],
     allowed_timezones: [],
+    allowed_referers: [],
     redirect_url: "",
     audit_url: "",
     description: "",

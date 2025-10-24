@@ -10,7 +10,9 @@ export interface CloakRule {
   spider_whitelist: string[];
   block_pc: number;
   block_proxy: number;
+  block_empty_referer: number;
   blocked_keywords: string[];
+  allowed_referers: string[];
   allowed_countries: string[];
   blocked_countries: string[];
   allowed_organizations: string[];
@@ -38,7 +40,9 @@ export interface CloakRuleFormData {
   spider_whitelist: string[];
   block_pc: number;
   block_proxy: number;
+  block_empty_referer: number;
   blocked_keywords: string[];
+  allowed_referers: string[];
   allowed_countries: string[];
   blocked_countries: string[];
   allowed_organizations: string[];

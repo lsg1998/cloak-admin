@@ -45,7 +45,7 @@ export interface UpdateUserParams {
 
 // 获取用户列表
 export const getUserListApi = (params: UserListParams) => {
-  return http.get<UserListResponse>("/admin/users", { params });
+  return http.get<UserListResponse>("/admin/users", params);
 };
 
 // 获取用户详情
@@ -70,7 +70,7 @@ export const deleteUserApi = (id: number) => {
 
 // 导出用户信息
 export const exportUserInfo = (params: UserListParams) => {
-  return http.get("/admin/users/export", { params });
+  return http.get("/admin/users/export", params);
 };
 
 // 批量添加用户
@@ -100,7 +100,7 @@ export const getUserRole = () => {
 
 // 获取用户树形列表
 export const getUserTreeList = (params: UserListParams) => {
-  return http.get("/admin/users/tree", { params });
+  return http.get("/admin/users/tree", params);
 };
 
 // 编辑用户

@@ -41,7 +41,7 @@ export interface UpdateRoleParams {
 
 // 获取角色列表
 export const getRoleListApi = (params: RoleListParams) => {
-  return http.get<RoleListResponse>("/admin/roles", { params });
+  return http.get<RoleListResponse>("/admin/roles", params);
 };
 
 // 获取角色详情

@@ -107,7 +107,7 @@ export const getOrderListApi = (params: OrderListParams = {}) => {
   const filteredParams = Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
   );
-  return http.get<OrderListResponse>("/admin/orders", { params: filteredParams });
+  return http.get<OrderListResponse>("/admin/orders", filteredParams);
 };
 
 /**
@@ -178,5 +178,5 @@ export interface OrderStatisticsParams {
  * 获取订单统计数据
  */
 export const getOrderStatisticsApi = (params: OrderStatisticsParams = {}) => {
-  return http.get<OrderStatistics>("/admin/orders/statistics", { params });
+  return http.get<OrderStatistics>("/admin/orders/statistics", params);
 };

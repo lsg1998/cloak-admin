@@ -77,7 +77,7 @@ export const getPerformanceLogsApi = (params: PerformanceLogListParams = {}) => 
   const filteredParams = Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
   );
-  return http.get<PerformanceLogListResponse>("/admin/performance-logs", { params: filteredParams });
+  return http.get<PerformanceLogListResponse>("/admin/performance-logs", filteredParams);
 };
 
 /**
@@ -91,7 +91,7 @@ export const getPerformanceLogDetailApi = (id: number) => {
  * 获取性能统计数据
  */
 export const getPerformanceStatsApi = (params: { start_date?: string; end_date?: string } = {}) => {
-  return http.get<PerformanceStats>("/admin/performance-logs-stats", { params });
+  return http.get<PerformanceStats>("/admin/performance-logs-stats", params);
 };
 
 /**

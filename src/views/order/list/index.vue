@@ -401,6 +401,18 @@
     <el-dialog v-model="exportDialogVisible" title="导出匈牙利发货订单" width="600px" :close-on-click-modal="false">
       <div class="export-config">
         <el-form :model="exportConfig" label-width="120px">
+          <el-form-item label="导出数量">
+            <el-input-number
+              v-model="exportConfig.exportLimit"
+              :min="1"
+              :max="10000"
+              :step="10"
+              placeholder="请输入导出数量"
+              style="width: 200px"
+            />
+            <div class="form-tip">最多可导出 10000 条订单，当前筛选条件下共 {{ pagination.total }} 条</div>
+          </el-form-item>
+
           <el-form-item label="客户单号起始">
             <el-input
               v-model="exportConfig.customerNumberStart"
@@ -434,6 +446,10 @@
             <div class="export-description">
               <p>将按照匈牙利发货模板格式导出订单数据，包含以下信息：</p>
               <ul>
+                <li>
+                  📦 导出数量：{{ Math.min(exportConfig.exportLimit, pagination.total) }} 条（共
+                  {{ pagination.total }} 条符合条件）
+                </li>
                 <li>✅ 收件人信息（姓名、邮箱、地址、电话等）</li>
                 <li>✅ 财务信息（代收货款币种、金额等）</li>
                 <li>✅ 商品信息（配货信息、货物类型、数量等）</li>
@@ -556,7 +572,8 @@ const exportConfig = reactive({
   transportMethod: "欧洲备货-30HU",
   country: "斯洛伐克",
   specification: "welding gun",
-  sku: "DH20251006*1"
+  sku: "DH20251006*1",
+  exportLimit: 100 // 默认导出100条
 });
 const selectedOrders = ref<Order[]>([]);
 
@@ -706,10 +723,11 @@ const handleHungaryExport = async () => {
 const handleExportConfirm = async () => {
   exportLoading.value = true;
   try {
-    // 获取所有订单数据（不分页）
+    // 获取订单数据（使用用户设置的导出数量）
+    const exportLimit = exportConfig.exportLimit || 100;
     const params: OrderListParams = {
       page: 1,
-      size: 10000, // 获取大量数据
+      size: exportLimit, // 使用用户设置的导出数量
       order_number: searchForm.order_number || undefined,
       customer_name: searchForm.customer_name || undefined,
       phone: searchForm.phone || undefined,
@@ -860,8 +878,8 @@ const handleExportConfirm = async () => {
       // 配货信息
       row.push(order.product_title || "");
 
-      // 货物类型
-      row.push(order.product_type === "original" ? "P" : "R");
+      // 货物类型（默认为P，只有仿品才是R）
+      row.push(order.product_type === "replica" ? "R" : "P");
 
       // 规格信息 - 使用配置的值
       row.push(exportConfig.specification);

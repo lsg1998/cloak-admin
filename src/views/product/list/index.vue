@@ -1880,10 +1880,23 @@ const handleImageUploadSuccess = (response: any, file: any) => {
 
 const handleImageRemove = (file: any) => {
   // 从图片列表中移除
-  if (file.response && file.response.url) {
-    const index = form.image_urls.indexOf(file.response.url);
+  let imageUrl = null;
+
+  // 新上传的图片：file.response.data.url
+  if (file.response && file.response.data && file.response.data.url) {
+    imageUrl = file.response.data.url;
+  }
+  // 已存在的图片（编辑时加载的）：file.url
+  else if (file.url) {
+    imageUrl = file.url;
+  }
+
+  if (imageUrl) {
+    const index = form.image_urls.indexOf(imageUrl);
     if (index > -1) {
       form.image_urls.splice(index, 1);
+      console.log("已删除图片:", imageUrl);
+      console.log("当前图片列表:", form.image_urls);
     }
   }
 };
