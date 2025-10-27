@@ -38,6 +38,8 @@ export interface IpStatistics {
   todayIps: number;
   totalCountries: number;
   totalCities: number;
+  genuineCount: number;
+  fakeCount: number;
   countryStats: Array<{
     country: string;
     count: number;
@@ -51,6 +53,10 @@ export interface IpStatistics {
     product_type: string;
     count: number;
     percentage: number;
+  }>;
+  sourceStats: Array<{
+    source: string;
+    count: number;
   }>;
 }
 
@@ -67,8 +73,8 @@ export const visitorIpApi = {
   },
 
   // 获取IP统计信息
-  getIpStatistics: () => {
-    return http.get("/admin/statistics/visitor-ips-stats");
+  getIpStatistics: (params?: { timeRange?: string }) => {
+    return http.get("/admin/statistics/visitor-ips-stats", params);
   },
 
   // 删除访客IP记录

@@ -410,7 +410,12 @@
               placeholder="请输入导出数量"
               style="width: 200px"
             />
-            <div class="form-tip">最多可导出 10000 条订单，当前筛选条件下共 {{ pagination.total }} 条</div>
+            <div class="form-tip">
+              当前页未发货：<el-tag type="warning" size="small">{{ getUnshippedCountInCurrentPage() }} 条</el-tag>， 全部订单：{{
+                pagination.total
+              }}
+              条（最多可导出 10000 条）
+            </div>
           </el-form-item>
 
           <el-form-item label="客户单号起始">
@@ -418,10 +423,17 @@
               v-model="exportConfig.customerNumberStart"
               placeholder="请输入客户单号起始值，如：A1150"
               style="width: 200px"
-            >
-              <template #prepend>A</template>
-            </el-input>
-            <div class="form-tip">将从 {{ exportConfig.customerNumberStart }} 开始递增</div>
+            />
+            <div class="form-tip">
+              将从 {{ exportConfig.customerNumberStart }} 开始递增
+              <el-tag type="success" size="small" style="margin-left: 8px">
+                本次将使用: {{ exportConfig.customerNumberStart }} ~ A{{
+                  parseInt(exportConfig.customerNumberStart.substring(1)) +
+                  Math.min(exportConfig.exportLimit, pagination.total) -
+                  1
+                }}
+              </el-tag>
+            </div>
           </el-form-item>
 
           <el-form-item label="运输方式">
@@ -447,8 +459,10 @@
               <p>将按照匈牙利发货模板格式导出订单数据，包含以下信息：</p>
               <ul>
                 <li>
-                  📦 导出数量：{{ Math.min(exportConfig.exportLimit, pagination.total) }} 条（共
-                  {{ pagination.total }} 条符合条件）
+                  📦 本次导出：{{ Math.min(exportConfig.exportLimit, pagination.total) }} 条订单
+                  <el-tag type="info" size="small" style="margin-left: 8px">
+                    当前页未发货: {{ getUnshippedCountInCurrentPage() }} 条
+                  </el-tag>
                 </li>
                 <li>✅ 收件人信息（姓名、邮箱、地址、电话等）</li>
                 <li>✅ 财务信息（代收货款币种、金额等）</li>
@@ -456,9 +470,14 @@
                 <li>✅ 地址备注1将自动填充原始联系地址内容</li>
                 <li>✅ 智能处理联系地址：如果联系地址以城市名开头，自动去掉城市名部分</li>
                 <li>
-                  ✅ 客户单号将自动生成：{{ exportConfig.customerNumberStart }}, A{{
-                    parseInt(exportConfig.customerNumberStart.substring(1)) + 1
-                  }}, A{{ parseInt(exportConfig.customerNumberStart.substring(1)) + 2 }}...
+                  ✅ 客户单号自动递增：{{ exportConfig.customerNumberStart }} ~ A{{
+                    parseInt(exportConfig.customerNumberStart.substring(1)) +
+                    Math.min(exportConfig.exportLimit, pagination.total) -
+                    1
+                  }}（导出后下次将从 A{{
+                    parseInt(exportConfig.customerNumberStart.substring(1)) + Math.min(exportConfig.exportLimit, pagination.total)
+                  }}
+                  开始）
                 </li>
               </ul>
             </div>
@@ -575,6 +594,47 @@ const exportConfig = reactive({
   sku: "DH20251006*1",
   exportLimit: 100 // 默认导出100条
 });
+
+// 从本地缓存加载导出配置
+const loadExportConfigFromCache = () => {
+  try {
+    const cached = localStorage.getItem("hungaryExportConfig");
+    if (cached) {
+      const config = JSON.parse(cached);
+      // 只更新存在的字段
+      if (config.customerNumberStart) exportConfig.customerNumberStart = config.customerNumberStart;
+      if (config.transportMethod) exportConfig.transportMethod = config.transportMethod;
+      if (config.country) exportConfig.country = config.country;
+      if (config.specification) exportConfig.specification = config.specification;
+      if (config.sku) exportConfig.sku = config.sku;
+      if (config.exportLimit) exportConfig.exportLimit = config.exportLimit;
+    }
+  } catch (error) {
+    console.error("加载导出配置失败:", error);
+  }
+};
+
+// 保存导出配置到本地缓存
+const saveExportConfigToCache = (exportedCount: number) => {
+  try {
+    // 计算下一次的起始单号
+    const currentNumber = parseInt(exportConfig.customerNumberStart.substring(1));
+    const nextNumber = currentNumber + exportedCount;
+
+    const configToSave = {
+      customerNumberStart: `A${nextNumber}`,
+      transportMethod: exportConfig.transportMethod,
+      country: exportConfig.country,
+      specification: exportConfig.specification,
+      sku: exportConfig.sku,
+      exportLimit: exportConfig.exportLimit
+    };
+
+    localStorage.setItem("hungaryExportConfig", JSON.stringify(configToSave));
+  } catch (error) {
+    console.error("保存导出配置失败:", error);
+  }
+};
 const selectedOrders = ref<Order[]>([]);
 
 // 搜索表单
@@ -708,8 +768,24 @@ const handleBatchDelete = () => {
   });
 };
 
+// 计算当前页未发货订单数量
+const getUnshippedCountInCurrentPage = (): number => {
+  // 未发货状态：pending, confirmed, processing
+  const unshippedStatuses = [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING];
+  return tableData.value.filter(order => unshippedStatuses.includes(order.status)).length;
+};
+
 // 打开导出对话框
 const handleExportDialog = () => {
+  // 从缓存加载上次的配置
+  loadExportConfigFromCache();
+
+  // 设置默认导出数量为当前页未发货的数量
+  const unshippedCount = getUnshippedCountInCurrentPage();
+  if (unshippedCount > 0) {
+    exportConfig.exportLimit = unshippedCount;
+  }
+
   exportDialogVisible.value = true;
 };
 
@@ -879,7 +955,8 @@ const handleExportConfirm = async () => {
       row.push(order.product_title || "");
 
       // 货物类型（默认为P，只有仿品才是R）
-      row.push(order.product_type === "replica" ? "R" : "P");
+      // original = P (正品), fake = R (仿品)
+      row.push(order.product_type === "fake" ? "R" : "P");
 
       // 规格信息 - 使用配置的值
       row.push(exportConfig.specification);
@@ -935,6 +1012,9 @@ const handleExportConfirm = async () => {
     window.URL.revokeObjectURL(url);
 
     ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为匈牙利发货模板`);
+
+    // 保存配置到缓存，更新下次的起始单号
+    saveExportConfigToCache(orders.length);
   } catch (error) {
     console.error("导出失败:", error);
     ElMessage.error("导出失败：" + (error as Error).message);
@@ -1093,6 +1173,7 @@ const handleProductCurrentChange = (current: number) => {
 // 初始化
 onMounted(() => {
   loadData();
+  loadExportConfigFromCache(); // 加载导出配置缓存
 });
 </script>
 

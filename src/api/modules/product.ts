@@ -14,7 +14,8 @@ export interface Product {
   variants?: any[];
   status: "active" | "inactive" | "draft" | "deleted";
   product_type?: "original" | "fake";
-  b_page_product_id?: string;
+  b_page_product_id?: string; // 保留兼容性（旧格式）
+  linked_original_ids?: string[]; // 新增：关联的正品ID数组
   country?: string;
   cloak_rule_id?: number;
   cloak_rule_name?: string;
@@ -138,6 +139,11 @@ export const deleteProductApi = (id: string) => {
   return http.delete(`/admin/products/${id}`);
 };
 
+// 复制商品
+export const copyProductApi = (id: string) => {
+  return http.post(`/admin/products/${id}/copy`);
+};
+
 // 获取正品商品列表（供仿品选择）
 export const getOriginalProductsApi = (search?: string) => {
   const params = search ? { search } : {};
@@ -161,11 +167,22 @@ export const updateProductCloakRuleApi = (id: string, cloakRuleId: string | null
   return http.put(`/admin/products/${id}/cloak-rule`, data);
 };
 
-// 只更新商品仿品关联
-export const updateProductFakeLinkApi = (id: string, originalProductId: string | null) => {
-  const data = {
-    b_page_product_id: originalProductId
-  };
+// 只更新商品仿品关联（支持多个正品）
+export const updateProductFakeLinkApi = (id: string, originalProductIds: string[] | string | null) => {
+  // 兼容旧格式和新格式
+  let data: any;
+
+  if (originalProductIds === null || originalProductIds === undefined) {
+    // 取消关联
+    data = { original_product_ids: [] };
+  } else if (Array.isArray(originalProductIds)) {
+    // 新格式：数组
+    data = { original_product_ids: originalProductIds };
+  } else {
+    // 旧格式：单个ID，转换为数组
+    data = { original_product_ids: [originalProductIds] };
+  }
+
   console.log("发送仿品关联更新请求:", { id, data });
   return http.put(`/admin/products/${id}/fake-link`, data);
 };

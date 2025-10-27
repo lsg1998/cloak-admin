@@ -13,11 +13,12 @@
           />
         </el-form-item>
         <el-form-item label="时间筛选">
-          <el-select v-model="searchForm.timeRange" placeholder="请选择时间范围" clearable style="width: 150px">
+          <el-select v-model="searchForm.timeRange" placeholder="请选择时间范围" style="width: 150px">
             <el-option label="当天" value="today" />
             <el-option label="昨天" value="yesterday" />
             <el-option label="本周" value="week" />
             <el-option label="本月" value="month" />
+            <el-option label="全部" value="all" />
           </el-select>
         </el-form-item>
         <el-form-item label="访客类型">
@@ -53,8 +54,11 @@
     </el-card>
 
     <!-- 统计信息卡片 -->
+    <div class="statistics-title">
+      <h3>统计数据（{{ getTimeRangeLabel() }}）</h3>
+    </div>
     <el-row :gutter="20" class="statistics-cards">
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-value">{{ statistics.totalIps }}</div>
@@ -65,7 +69,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-value">{{ statistics.todayIps }}</div>
@@ -76,7 +80,29 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
+        <el-card class="stat-card genuine">
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.genuineCount }}</div>
+            <div class="stat-label">访问正品</div>
+          </div>
+          <div class="stat-icon">
+            <el-icon><Checked /></el-icon>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card class="stat-card fake">
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.fakeCount }}</div>
+            <div class="stat-label">访问仿品</div>
+          </div>
+          <div class="stat-icon">
+            <el-icon><Warning /></el-icon>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-value">{{ statistics.totalCountries }}</div>
@@ -87,7 +113,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-value">{{ statistics.totalCities }}</div>
@@ -95,6 +121,30 @@
           </div>
           <div class="stat-icon">
             <el-icon><MapLocation /></el-icon>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 来源统计卡片 -->
+    <el-row :gutter="20" class="statistics-cards" style="margin-top: 20px">
+      <el-col :span="24">
+        <el-card class="source-stats-card">
+          <div class="card-header">
+            <h3>访问来源统计</h3>
+          </div>
+          <div class="source-stats-list">
+            <div v-for="item in statistics.sourceStats" :key="item.source" class="source-item">
+              <div class="source-name">
+                <el-tag :type="getSourceTagType(item.source)" size="default">
+                  {{ item.source }}
+                </el-tag>
+              </div>
+              <div class="source-count">
+                <span class="count-value">{{ item.count }}</span>
+                <span class="count-label">次</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -143,6 +193,12 @@
                   <span class="value">{{ formatDate(row.last_visit) }}</span>
                 </div>
                 <div class="address-line">
+                  <span class="label">访问页面:</span>
+                  <span class="value referer" :title="row.access_address || '-'">
+                    {{ row.access_address || "-" }}
+                  </span>
+                </div>
+                <div class="address-line">
                   <span class="label">来源:</span>
                   <span class="value referer" :title="row.referer || '-'">
                     {{ row.referer || "-" }}
@@ -180,6 +236,13 @@
                 <div class="type-line">
                   <span class="label">商品:</span>
                   <el-tag v-if="row.product_id" size="small" type="success">{{ row.product_id }}</el-tag>
+                  <span v-else class="value">-</span>
+                </div>
+                <div class="type-line">
+                  <span class="label">产品类型:</span>
+                  <el-tag v-if="row.product_type" size="small" :type="getProductTypeColor(row.product_type)">
+                    {{ getProductTypeLabel(row.product_type) }}
+                  </el-tag>
                   <span v-else class="value">-</span>
                 </div>
               </div>
@@ -322,12 +385,26 @@
             <span v-if="currentVisitorIp.postal_code">{{ currentVisitorIp.postal_code }}</span>
             <span v-else class="text-gray-400">--</span>
           </el-descriptions-item>
-          <el-descriptions-item label="来源页面">
+          <el-descriptions-item label="访问页面" :span="2">
+            <div v-if="currentVisitorIp.access_address" class="referer-info">
+              <el-link :href="currentVisitorIp.access_address" target="_blank" type="primary" size="small">
+                {{ currentVisitorIp.access_address }}
+              </el-link>
+            </div>
+            <span v-else class="text-gray-400">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="来源页面" :span="2">
             <div v-if="currentVisitorIp.referer" class="referer-info">
               <el-link :href="currentVisitorIp.referer" target="_blank" type="primary" size="small">
                 {{ currentVisitorIp.referer }}
               </el-link>
             </div>
+            <span v-else class="text-gray-400">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="产品类型">
+            <el-tag v-if="currentVisitorIp.product_type" :type="getProductTypeColor(currentVisitorIp.product_type)" size="small">
+              {{ getProductTypeLabel(currentVisitorIp.product_type) }}
+            </el-tag>
             <span v-else class="text-gray-400">--</span>
           </el-descriptions-item>
           <el-descriptions-item label="访问次数">
@@ -418,7 +495,9 @@ import {
   View,
   Connection,
   Search,
-  Close
+  Close,
+  Checked,
+  Warning
 } from "@element-plus/icons-vue";
 import { visitorIpApi, type VisitorIp, type IpStatistics } from "@/api/modules/visitorIp";
 import { userBehaviorApi, type UserBehaviorTimeline } from "@/api/modules/userBehavior";
@@ -438,7 +517,7 @@ const currentTimeline = ref<UserBehaviorTimeline | null>(null);
 // 搜索表单
 const searchForm = reactive({
   ip: "",
-  timeRange: "",
+  timeRange: "today", // 默认今天
   visitorType: "",
   productId: ""
 });
@@ -473,8 +552,12 @@ const statistics = ref<IpStatistics>({
   todayIps: 0,
   totalCountries: 0,
   totalCities: 0,
+  genuineCount: 0,
+  fakeCount: 0,
   countryStats: [],
-  cityStats: []
+  cityStats: [],
+  productTypeStats: [],
+  sourceStats: []
 });
 
 // 格式化日期
@@ -654,6 +737,58 @@ const getBotDescription = (row: VisitorIp) => {
   return null;
 };
 
+// 获取产品类型标签颜色
+const getProductTypeColor = (type: string) => {
+  const colorMap: Record<string, string> = {
+    A: "primary",
+    B: "success",
+    C: "warning",
+    D: "danger",
+    E: "info"
+  };
+  return colorMap[type] || "info";
+};
+
+// 获取产品类型标签文本
+const getProductTypeLabel = (type: string) => {
+  const labelMap: Record<string, string> = {
+    A: "A页",
+    B: "B页",
+    C: "C页",
+    D: "D页",
+    E: "E页"
+  };
+  return labelMap[type] || type;
+};
+
+// 获取来源标签类型
+const getSourceTagType = (source: string) => {
+  const typeMap: Record<string, "success" | "primary" | "warning" | "danger" | "info"> = {
+    YouTube: "danger",
+    "Android App": "success",
+    Google: "primary",
+    Facebook: "primary",
+    Instagram: "warning",
+    TikTok: "danger",
+    "Twitter/X": "info",
+    直接访问: "info",
+    其他: ""
+  };
+  return typeMap[source] || "info";
+};
+
+// 获取时间范围标签
+const getTimeRangeLabel = () => {
+  const labelMap: Record<string, string> = {
+    today: "今天",
+    yesterday: "昨天",
+    week: "本周",
+    month: "本月",
+    all: "全部时间"
+  };
+  return labelMap[searchForm.timeRange] || "今天";
+};
+
 // 获取访客IP列表
 const getVisitorIps = async () => {
   try {
@@ -680,7 +815,9 @@ const getVisitorIps = async () => {
 // 获取统计数据
 const loadStatistics = async () => {
   try {
-    const response = await visitorIpApi.getIpStatistics();
+    const response = await visitorIpApi.getIpStatistics({
+      timeRange: searchForm.timeRange || "today"
+    });
     if (response.code === 200) {
       statistics.value = response.data;
     }
@@ -694,13 +831,14 @@ const loadStatistics = async () => {
 const handleSearch = () => {
   pagination.page = 1;
   getVisitorIps();
+  loadStatistics(); // 同时更新统计数据
 };
 
 // 重置搜索
 const handleReset = () => {
   Object.assign(searchForm, {
     ip: "",
-    timeRange: "",
+    timeRange: "today", // 重置为默认今天
     visitorType: "",
     productId: ""
   });
@@ -953,6 +1091,19 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
+.statistics-title {
+  margin: 20px 0 10px 0;
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+    margin: 0;
+    padding-left: 10px;
+    border-left: 4px solid #409eff;
+  }
+}
+
 .statistics-cards {
   margin-bottom: 20px;
 }
@@ -987,6 +1138,22 @@ onMounted(() => {
   font-size: 24px;
   color: #409eff;
   opacity: 0.3;
+}
+
+.stat-card.genuine .stat-value {
+  color: #67c23a;
+}
+
+.stat-card.genuine .stat-icon {
+  color: #67c23a;
+}
+
+.stat-card.fake .stat-value {
+  color: #f56c6c;
+}
+
+.stat-card.fake .stat-icon {
+  color: #f56c6c;
 }
 
 .table-card {
@@ -1275,5 +1442,64 @@ onMounted(() => {
 
 :deep(.el-timeline-item__content) {
   padding-bottom: 16px;
+}
+
+/* 来源统计卡片样式 */
+.source-stats-card {
+  .card-header {
+    margin-bottom: 20px;
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #303133;
+      margin: 0;
+    }
+  }
+
+  .source-stats-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .source-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 180px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s;
+
+    &:hover {
+      background: #e9ecef;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  .source-name {
+    flex: 1;
+    margin-right: 12px;
+  }
+
+  .source-count {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+
+    .count-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #409eff;
+    }
+
+    .count-label {
+      font-size: 12px;
+      color: #909399;
+    }
+  }
 }
 </style>

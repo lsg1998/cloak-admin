@@ -140,16 +140,23 @@
               <span v-else style="color: #999999">-</span>
             </div>
             <!-- 仿品显示关联的正品 -->
-            <div v-else-if="row.b_page_product_id">
-              <el-tooltip :content="`关联正品: ${getOriginalProductTitle(row.b_page_product_id)}`" placement="top">
-                <el-tag type="info" size="small" style="cursor: pointer" @click="handleViewOriginal(row.b_page_product_id)">
-                  已关联
-                </el-tag>
-              </el-tooltip>
-              <el-button size="small" type="danger" link @click="handleCancelAssociation(row)" style="margin-left: 8px">
-                <el-icon><Close /></el-icon>
-                取消关联
-              </el-button>
+            <div v-else-if="row.linked_original_ids && row.linked_original_ids.length > 0">
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center">
+                <el-tooltip
+                  v-for="originalId in row.linked_original_ids"
+                  :key="originalId"
+                  :content="`关联正品: ${getOriginalProductTitle(originalId)}`"
+                  placement="top"
+                >
+                  <el-tag type="success" size="small" style="cursor: pointer" @click="handleViewOriginal(originalId)">
+                    {{ getOriginalProductTitle(originalId, true) }}
+                  </el-tag>
+                </el-tooltip>
+                <el-button size="small" type="danger" link @click="handleCancelAssociation(row)">
+                  <el-icon><Close /></el-icon>
+                  取消
+                </el-button>
+              </div>
             </div>
             <span v-else style="color: #f56c6c">未关联</span>
           </template>
@@ -231,6 +238,10 @@
               <el-button size="small" type="warning" link @click="handleEdit(row)">
                 <el-icon><Edit /></el-icon>
                 编辑
+              </el-button>
+              <el-button size="small" type="info" link @click="handleCopy(row)">
+                <el-icon><DocumentCopy /></el-icon>
+                复制
               </el-button>
               <el-button size="small" type="danger" link @click="handleDelete(row)">
                 <el-icon><Delete /></el-icon>
@@ -360,8 +371,11 @@
             <el-form-item v-if="form.product_type === 'fake'" label="关联正品" prop="b_page_product_id">
               <el-select
                 v-model="form.b_page_product_id"
-                placeholder="请选择对应的正品商品"
+                placeholder="请选择对应的正品商品（支持多选）"
                 filterable
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
                 remote
                 :remote-method="searchOriginalProducts"
                 :loading="originalProductsLoading"
@@ -1333,13 +1347,15 @@ import {
   Picture,
   MagicStick,
   Sort,
-  Close
+  Close,
+  DocumentCopy
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
   createProductApi,
   updateProductApi,
   deleteProductApi,
+  copyProductApi,
   getOriginalProductsApi,
   updateProductFakeLinkApi,
   updateProductCloakRuleApi,
@@ -1417,7 +1433,7 @@ const form = reactive({
   variants: [] as any[],
   status: "active",
   product_type: "original" as "original" | "fake",
-  b_page_product_id: "",
+  b_page_product_id: [] as string[], // 改为数组，支持多个正品
   cloak_rule_id: null as number | null,
   country: "JA",
   template: "classic", // 模板类型：classic、shopline 或 standard
@@ -1745,7 +1761,13 @@ const handleEdit = (row: Product) => {
     origin_price: parseFloat(row.origin_price) || 0,
     discount: parseFloat(row.discount) || 0,
     product_type: row.product_type || "original",
-    b_page_product_id: row.b_page_product_id || "",
+    // 支持新旧两种格式的关联正品ID
+    b_page_product_id:
+      row.linked_original_ids && row.linked_original_ids.length > 0
+        ? row.linked_original_ids
+        : row.b_page_product_id
+          ? [row.b_page_product_id]
+          : [],
     country: row.country || "JA",
     template: row.template || "classic", // 确保模板字段被正确设置
     cloak_rule_id: row.cloak_rule_id || null // 确保斗篷规则ID被正确设置
@@ -1796,6 +1818,26 @@ const handleDelete = (row: Product) => {
       loadData();
     } catch (error) {
       ElMessage.error("删除失败");
+    }
+  });
+};
+
+// 复制商品
+const handleCopy = (row: Product) => {
+  ElMessageBox.confirm(`确定要复制商品 "${row.title}" 吗？复制后的商品将以草稿状态保存，标题会添加"(复制)"后缀。`, "复制确认", {
+    confirmButtonText: "确定复制",
+    cancelButtonText: "取消",
+    type: "info"
+  }).then(async () => {
+    try {
+      const result = await copyProductApi(row.id);
+      ElMessage.success(`复制成功！新商品ID: ${result.data.id}`);
+      // 刷新列表
+      loadData();
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || error?.message || "复制失败";
+      ElMessage.error(errorMsg);
+      console.error("复制商品失败:", error);
     }
   });
 };
@@ -2191,10 +2233,10 @@ const handleImageInputModeChange = (mode: string) => {
 const handleProductTypeChange = (value: string) => {
   if (value === "original") {
     // 如果改为正品，清空关联的正品ID
-    form.b_page_product_id = "";
+    form.b_page_product_id = [];
   } else if (value === "fake") {
     // 如果改为仿品，且当前没有关联的正品，才加载正品商品列表
-    if (!form.b_page_product_id) {
+    if (!form.b_page_product_id || form.b_page_product_id.length === 0) {
       loadOriginalProducts();
     }
   }
@@ -2645,14 +2687,30 @@ const loadOriginalProducts = async () => {
 };
 
 // 获取正品商品标题
-const getOriginalProductTitle = (productId: string) => {
+const getOriginalProductTitle = (productId: string, short: boolean = false) => {
   const product = tableData.value.find(p => p.id === productId);
-  return product ? product.title : "未知商品";
+  if (!product) return "未知商品";
+
+  // 如果需要简短标题，截取前10个字符
+  if (short && product.title.length > 10) {
+    return product.title.substring(0, 10) + "...";
+  }
+  return product.title;
 };
 
-// 获取正品关联的所有仿品
+// 获取正品关联的所有仿品（支持新的关联格式）
 const getFakeProductsForOriginal = (originalProductId: string) => {
-  return tableData.value.filter(p => p.product_type === "fake" && p.b_page_product_id === originalProductId);
+  return tableData.value.filter(p => {
+    if (p.product_type !== "fake") return false;
+
+    // 支持新格式（linked_original_ids 数组）
+    if (p.linked_original_ids && Array.isArray(p.linked_original_ids)) {
+      return p.linked_original_ids.includes(originalProductId);
+    }
+
+    // 兼容旧格式（b_page_product_id 单个ID）
+    return p.b_page_product_id === originalProductId;
+  });
 };
 
 // 查看正品详情
