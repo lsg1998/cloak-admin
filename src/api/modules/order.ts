@@ -138,6 +138,20 @@ export const batchDeleteOrdersApi = (ids: number[]) => {
   return http.delete("/admin/orders/batch", { data: { ids } });
 };
 
+/**
+ * 发送拣货通知邮件
+ */
+export const sendPickingNotificationEmailApi = (id: number) => {
+  return http.post(`/admin/orders/${id}/email/picking-notification`);
+};
+
+/**
+ * 发送发货通知邮件
+ */
+export const sendShippedNotificationEmailApi = (id: number) => {
+  return http.post(`/admin/orders/${id}/email/shipped-notification`);
+};
+
 // 订单统计数据类型
 export interface OrderStatistics {
   // 基础统计

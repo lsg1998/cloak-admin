@@ -225,7 +225,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right" align="center">
+        <el-table-column label="操作" width="320" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button size="small" type="primary" link @click="handleViewDetail(row)">
@@ -248,6 +248,21 @@
                     >
                       <el-tag :type="OrderStatusColors[status]" size="small">{{ label }}</el-tag>
                     </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-dropdown v-if="row.email" @command="command => handleEmailAction(row, command)">
+                <el-button size="small" type="warning" link>
+                  <el-icon><Message /></el-icon>
+                  邮件
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="picking">📦 拣货通知</el-dropdown-item>
+                    <el-dropdown-item command="shipped">🚚 发货通知</el-dropdown-item>
+                    <el-dropdown-item command="arrival" divided>📍 到达提醒</el-dropdown-item>
+                    <el-dropdown-item command="reshipment">🔄 补发通知</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -495,6 +510,35 @@
       </template>
     </el-dialog>
 
+    <!-- 邮件预览对话框 -->
+    <el-dialog v-model="emailPreviewDialogVisible" title="邮件预览" width="700px" :close-on-click-modal="false">
+      <div v-if="currentEmailPreview" class="email-preview">
+        <el-descriptions :column="1" border style="margin-bottom: 20px">
+          <el-descriptions-item label="收件人">{{ currentEmailPreview.to }}</el-descriptions-item>
+          <el-descriptions-item label="主题">{{ currentEmailPreview.subject }}</el-descriptions-item>
+          <el-descriptions-item label="邮件类型">
+            <el-tag :type="currentEmailPreview.type === 'picking' ? 'warning' : 'success'">
+              {{ currentEmailPreview.typeName }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-divider content-position="left">邮件内容预览</el-divider>
+
+        <div class="email-content-preview" v-html="currentEmailPreview.htmlContent"></div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="emailPreviewDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmSendEmail" :loading="emailSending">
+            <el-icon><Promotion /></el-icon>
+            确认发送
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 商品选择对话框 -->
     <el-dialog v-model="productDialogVisible" title="选择商品" width="800px" :close-on-click-modal="false">
       <div class="product-selector">
@@ -562,7 +606,20 @@
 <script setup lang="ts" name="OrderList">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Box, Search, Refresh, Calendar, Edit, Delete, View, Download, ArrowDown, Close } from "@element-plus/icons-vue";
+import {
+  Box,
+  Search,
+  Refresh,
+  Calendar,
+  Edit,
+  Delete,
+  View,
+  Download,
+  ArrowDown,
+  Close,
+  Message,
+  Promotion
+} from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
   getOrderListApi,
@@ -570,12 +627,15 @@ import {
   updateOrderStatusApi,
   deleteOrderApi,
   batchDeleteOrdersApi,
+  sendPickingNotificationEmailApi,
+  sendShippedNotificationEmailApi,
   type Order,
   type OrderListParams,
   OrderStatus,
   OrderStatusLabels,
   OrderStatusColors
 } from "@/api/modules/order";
+import { sendArrivalReminderApi, sendReshipmentNoticeApi } from "@/api/modules/email";
 import { getProductListApi, type Product } from "@/api/modules/product";
 
 // 响应式数据
@@ -584,6 +644,19 @@ const exportLoading = ref(false);
 const detailDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
+
+// 邮件预览相关
+const emailPreviewDialogVisible = ref(false);
+const emailSending = ref(false);
+const currentEmailPreview = ref<{
+  to: string;
+  subject: string;
+  type: string;
+  typeName: string;
+  htmlContent: string;
+  orderId: number;
+  action: string;
+} | null>(null);
 
 // 导出配置
 const exportConfig = reactive({
@@ -766,6 +839,396 @@ const handleBatchDelete = () => {
       ElMessage.error("批量删除失败");
     }
   });
+};
+
+// 生成邮件HTML内容
+const generateEmailHtml = (row: Order, type: string): string => {
+  const orderNumber = row.order_number;
+  const customerName = row.customer_name;
+  const productTitle = row.product_title || "Product";
+  const quantity = row.quantity;
+  const totalAmount = row.total_amount.toFixed(2);
+  const currency = row.currency || "EUR";
+  const productImage = row.product_images && row.product_images[0] ? row.product_images[0] : "";
+
+  const productImageHtml = productImage
+    ? `<img src="${productImage}" alt="Product" style="max-width: 200px; height: auto; border-radius: 8px; margin-top: 10px;" />`
+    : "";
+
+  if (type === "picking") {
+    // 拣货通知邮件
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px;">🎉 Great News!</h1>
+                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px;">Your order is being prepared</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 22px;">Hello ${customerName}! 👋</h2>
+                            <p style="margin: 0 0 20px 0; color: #666; font-size: 16px; line-height: 1.6;">
+                                We're excited to let you know that your order <strong style="color: #667eea;">#${orderNumber}</strong> 
+                                is now being picked and packed with care by our warehouse team!
+                            </p>
+                            <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 18px;">📦 Order Details</h3>
+                                <table width="100%" cellpadding="5" cellspacing="0">
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Order Number:</td>
+                                        <td style="color: #333; font-size: 14px; font-weight: bold; text-align: right;">#${orderNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Product:</td>
+                                        <td style="color: #333; font-size: 14px; text-align: right;">${productTitle}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Quantity:</td>
+                                        <td style="color: #333; font-size: 14px; text-align: right;">${quantity}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Total Amount:</td>
+                                        <td style="color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${totalAmount} ${currency}</td>
+                                    </tr>
+                                </table>
+                                ${productImageHtml}
+                            </div>
+                            <div style="background-color: #e8f5e9; border-radius: 5px; padding: 15px; margin: 20px 0;">
+                                <p style="margin: 0; color: #2e7d32; font-size: 14px; text-align: center;">
+                                    ✅ <strong>Next Step:</strong> Your order will be shipped soon!
+                                </p>
+                            </div>
+                            <p style="margin: 20px 0 0 0; color: #666; font-size: 14px; line-height: 1.6;">
+                                Thank you for choosing us! We'll notify you again once your order is shipped.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                This is an automated message, please do not reply to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+  } else if (type === "shipped") {
+    // 发货通知邮件
+    const address = row.address || "";
+    const city = row.city || "";
+    const country = row.province || "";
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px;">📦 Shipped!</h1>
+                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px;">Your order is on the way</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 22px;">Hello ${customerName}! 🚚</h2>
+                            <p style="margin: 0 0 20px 0; color: #666; font-size: 16px; line-height: 1.6;">
+                                Exciting news! Your order <strong style="color: #11998e;">#${orderNumber}</strong> 
+                                has been shipped and is now on its way to you!
+                            </p>
+                            <div style="background-color: #f8f9fa; border-left: 4px solid #11998e; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 18px;">📦 Shipment Details</h3>
+                                <table width="100%" cellpadding="5" cellspacing="0">
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Order Number:</td>
+                                        <td style="color: #333; font-size: 14px; font-weight: bold; text-align: right;">#${orderNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Product:</td>
+                                        <td style="color: #333; font-size: 14px; text-align: right;">${productTitle}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; font-size: 14px;">Quantity:</td>
+                                        <td style="color: #333; font-size: 14px; text-align: right;">${quantity}</td>
+                                    </tr>
+                                </table>
+                                ${productImageHtml}
+                            </div>
+                            <div style="background-color: #fff3cd; border-radius: 5px; padding: 15px; margin: 20px 0;">
+                                <h4 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">📍 Shipping Address</h4>
+                                <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.6;">
+                                    ${address}<br/>
+                                    ${city}, ${country}
+                                </p>
+                            </div>
+                            <p style="margin: 20px 0 0 0; color: #666; font-size: 14px; line-height: 1.6;">
+                                Thank you for your patience! Your package will arrive soon.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                This is an automated message, please do not reply to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+  } else if (type === "arrival") {
+    // 到达提醒邮件
+    const address = row.address || "";
+    const city = row.city || "";
+    const country = row.province || "";
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 10px;">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px;">Reminder!</h1>
+                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px;">Your package is waiting</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 22px;">Hello ${customerName}!</h2>
+                            <p style="margin: 0 0 20px 0; color: #666; font-size: 16px;">
+                                Your order <strong>#${orderNumber}</strong> has arrived at the pickup location!
+                            </p>
+                            <div style="background-color: #fff3cd; border-left: 4px solid #f5576c; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                                <h3 style="margin: 0 0 15px 0; color: #856404;">Important Information</h3>
+                                <p><strong>Order Number:</strong> #${orderNumber}</p>
+                                <p><strong>Product:</strong> ${productTitle}</p>
+                                <p style="color: #d9534f; margin-top: 15px;"><strong>Please pick up as soon as possible!</strong></p>
+                            </div>
+                            <div style="background-color: #d4edda; border-radius: 5px; padding: 15px; margin: 20px 0;">
+                                <h4 style="margin: 0 0 10px 0; color: #155724;">Pickup Location</h4>
+                                <p style="margin: 0; color: #155724;">${address}, ${city}, ${country}</p>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">This is an automated message</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+  } else if (type === "reshipment") {
+    // 补发通知邮件
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 10px;">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px;">We Sincerely Apologize!</h1>
+                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px;">We will make it right</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 22px;">Dear ${customerName},</h2>
+                            <p style="margin: 0 0 15px 0; color: #666; font-size: 16px; line-height: 1.8;">
+                                We sincerely apologize for the inconvenience regarding your order <strong>#${orderNumber}</strong>.
+                            </p>
+                            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                                <h3 style="margin: 0 0 15px 0; color: #856404;">What Happened</h3>
+                                <p style="margin: 5px 0; color: #856404; line-height: 1.6;">
+                                    Due to an error by our warehouse staff, the <strong>wrong product was sent to you</strong>. We take full responsibility for this mistake.
+                                </p>
+                            </div>
+                            <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                                <h3 style="margin: 0 0 15px 0; color: #155724;">Good News - We Have Already Taken Action!</h3>
+                                <p style="color: #155724;"><strong>We have already arranged a reshipment for you!</strong></p>
+                                <p><strong>Order Number:</strong> #${orderNumber}</p>
+                                <p><strong>Correct Product:</strong> ${productTitle}</p>
+                                <p><strong>Quantity:</strong> ${quantity}</p>
+                                <p style="color: #155724; margin-top: 15px;"><strong>Express Delivery: Arriving within 7 days!</strong></p>
+                            </div>
+                            <div style="background-color: #e3f2fd; border-radius: 5px; padding: 20px; margin: 20px 0;">
+                                <h4 style="margin: 0 0 10px 0; color: #1976d2;">What About the Wrong Item?</h4>
+                                <p style="color: #666; font-size: 14px;">No need to return it. Keep it or dispose of it. This is our mistake.</p>
+                            </div>
+                            <div style="background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin: 20px 0;">
+                                <h4 style="margin: 0 0 10px 0; color: #333;">Need Help?</h4>
+                                <p style="color: #666;">Contact us anytime:</p>
+                                <p><strong>Support Email:</strong> <a href="mailto:hwt3432@gmail.com" style="color: #4facfe; font-weight: bold;">hwt3432@gmail.com</a></p>
+                                <p style="color: #666; font-size: 13px;">We respond within 24 hours.</p>
+                            </div>
+                            <p style="margin: 20px 0 0 0; color: #666; font-size: 14px;">
+                                Thank you for your patience. We value your business!
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">This is an automated message</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+  }
+
+  return "";
+};
+
+// 处理邮件发送操作
+const handleEmailAction = async (row: Order, action: string) => {
+  console.log("=== 邮件发送开始 ===");
+  console.log("1. handleEmailAction 被调用");
+  console.log("   - 订单ID:", row.id);
+  console.log("   - 邮件类型:", action);
+  console.log("   - 邮箱地址:", row.email);
+  console.log("   - 订单号:", row.order_number);
+
+  if (!row.email) {
+    console.log("2. ❌ 没有邮箱地址，退出");
+    ElMessage.warning("该订单没有邮箱地址，无法发送邮件");
+    return;
+  }
+
+  const emailTypes = {
+    picking: {
+      name: "拣货通知",
+      subject: "Good News! Your Order is Being Prepared for Shipment",
+      api: sendPickingNotificationEmailApi
+    },
+    shipped: {
+      name: "发货通知",
+      subject: "Your Order Has Been Shipped!",
+      api: sendShippedNotificationEmailApi
+    },
+    arrival: {
+      name: "到达提醒",
+      subject: "Package Arrival Reminder - Please Pick Up",
+      api: sendArrivalReminderApi
+    },
+    reshipment: {
+      name: "补发通知",
+      subject: "We Will Reship Your Order - Support Available",
+      api: sendReshipmentNoticeApi
+    }
+  };
+
+  console.log("2. 邮件类型配置:", emailTypes);
+
+  const emailType = emailTypes[action as keyof typeof emailTypes];
+  if (!emailType) {
+    console.log("3. ❌ 未知的邮件类型:", action);
+    return;
+  }
+
+  console.log("3. ✓ 找到邮件类型:", emailType.name);
+
+  // 生成邮件HTML内容
+  const htmlContent = generateEmailHtml(row, action);
+
+  // 设置预览数据
+  currentEmailPreview.value = {
+    to: row.email,
+    subject: emailType.subject,
+    type: action,
+    typeName: emailType.name,
+    htmlContent: htmlContent,
+    orderId: row.id,
+    action: action
+  };
+
+  console.log("4. 显示邮件预览对话框");
+  emailPreviewDialogVisible.value = true;
+};
+
+// 确认发送邮件
+const confirmSendEmail = async () => {
+  if (!currentEmailPreview.value) return;
+
+  const { orderId, action, typeName } = currentEmailPreview.value;
+
+  const emailTypes = {
+    picking: { name: "拣货通知", api: sendPickingNotificationEmailApi },
+    shipped: { name: "发货通知", api: sendShippedNotificationEmailApi }
+  };
+
+  const emailType = emailTypes[action as keyof typeof emailTypes];
+  if (!emailType) return;
+
+  console.log("5. ✓ 用户确认发送");
+  console.log("6. 准备调用API:", `/admin/orders/${orderId}/email/${action}-notification`);
+
+  emailSending.value = true;
+
+  try {
+    console.log("7. 开始调用 API...");
+    const response = await emailType.api(orderId);
+    console.log("8. ✓ API 调用成功");
+    console.log("   - 完整响应:", response);
+    ElMessage.success(`${typeName}邮件发送成功！`);
+    emailPreviewDialogVisible.value = false;
+  } catch (error: any) {
+    console.error("8. ❌ API 调用失败");
+    console.error("   - 错误对象:", error);
+    console.error("   - 错误消息:", error.message);
+    console.error("   - 响应数据:", error.response?.data);
+    console.error("   - 响应状态:", error.response?.status);
+    ElMessage.error(error.response?.data?.message || error.message || `${typeName}邮件发送失败`);
+  } finally {
+    emailSending.value = false;
+  }
+
+  console.log("=== 邮件发送结束 ===\n");
 };
 
 // 计算当前页未发货订单数量
@@ -1556,6 +2019,26 @@ onMounted(() => {
       font-size: 13px;
     }
   }
+}
+
+/* 邮件预览对话框样式 */
+.email-preview {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.email-content-preview {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 20px;
+  background-color: #f5f5f5;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.email-content-preview img {
+  max-width: 100%;
+  height: auto;
 }
 
 /* 响应式设计 */
