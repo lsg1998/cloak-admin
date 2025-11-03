@@ -1,0 +1,1 @@
+import{_ as o}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{c as r,o as c,a as s}from"./index-CZakEshs.js";const t={},a={class:"card content-box"};function n(d,e){return c(),r("div",a,[...e[0]||(e[0]=[s("iframe",{src:"https://cn.bing.com/",frameborder:"0",class:"full-iframe"},null,-1)])])}const i=o(t,[["render",n],["__scopeId","data-v-a8bdc743"]]);export{i as default};
