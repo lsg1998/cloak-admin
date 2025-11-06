@@ -342,7 +342,10 @@ const countryOptions = [
   { label: "匈牙利", value: "HU" },
   { label: "意大利", value: "IT" },
   { label: "西班牙", value: "ES" },
-  { label: "捷克", value: "CZ" }
+  { label: "捷克", value: "CZ" },
+  { label: "立陶宛", value: "LT" },
+  { label: "拉脱维亚", value: "LV" },
+  { label: "克罗地亚", value: "HR" }
 ];
 
 // 时区选项
@@ -358,6 +361,9 @@ const timezoneOptions = [
   { label: "欧洲/罗马 (意大利)", value: "Europe/Rome" },
   { label: "欧洲/马德里 (西班牙)", value: "Europe/Madrid" },
   { label: "欧洲/布拉格 (捷克)", value: "Europe/Prague" },
+  { label: "欧洲/维尔纽斯 (立陶宛)", value: "Europe/Vilnius" },
+  { label: "欧洲/里加 (拉脱维亚)", value: "Europe/Riga" },
+  { label: "欧洲/萨格勒布 (克罗地亚)", value: "Europe/Zagreb" },
   { label: "美国/纽约 (美国东部)", value: "America/New_York" },
   { label: "美国/洛杉矶 (美国西部)", value: "America/Los_Angeles" },
   { label: "欧洲/巴黎 (法国)", value: "Europe/Paris" },
@@ -379,7 +385,10 @@ const countryToTimezoneMap = {
   HU: "Europe/Budapest",
   IT: "Europe/Rome",
   ES: "Europe/Madrid",
-  CZ: "Europe/Prague"
+  CZ: "Europe/Prague",
+  LT: "Europe/Vilnius",
+  LV: "Europe/Riga",
+  HR: "Europe/Zagreb"
 };
 
 // 搜索表单

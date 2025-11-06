@@ -78,7 +78,7 @@
         style="width: 100%"
         :header-cell-style="{ background: '#f8f9fa', color: '#606266' }"
       >
-        <el-table-column prop="title" label="商品标题" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="title" label="商品标题" width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="product-info">
               <el-avatar :size="40" class="product-avatar" v-if="row.image_urls && row.image_urls[0]">
@@ -88,30 +88,38 @@
                 <el-icon><Box /></el-icon>
               </el-avatar>
               <div class="product-details">
-                <div class="product-title">{{ row.title }}</div>
+                <div
+                  class="product-title"
+                  style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                >
+                  {{ row.title }}
+                </div>
                 <div class="product-subtitle">{{ row.sell_price ? "¥" + row.sell_price : "暂未定价" }}</div>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="sell_price" label="销售价" width="90" align="center">
+        <el-table-column label="价格信息" width="160" align="center">
           <template #default="{ row }">
-            <span v-if="row.sell_price" style="font-weight: bold; color: #ef3f52"> ¥{{ row.sell_price }} </span>
-            <span v-else style="color: #999999">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="origin_price" label="原价" width="90" align="center">
-          <template #default="{ row }">
-            <span v-if="row.origin_price && row.origin_price > 0" style="color: #666666; text-decoration: line-through">
-              ¥{{ row.origin_price }}
-            </span>
-            <span v-else style="color: #999999">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="discount" label="折扣" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.discount && row.discount > 0" type="success" size="small"> {{ row.discount }}% OFF </el-tag>
-            <span v-else style="color: #999999">--</span>
+            <div class="price-info">
+              <div class="sell-price">
+                <span v-if="row.sell_price" style="font-weight: bold; color: #ef3f52; font-size: 16px">
+                  ¥{{ row.sell_price }}
+                </span>
+                <span v-else style="color: #999999">--</span>
+              </div>
+              <div class="origin-price" style="margin-top: 4px">
+                <span
+                  v-if="row.origin_price && row.origin_price > 0"
+                  style="color: #999999; text-decoration: line-through; font-size: 12px"
+                >
+                  原价: ¥{{ row.origin_price }}
+                </span>
+              </div>
+              <div v-if="row.discount && row.discount > 0" style="margin-top: 4px">
+                <el-tag type="success" size="small">{{ row.discount }}% OFF</el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="product_type" label="类型" width="100" align="center">
@@ -161,16 +169,23 @@
             <span v-else style="color: #f56c6c">未关联</span>
           </template>
         </el-table-column>
-        <el-table-column prop="country" label="国家" width="80" align="center">
+        <el-table-column label="配置信息" width="150" align="center">
           <template #default="{ row }">
-            <el-tag type="primary" size="small">{{ row.country || "JA" }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="template" label="展示模板" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.template === 'shopline'" type="success" size="small"> Shopline </el-tag>
-            <el-tag v-else-if="row.template === 'standard'" type="warning" size="small"> Standard </el-tag>
-            <el-tag v-else type="info" size="small"> Classic </el-tag>
+            <div class="config-info">
+              <div style="margin-bottom: 4px">
+                <el-tag type="primary" size="small">{{ row.country || "JA" }}</el-tag>
+              </div>
+              <div style="margin-bottom: 4px">
+                <el-tag v-if="row.template === 'shopline'" type="success" size="small">Shopline</el-tag>
+                <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
+                <el-tag v-else type="info" size="small">Classic</el-tag>
+              </div>
+              <div>
+                <el-tag :type="getStatusType(row.status)" size="small" effect="light">
+                  {{ getStatusText(row.status) }}
+                </el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="cloak_rule_name" label="斗篷规则" width="200" align="center">
@@ -189,14 +204,8 @@
             <span v-else style="color: #999999">未设置</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small" effect="light">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="view_count" label="浏览量" width="100" align="center">
+        <!-- 暂时隐藏浏览量和销量 -->
+        <!-- <el-table-column prop="view_count" label="浏览量" width="100" align="center">
           <template #default="{ row }">
             <div class="count-info">
               <el-icon class="count-icon"><View /></el-icon>
@@ -211,7 +220,7 @@
               <span>{{ row.sale_count || 0 }}</span>
             </div>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column prop="created_at" label="创建时间" width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="time-info">
@@ -1303,10 +1312,14 @@
                 <el-tag :type="domain.is_active ? 'success' : 'info'" size="small">
                   {{ domain.is_active ? "启用" : "禁用" }}
                 </el-tag>
+                <el-tag v-if="domain.is_wildcard" type="warning" size="small"> 通配符域名 </el-tag>
               </div>
               <div class="domain-url">
                 <el-icon><Link /></el-icon>
-                <span>{{ domain.protocol }}://{{ domain.domain }}</span>
+                <span v-if="domain.is_wildcard && currentViewProduct?.country">
+                  {{ domain.protocol }}://{{ currentViewProduct.country.toLowerCase() }}.{{ domain.domain }}
+                </span>
+                <span v-else> {{ domain.protocol }}://{{ domain.domain }} </span>
               </div>
               <div v-if="domain.description" class="domain-description">
                 {{ domain.description }}
@@ -1338,7 +1351,7 @@ import {
   Edit,
   Delete,
   View,
-  ShoppingCart,
+  // ShoppingCart, // 暂时隐藏销量，不需要此图标
   Setting,
   FullScreen,
   ScaleToOriginal,
@@ -1514,7 +1527,10 @@ const countryOptions = [
   { label: "匈牙利", value: "HU" },
   { label: "意大利", value: "IT" },
   { label: "西班牙", value: "ES" },
-  { label: "捷克", value: "CZ" }
+  { label: "捷克", value: "CZ" },
+  { label: "立陶宛", value: "LT" },
+  { label: "拉脱维亚", value: "LV" },
+  { label: "克罗地亚", value: "HR" }
 ];
 
 // 富文本编辑器配置
@@ -1736,7 +1752,15 @@ const confirmView = () => {
     return;
   }
 
-  const viewUrl = `${selectedDomain.value.protocol}://${selectedDomain.value.domain}/product/${currentViewProduct.value.id}`;
+  // 获取完整域名（处理通配符域名）
+  let fullDomain = selectedDomain.value.domain;
+  if (selectedDomain.value.is_wildcard && currentViewProduct.value.country) {
+    // 通配符域名，根据商品国家代码添加前缀
+    const countryCode = currentViewProduct.value.country.toLowerCase();
+    fullDomain = `${countryCode}.${selectedDomain.value.domain}`;
+  }
+
+  const viewUrl = `${selectedDomain.value.protocol}://${fullDomain}/product/${currentViewProduct.value.id}`;
 
   // 在新标签页中打开
   window.open(viewUrl, "_blank");

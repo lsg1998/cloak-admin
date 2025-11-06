@@ -6,6 +6,7 @@ export interface DomainConfig {
   domain: string;
   protocol: "http" | "https";
   is_active: number;
+  is_wildcard: number;
   sort_order: number;
   description?: string;
   created_at: string;
@@ -25,6 +26,7 @@ export interface CreateDomainConfigParams {
   domain: string;
   protocol?: "http" | "https";
   is_active?: number;
+  is_wildcard?: number;
   sort_order?: number;
   description?: string;
 }

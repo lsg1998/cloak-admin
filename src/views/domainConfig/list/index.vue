@@ -94,6 +94,13 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="is_wildcard" label="通配符域名" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_wildcard ? 'warning' : 'info'" size="small" effect="light">
+              {{ row.is_wildcard ? "是" : "否" }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="sort_order" label="排序" width="80" align="center" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" width="180" show-overflow-tooltip>
@@ -179,6 +186,16 @@
 
         <el-row :gutter="20">
           <el-col :span="24">
+            <el-form-item label="通配符域名" prop="is_wildcard">
+              <el-checkbox v-model="form.is_wildcard" :true-value="1" :false-value="0">
+                是否为通配符域名（查看时根据国家代码自动添加前缀，如：sk.goworldhub.shop）
+              </el-checkbox>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
             <el-form-item label="描述" prop="description">
               <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入域名描述（可选）" />
             </el-form-item>
@@ -243,6 +260,7 @@ const form = reactive({
   domain: "",
   protocol: "https" as "http" | "https",
   is_active: 1,
+  is_wildcard: 0,
   sort_order: 0,
   description: ""
 });
@@ -333,6 +351,7 @@ const handleEdit = (row: DomainConfig) => {
     domain: row.domain,
     protocol: row.protocol,
     is_active: row.is_active,
+    is_wildcard: row.is_wildcard || 0,
     sort_order: row.sort_order,
     description: row.description || ""
   });
@@ -373,6 +392,7 @@ const handleSubmit = async () => {
         domain: form.domain,
         protocol: form.protocol,
         is_active: form.is_active,
+        is_wildcard: form.is_wildcard,
         sort_order: form.sort_order,
         description: form.description
       };
@@ -385,6 +405,7 @@ const handleSubmit = async () => {
         domain: form.domain,
         protocol: form.protocol,
         is_active: form.is_active,
+        is_wildcard: form.is_wildcard,
         sort_order: form.sort_order,
         description: form.description
       };
@@ -410,6 +431,7 @@ const resetForm = () => {
     domain: "",
     protocol: "https",
     is_active: 1,
+    is_wildcard: 0,
     sort_order: 0,
     description: ""
   });

@@ -194,3 +194,10 @@ export interface OrderStatisticsParams {
 export const getOrderStatisticsApi = (params: OrderStatisticsParams = {}) => {
   return http.get<OrderStatistics>("/admin/orders/statistics", params);
 };
+
+/**
+ * 获取IP详细信息
+ */
+export const getIPInfoApi = (ip: string) => {
+  return http.get<any>("/admin/orders/ip-info", { ip });
+};

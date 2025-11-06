@@ -192,27 +192,24 @@
             <div class="ip-url-info">
               <div class="ip-sk-row" v-if="row.ip_address">
                 <div class="ip-address">
-                  <el-tag size="small" type="info">{{ row.ip_address }}</el-tag>
+                  <el-tag size="small" type="info" style="cursor: pointer" @click="handleViewIPInfo(row.ip_address)">
+                    {{ row.ip_address }}
+                  </el-tag>
                 </div>
                 <div class="sk-info" v-if="row.product_type">
                   <el-tag size="small" :type="getProductTypeColor(row.product_type)">
                     {{ getProductTypeLabel(row.product_type) }}
                   </el-tag>
                 </div>
-              </div>
-              <div class="ip-location" v-if="row.ip_address && row.ip_info && (row.ip_info.country || row.ip_info.city)">
-                <el-tag size="small" type="success" v-if="row.ip_info.country">
-                  {{ row.ip_info.country }}
-                </el-tag>
-                <el-tag size="small" type="warning" v-if="row.ip_info.city" style="margin-left: 4px">
-                  {{ row.ip_info.city }}
-                </el-tag>
-                <el-tag size="small" type="info" v-if="row.ip_info.organization" style="margin-left: 4px">
-                  {{ row.ip_info.organization }}
-                </el-tag>
-              </div>
-              <div class="ip-no-location" v-if="row.ip_address && (!row.ip_info || (!row.ip_info.country && !row.ip_info.city))">
-                <el-tag size="small" type="info" plain>未获取到地理位置</el-tag>
+                <!-- 显示订单国家 -->
+                <div class="order-country">
+                  <el-tag size="small" type="success" v-if="row.language_code">
+                    {{ countryCodeMap[row.language_code.toUpperCase()] || row.language_code }}
+                  </el-tag>
+                  <el-tag size="small" type="success" v-else-if="row.province && provinceToCountryMap[row.province]">
+                    {{ countryCodeMap[provinceToCountryMap[row.province]] }}
+                  </el-tag>
+                </div>
               </div>
               <div class="url-section" v-if="row.from_url">
                 <div class="url-info">
@@ -263,6 +260,20 @@
                     <el-dropdown-item command="shipped">🚚 发货通知</el-dropdown-item>
                     <el-dropdown-item command="arrival" divided>📍 到达提醒</el-dropdown-item>
                     <el-dropdown-item command="reshipment">🔄 补发通知</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-dropdown @command="command => handleSingleExport(row, command)">
+                <el-button size="small" type="primary" link>
+                  <el-icon><Download /></el-icon>
+                  导出
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="kuasuoda">📦 跨速达</el-dropdown-item>
+                    <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
+                    <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -411,89 +422,264 @@
       </template>
     </el-dialog>
 
+    <!-- IP详情对话框 -->
+    <el-dialog v-model="ipInfoDialogVisible" title="IP详细信息" width="700px" :close-on-click-modal="false" destroy-on-close>
+      <div v-loading="ipInfoLoading" class="ip-info-content">
+        <el-descriptions v-if="currentIPInfo" :column="2" border>
+          <el-descriptions-item label="IP地址" :span="2">
+            <el-tag type="primary">{{ currentIPInfo.ip }}</el-tag>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="国家">
+            {{ currentIPInfo.country || "--" }}
+          </el-descriptions-item>
+          <el-descriptions-item label="城市">
+            {{ currentIPInfo.city || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="地区">
+            {{ currentIPInfo.region || "--" }}
+          </el-descriptions-item>
+          <el-descriptions-item label="邮编">
+            {{ currentIPInfo.postal || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="时区" :span="2">
+            {{ currentIPInfo.timezone || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="位置坐标" :span="2">
+            {{ currentIPInfo.loc || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="主机名" :span="2">
+            {{ currentIPInfo.hostname || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="组织" :span="2">
+            {{ currentIPInfo.org || "--" }}
+          </el-descriptions-item>
+
+          <el-descriptions-item v-if="currentIPInfo.asn" label="ASN信息" :span="2">
+            <div>
+              <div v-if="currentIPInfo.asn.asn">ASN: {{ currentIPInfo.asn.asn }}</div>
+              <div v-if="currentIPInfo.asn.name">名称: {{ currentIPInfo.asn.name }}</div>
+              <div v-if="currentIPInfo.asn.domain">域名: {{ currentIPInfo.asn.domain }}</div>
+              <div v-if="currentIPInfo.asn.route">路由: {{ currentIPInfo.asn.route }}</div>
+              <div v-if="currentIPInfo.asn.type">类型: {{ currentIPInfo.asn.type }}</div>
+            </div>
+          </el-descriptions-item>
+
+          <el-descriptions-item v-if="currentIPInfo.company" label="公司信息" :span="2">
+            <div>
+              <div v-if="currentIPInfo.company.name">名称: {{ currentIPInfo.company.name }}</div>
+              <div v-if="currentIPInfo.company.domain">域名: {{ currentIPInfo.company.domain }}</div>
+              <div v-if="currentIPInfo.company.type">类型: {{ currentIPInfo.company.type }}</div>
+            </div>
+          </el-descriptions-item>
+
+          <el-descriptions-item v-if="currentIPInfo.privacy" label="隐私信息" :span="2">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap">
+              <el-tag v-if="currentIPInfo.privacy.vpn" type="danger">VPN</el-tag>
+              <el-tag v-if="currentIPInfo.privacy.proxy" type="danger">代理</el-tag>
+              <el-tag v-if="currentIPInfo.privacy.tor" type="danger">Tor</el-tag>
+              <el-tag v-if="currentIPInfo.privacy.relay" type="warning">中继</el-tag>
+              <el-tag v-if="currentIPInfo.privacy.hosting" type="warning">托管</el-tag>
+              <span
+                v-if="
+                  !currentIPInfo.privacy.vpn &&
+                  !currentIPInfo.privacy.proxy &&
+                  !currentIPInfo.privacy.tor &&
+                  !currentIPInfo.privacy.relay &&
+                  !currentIPInfo.privacy.hosting
+                "
+              >
+                --
+              </span>
+            </div>
+          </el-descriptions-item>
+
+          <el-descriptions-item v-if="currentIPInfo.abuse" label="滥用联系" :span="2">
+            <div>
+              <div v-if="currentIPInfo.abuse.email">邮箱: {{ currentIPInfo.abuse.email }}</div>
+              <div v-if="currentIPInfo.abuse.phone">电话: {{ currentIPInfo.abuse.phone }}</div>
+              <div v-if="currentIPInfo.abuse.name">名称: {{ currentIPInfo.abuse.name }}</div>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-empty v-else description="暂无IP信息" />
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="ipInfoDialogVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 导出字段选择对话框 -->
-    <!-- 匈牙利发货模板导出对话框 -->
-    <el-dialog v-model="exportDialogVisible" title="导出匈牙利发货订单" width="600px" :close-on-click-modal="false">
+    <!-- 物流公司导出对话框 -->
+    <el-dialog
+      v-model="exportDialogVisible"
+      :title="
+        exportConfig.logisticsCompany === 'huaxi'
+          ? '导出华熙订单'
+          : exportConfig.logisticsCompany === 'yingpai'
+            ? '导出盈派订单'
+            : '导出跨速达订单'
+      "
+      width="600px"
+      :close-on-click-modal="false"
+    >
       <div class="export-config">
         <el-form :model="exportConfig" label-width="120px">
+          <el-form-item label="物流公司">
+            <el-select v-model="exportConfig.logisticsCompany" placeholder="请选择物流公司" style="width: 300px">
+              <el-option label="跨速达（匈牙利发货）" value="kuasuoda" />
+              <el-option label="华熙（波兰COD）" value="huaxi" />
+              <el-option label="盈派" value="yingpai" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="导出筛选" v-if="!singleOrderExportMode">
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <el-checkbox v-model="exportConfig.onlyUnshipped">只导出未发货的订单</el-checkbox>
+              <el-checkbox v-model="exportConfig.filterByCountry">按国家筛选</el-checkbox>
+            </div>
+            <div class="form-tip">
+              当前页未发货：<el-tag type="warning" size="small">{{ getUnshippedCountInCurrentPage() }} 条</el-tag>， 全部订单：{{
+                pagination.total
+              }}
+              条
+            </div>
+          </el-form-item>
+
+          <el-form-item v-if="exportConfig.filterByCountry" label="选择国家">
+            <el-select v-model="exportConfig.selectedCountry" placeholder="请选择国家" style="width: 300px">
+              <el-option label="斯洛伐克 (SK)" value="SK" />
+              <el-option label="捷克 (CZ)" value="CZ" />
+              <el-option label="波兰 (PL)" value="PL" />
+              <el-option label="匈牙利 (HU)" value="HU" />
+              <el-option label="斯洛文尼亚 (SI)" value="SI" />
+              <el-option label="克罗地亚 (HR)" value="HR" />
+              <el-option label="拉脱维亚 (LV)" value="LV" />
+              <el-option label="立陶宛 (LT)" value="LT" />
+              <el-option label="西班牙 (ES)" value="ES" />
+              <el-option label="日本 (JP)" value="JP" />
+            </el-select>
+            <div class="form-tip">
+              只导出 <el-tag type="success" size="small">{{ countryCodeMap[exportConfig.selectedCountry] }}</el-tag> 的订单
+            </div>
+          </el-form-item>
+
           <el-form-item label="导出数量">
             <el-input-number
               v-model="exportConfig.exportLimit"
               :min="1"
               :max="10000"
               :step="10"
+              :disabled="singleOrderExportMode"
               placeholder="请输入导出数量"
               style="width: 200px"
             />
-            <div class="form-tip">
-              当前页未发货：<el-tag type="warning" size="small">{{ getUnshippedCountInCurrentPage() }} 条</el-tag>， 全部订单：{{
-                pagination.total
-              }}
-              条（最多可导出 10000 条）
+            <div class="form-tip" v-if="singleOrderExportMode">单个订单导出：1 条</div>
+            <div class="form-tip" v-else>最多可导出 10000 条</div>
+          </el-form-item>
+
+          <el-form-item label="导出后操作">
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <el-checkbox v-model="exportConfig.updateShippedStatus">更新订单状态为"已发货"</el-checkbox>
+              <el-checkbox v-model="exportConfig.sendShippedEmail">发送发货通知邮件给客户</el-checkbox>
+            </div>
+            <div class="form-tip" style="color: #e6a23c">
+              <el-icon><Warning /></el-icon>
+              这些操作将在导出成功后异步执行
             </div>
           </el-form-item>
 
-          <el-form-item label="客户单号起始">
-            <el-input
-              v-model="exportConfig.customerNumberStart"
-              placeholder="请输入客户单号起始值，如：A1150"
-              style="width: 200px"
-            />
-            <div class="form-tip">
-              将从 {{ exportConfig.customerNumberStart }} 开始递增
-              <el-tag type="success" size="small" style="margin-left: 8px">
-                本次将使用: {{ exportConfig.customerNumberStart }} ~ A{{
-                  parseInt(exportConfig.customerNumberStart.substring(1)) +
-                  Math.min(exportConfig.exportLimit, pagination.total) -
-                  1
-                }}
-              </el-tag>
-            </div>
-          </el-form-item>
+          <!-- 跨速达专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'kuasuoda'">
+            <el-form-item label="规格信息">
+              <el-input v-model="exportConfig.specification" placeholder="请输入规格信息" style="width: 300px" />
+            </el-form-item>
 
-          <el-form-item label="运输方式">
-            <el-input v-model="exportConfig.transportMethod" placeholder="请输入运输方式" style="width: 300px" />
-          </el-form-item>
+            <el-form-item label="SKU">
+              <el-input v-model="exportConfig.sku" placeholder="请输入SKU" style="width: 300px" />
+            </el-form-item>
+          </template>
 
-          <el-form-item label="国家/地区">
-            <el-input v-model="exportConfig.country" placeholder="请输入国家/地区" style="width: 300px" />
-          </el-form-item>
+          <!-- 华熙专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'huaxi'">
+            <el-form-item label="运输方式">
+              <el-input v-model="exportConfig.huaxiTransportMethod" placeholder="请输入运输方式" style="width: 300px" />
+            </el-form-item>
 
-          <el-form-item label="规格信息">
-            <el-input v-model="exportConfig.specification" placeholder="请输入规格信息" style="width: 300px" />
-          </el-form-item>
+            <el-form-item label="重量(KG)">
+              <el-input v-model="exportConfig.huaxiWeight" placeholder="请输入重量" style="width: 300px" />
+            </el-form-item>
 
-          <el-form-item label="SKU">
-            <el-input v-model="exportConfig.sku" placeholder="请输入SKU" style="width: 300px" />
-          </el-form-item>
+            <el-form-item label="海关报关品名">
+              <el-input v-model="exportConfig.huaxiCustomsName" placeholder="请输入海关报关品名" style="width: 300px" />
+            </el-form-item>
+
+            <el-form-item label="中文品名">
+              <el-input v-model="exportConfig.huaxiChineseName" placeholder="请输入中文品名" style="width: 300px" />
+            </el-form-item>
+
+            <el-form-item label="配货信息">
+              <el-input v-model="exportConfig.huaxiProductInfo" placeholder="请输入配货信息" style="width: 300px" />
+            </el-form-item>
+          </template>
+
+          <!-- 盈派专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'yingpai'">
+            <el-form-item label="SKU">
+              <el-input v-model="exportConfig.yingpaiSku" placeholder="请输入SKU，留空则需手动填写" style="width: 300px" />
+              <div class="form-tip">SKU需要手动填写或者在这里配置默认值</div>
+            </el-form-item>
+          </template>
         </el-form>
 
         <el-alert title="导出说明" type="info" show-icon :closable="false" style="margin-top: 20px">
           <template #default>
             <div class="export-description">
-              <p>将按照匈牙利发货模板格式导出订单数据，包含以下信息：</p>
+              <p v-if="singleOrderExportMode">
+                单个订单导出模式
+                <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">：将按照跨速达（匈牙利发货）模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">：将按照华熙（波兰COD）模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">：将按照盈派批量上传模板格式导出</span>
+              </p>
+              <p v-else>
+                <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">将按照跨速达（匈牙利发货）模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">将按照华熙（波兰COD）模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">将按照盈派批量上传模板格式导出订单数据</span>
+              </p>
               <ul>
-                <li>
-                  📦 本次导出：{{ Math.min(exportConfig.exportLimit, pagination.total) }} 条订单
-                  <el-tag type="info" size="small" style="margin-left: 8px">
-                    当前页未发货: {{ getUnshippedCountInCurrentPage() }} 条
+                <li v-if="singleOrderExportMode">📦 本次导出：1 条订单（订单号：{{ singleOrderToExport?.order_number }}）</li>
+                <li v-else>
+                  📦 本次导出：最多 {{ exportConfig.exportLimit }} 条订单
+                  <el-tag v-if="exportConfig.onlyUnshipped" type="warning" size="small" style="margin-left: 8px">
+                    仅未发货订单
+                  </el-tag>
+                  <el-tag v-if="exportConfig.filterByCountry" type="success" size="small" style="margin-left: 8px">
+                    仅 {{ countryCodeMap[exportConfig.selectedCountry] }}
                   </el-tag>
                 </li>
+                <li v-if="!singleOrderExportMode">✅ 可选择只导出未发货的订单</li>
+                <li v-if="!singleOrderExportMode">✅ 可按国家筛选导出（例如：只导出斯洛伐克或捷克订单）</li>
+                <li>
+                  ✅ 导出后可选操作：
+                  <span v-if="exportConfig.updateShippedStatus" style="color: #67c23a; margin-left: 8px">更新为已发货</span>
+                  <span v-if="exportConfig.sendShippedEmail" style="color: #67c23a; margin-left: 8px">发送邮件通知</span>
+                </li>
+                <li>✅ 国家代码自动映射（SK→斯洛伐克等）</li>
+                <li>✅ 运输方式自动填充</li>
+                <li>✅ 配货名称和配货信息自动去除表情和特殊字符</li>
+                <li>✅ 订单号使用系统订单号</li>
+                <li>✅ 邮箱为空时自动填充 test1@gmail.com, test2@gmail.com...</li>
                 <li>✅ 收件人信息（姓名、邮箱、地址、电话等）</li>
                 <li>✅ 财务信息（代收货款币种、金额等）</li>
                 <li>✅ 商品信息（配货信息、货物类型、数量等）</li>
-                <li>✅ 地址备注1将自动填充原始联系地址内容</li>
-                <li>✅ 智能处理联系地址：如果联系地址以城市名开头，自动去掉城市名部分</li>
-                <li>
-                  ✅ 客户单号自动递增：{{ exportConfig.customerNumberStart }} ~ A{{
-                    parseInt(exportConfig.customerNumberStart.substring(1)) +
-                    Math.min(exportConfig.exportLimit, pagination.total) -
-                    1
-                  }}（导出后下次将从 A{{
-                    parseInt(exportConfig.customerNumberStart.substring(1)) + Math.min(exportConfig.exportLimit, pagination.total)
-                  }}
-                  开始）
-                </li>
               </ul>
             </div>
           </template>
@@ -501,8 +687,8 @@
       </div>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="exportDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="exportLoading" @click="handleHungaryExport">
+          <el-button @click="handleCancelExport">取消</el-button>
+          <el-button type="primary" :loading="exportLoading" @click="handleExportByCompany">
             <el-icon><Download /></el-icon>
             确认导出
           </el-button>
@@ -618,7 +804,8 @@ import {
   ArrowDown,
   Close,
   Message,
-  Promotion
+  Promotion,
+  Warning
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -629,6 +816,7 @@ import {
   batchDeleteOrdersApi,
   sendPickingNotificationEmailApi,
   sendShippedNotificationEmailApi,
+  getIPInfoApi,
   type Order,
   type OrderListParams,
   OrderStatus,
@@ -645,6 +833,16 @@ const detailDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
 
+// IP详情相关
+const ipInfoDialogVisible = ref(false);
+const ipInfoLoading = ref(false);
+const currentIPInfo = ref<any>(null);
+
+// 单个订单导出相关
+const singleOrderExportMode = ref(false);
+const singleOrderToExport = ref<Order | null>(null);
+const singleOrderLogisticsCompany = ref<string>("");
+
 // 邮件预览相关
 const emailPreviewDialogVisible = ref(false);
 const emailSending = ref(false);
@@ -658,14 +856,185 @@ const currentEmailPreview = ref<{
   action: string;
 } | null>(null);
 
+// 国家代码映射
+const countryCodeMap: { [key: string]: string } = {
+  SK: "斯洛伐克",
+  CZ: "捷克",
+  PL: "波兰",
+  HU: "匈牙利",
+  SI: "斯洛文尼亚",
+  HR: "克罗地亚",
+  LV: "拉脱维亚",
+  LT: "立陶宛",
+  ES: "西班牙",
+  JA: "日本",
+  JP: "日本"
+};
+
+// 华熙导出专用国家映射（捷克显示为"捷克共和国"）
+const huaxiCountryCodeMap: { [key: string]: string } = {
+  SK: "斯洛伐克",
+  CZ: "捷克共和国", // 华熙要求捷克显示为"捷克共和国"
+  PL: "波兰",
+  HU: "匈牙利",
+  SI: "斯洛文尼亚",
+  HR: "克罗地亚",
+  LV: "拉脱维亚",
+  LT: "立陶宛",
+  ES: "西班牙",
+  JA: "日本",
+  JP: "日本"
+};
+
+// 省份到国家代码的映射（用于从province反推country）
+const provinceToCountryMap: { [key: string]: string } = {
+  // 斯洛伐克的州
+  "Bratislavský kraj": "SK",
+  "Trnavský kraj": "SK",
+  "Trenčiansky kraj": "SK",
+  "Nitriansky kraj": "SK",
+  "Žilinský kraj": "SK",
+  "Banskobystrický kraj": "SK",
+  "Prešovský kraj": "SK",
+  "Košický kraj": "SK",
+
+  // 捷克的州
+  Praha: "CZ",
+  "Středočeský kraj": "CZ",
+  "Jihočeský kraj": "CZ",
+  "Plzeňský kraj": "CZ",
+  "Karlovarský kraj": "CZ",
+  "Ústecký kraj": "CZ",
+  "Liberecký kraj": "CZ",
+  "Královéhradecký kraj": "CZ",
+  "Pardubický kraj": "CZ",
+  Vysočina: "CZ",
+  "Jihomoravský kraj": "CZ",
+  "Olomoucký kraj": "CZ",
+  "Zlínský kraj": "CZ",
+  "Moravskoslezský kraj": "CZ",
+
+  // 日本的都道府县
+  北海道: "JP",
+  青森県: "JP",
+  岩手県: "JP",
+  宮城県: "JP",
+  秋田県: "JP",
+  山形県: "JP",
+  福島県: "JP",
+  茨城県: "JP",
+  栃木県: "JP",
+  群馬県: "JP",
+  埼玉県: "JP",
+  千葉県: "JP",
+  東京都: "JP",
+  神奈川県: "JP",
+  新潟県: "JP",
+  富山県: "JP",
+  石川県: "JP",
+  福井県: "JP",
+  山梨県: "JP",
+  長野県: "JP",
+  岐阜県: "JP",
+  静岡県: "JP",
+  愛知県: "JP",
+  三重県: "JP",
+  滋賀県: "JP",
+  京都府: "JP",
+  大阪府: "JP",
+  兵庫県: "JP",
+  奈良県: "JP",
+  和歌山県: "JP",
+  鳥取県: "JP",
+  島根県: "JP",
+  岡山県: "JP",
+  広島県: "JP",
+  山口県: "JP",
+  徳島県: "JP",
+  香川県: "JP",
+  愛媛県: "JP",
+  高知県: "JP",
+  福岡県: "JP",
+  佐賀県: "JP",
+  長崎県: "JP",
+  熊本県: "JP",
+  大分県: "JP",
+  宮崎県: "JP",
+  鹿児島県: "JP",
+  沖縄県: "JP"
+};
+
+// 从订单数据中获取国家代码
+const getCountryCode = (order: Order): string => {
+  // 优先使用language_code字段（如果存在且是有效的国家代码）
+  if (order.language_code) {
+    const upperCode = order.language_code.toUpperCase();
+    if (countryCodeMap[upperCode]) {
+      return upperCode;
+    }
+  }
+
+  // 如果language_code不可用，尝试从province反推
+  if (order.province && provinceToCountryMap[order.province]) {
+    return provinceToCountryMap[order.province];
+  }
+
+  // 默认返回SK
+  return "SK";
+};
+
+// 根据国家获取运输方式
+const getTransportMethod = (countryCode: string): string => {
+  if (countryCode === "SK") {
+    return "欧洲备货-30HU";
+  }
+  return "欧洲备货-25HU";
+};
+
+// 清理表情和特殊字符的函数
+const removeEmojiAndSpecialChars = (text: string): string => {
+  if (!text) return "";
+  // 移除表情符号（emoji）
+  let cleaned = text.replace(/[\u{1F600}-\u{1F64F}]/gu, ""); // 表情符号
+  cleaned = cleaned.replace(/[\u{1F300}-\u{1F5FF}]/gu, ""); // 各种符号
+  cleaned = cleaned.replace(/[\u{1F680}-\u{1F6FF}]/gu, ""); // 交通和地图符号
+  cleaned = cleaned.replace(/[\u{1F700}-\u{1F77F}]/gu, ""); // 炼金术符号
+  cleaned = cleaned.replace(/[\u{1F780}-\u{1F7FF}]/gu, ""); // 几何形状
+  cleaned = cleaned.replace(/[\u{1F800}-\u{1F8FF}]/gu, ""); // 补充箭头
+  cleaned = cleaned.replace(/[\u{1F900}-\u{1F9FF}]/gu, ""); // 补充符号和象形文字
+  cleaned = cleaned.replace(/[\u{1FA00}-\u{1FA6F}]/gu, ""); // 扩展-A
+  cleaned = cleaned.replace(/[\u{1FA70}-\u{1FAFF}]/gu, ""); // 扩展-B
+  cleaned = cleaned.replace(/[\u{2600}-\u{26FF}]/gu, ""); // 杂项符号
+  cleaned = cleaned.replace(/[\u{2700}-\u{27BF}]/gu, ""); // 装饰符号
+  cleaned = cleaned.replace(/[\u{FE00}-\u{FE0F}]/gu, ""); // 变体选择器
+  cleaned = cleaned.replace(/[\u{1F1E0}-\u{1F1FF}]/gu, ""); // 国旗
+  // 移除其他特殊字符，但保留常用标点符号、空格、字母、数字和中文
+  cleaned = cleaned.replace(/[^\w\s\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef.,，。、;；:：!！?？()（）\[\]【】\-_]/g, "");
+  return cleaned.trim();
+};
+
 // 导出配置
 const exportConfig = reactive({
+  logisticsCompany: "kuasuoda", // 物流公司：kuasuoda(跨速达) 或 huaxi(华熙)
   customerNumberStart: "A1150",
   transportMethod: "欧洲备货-30HU",
   country: "斯洛伐克",
   specification: "welding gun",
   sku: "DH20251006*1",
-  exportLimit: 100 // 默认导出100条
+  exportLimit: 100, // 默认导出100条
+  onlyUnshipped: false, // 只导出未发货的订单
+  filterByCountry: false, // 是否按国家筛选
+  selectedCountry: "SK", // 选择的国家代码
+  updateShippedStatus: false, // 导出后更新为已发货状态
+  sendShippedEmail: false, // 导出后发送发货通知邮件
+  // 华熙专用配置
+  huaxiTransportMethod: "波兰COD海外仓一件代发-DHL",
+  huaxiWeight: "0.5",
+  huaxiCustomsName: "welding gun",
+  huaxiChineseName: "焊枪",
+  huaxiProductInfo: "焊枪套装",
+  // 盈派专用配置
+  yingpaiSku: ""
 });
 
 // 从本地缓存加载导出配置
@@ -675,12 +1044,26 @@ const loadExportConfigFromCache = () => {
     if (cached) {
       const config = JSON.parse(cached);
       // 只更新存在的字段
+      if (config.logisticsCompany) exportConfig.logisticsCompany = config.logisticsCompany;
       if (config.customerNumberStart) exportConfig.customerNumberStart = config.customerNumberStart;
       if (config.transportMethod) exportConfig.transportMethod = config.transportMethod;
       if (config.country) exportConfig.country = config.country;
       if (config.specification) exportConfig.specification = config.specification;
       if (config.sku) exportConfig.sku = config.sku;
       if (config.exportLimit) exportConfig.exportLimit = config.exportLimit;
+      if (config.onlyUnshipped !== undefined) exportConfig.onlyUnshipped = config.onlyUnshipped;
+      if (config.filterByCountry !== undefined) exportConfig.filterByCountry = config.filterByCountry;
+      if (config.selectedCountry) exportConfig.selectedCountry = config.selectedCountry;
+      if (config.updateShippedStatus !== undefined) exportConfig.updateShippedStatus = config.updateShippedStatus;
+      if (config.sendShippedEmail !== undefined) exportConfig.sendShippedEmail = config.sendShippedEmail;
+      // 华熙配置
+      if (config.huaxiTransportMethod) exportConfig.huaxiTransportMethod = config.huaxiTransportMethod;
+      if (config.huaxiWeight) exportConfig.huaxiWeight = config.huaxiWeight;
+      if (config.huaxiCustomsName) exportConfig.huaxiCustomsName = config.huaxiCustomsName;
+      if (config.huaxiChineseName) exportConfig.huaxiChineseName = config.huaxiChineseName;
+      if (config.huaxiProductInfo) exportConfig.huaxiProductInfo = config.huaxiProductInfo;
+      // 盈派配置
+      if (config.yingpaiSku !== undefined) exportConfig.yingpaiSku = config.yingpaiSku;
     }
   } catch (error) {
     console.error("加载导出配置失败:", error);
@@ -688,19 +1071,28 @@ const loadExportConfigFromCache = () => {
 };
 
 // 保存导出配置到本地缓存
-const saveExportConfigToCache = (exportedCount: number) => {
+const saveExportConfigToCache = () => {
   try {
-    // 计算下一次的起始单号
-    const currentNumber = parseInt(exportConfig.customerNumberStart.substring(1));
-    const nextNumber = currentNumber + exportedCount;
-
+    // 不再自动递增客户单号，因为现在使用系统订单号
     const configToSave = {
-      customerNumberStart: `A${nextNumber}`,
+      logisticsCompany: exportConfig.logisticsCompany,
+      customerNumberStart: exportConfig.customerNumberStart,
       transportMethod: exportConfig.transportMethod,
       country: exportConfig.country,
       specification: exportConfig.specification,
       sku: exportConfig.sku,
-      exportLimit: exportConfig.exportLimit
+      exportLimit: exportConfig.exportLimit,
+      onlyUnshipped: exportConfig.onlyUnshipped,
+      filterByCountry: exportConfig.filterByCountry,
+      selectedCountry: exportConfig.selectedCountry,
+      updateShippedStatus: exportConfig.updateShippedStatus,
+      sendShippedEmail: exportConfig.sendShippedEmail,
+      // 华熙配置
+      huaxiTransportMethod: exportConfig.huaxiTransportMethod,
+      huaxiWeight: exportConfig.huaxiWeight,
+      huaxiCustomsName: exportConfig.huaxiCustomsName,
+      huaxiChineseName: exportConfig.huaxiChineseName,
+      huaxiProductInfo: exportConfig.huaxiProductInfo
     };
 
     localStorage.setItem("hungaryExportConfig", JSON.stringify(configToSave));
@@ -788,6 +1180,23 @@ const handleViewDetail = async (row: Order) => {
     detailDialogVisible.value = true;
   } catch (error) {
     ElMessage.error("获取订单详情失败");
+  }
+};
+
+// 查看IP详情
+const handleViewIPInfo = async (ip: string) => {
+  try {
+    ipInfoLoading.value = true;
+    ipInfoDialogVisible.value = true;
+    currentIPInfo.value = null;
+
+    const { data } = await getIPInfoApi(ip);
+    currentIPInfo.value = data;
+  } catch (error) {
+    ElMessage.error("获取IP信息失败");
+    ipInfoDialogVisible.value = false;
+  } finally {
+    ipInfoLoading.value = false;
   }
 };
 
@@ -1199,11 +1608,16 @@ const confirmSendEmail = async () => {
 
   const emailTypes = {
     picking: { name: "拣货通知", api: sendPickingNotificationEmailApi },
-    shipped: { name: "发货通知", api: sendShippedNotificationEmailApi }
+    shipped: { name: "发货通知", api: sendShippedNotificationEmailApi },
+    arrival: { name: "到达提醒", api: sendArrivalReminderApi },
+    reshipment: { name: "补发通知", api: sendReshipmentNoticeApi }
   };
 
   const emailType = emailTypes[action as keyof typeof emailTypes];
-  if (!emailType) return;
+  if (!emailType) {
+    console.error("未找到对应的邮件API:", action);
+    return;
+  }
 
   console.log("5. ✓ 用户确认发送");
   console.log("6. 准备调用API:", `/admin/orders/${orderId}/email/${action}-notification`);
@@ -1252,41 +1666,176 @@ const handleExportDialog = () => {
   exportDialogVisible.value = true;
 };
 
-// 匈牙利发货模板导出
-const handleHungaryExport = async () => {
-  await handleExportConfirm();
+// 取消导出，重置单个订单导出模式
+const handleCancelExport = () => {
   exportDialogVisible.value = false;
+  // 如果是单个订单导出模式，重置相关状态
+  if (singleOrderExportMode.value) {
+    singleOrderExportMode.value = false;
+    singleOrderToExport.value = null;
+    singleOrderLogisticsCompany.value = "";
+    // 恢复默认导出数量
+    exportConfig.exportLimit = 100;
+  }
+};
+
+// 根据物流公司选择导出
+const handleExportByCompany = async () => {
+  if (exportConfig.logisticsCompany === "huaxi") {
+    await handleHuaxiExport();
+  } else if (exportConfig.logisticsCompany === "yingpai") {
+    await handleYingpaiExport();
+  } else {
+    await handleKuasuodaExport();
+  }
+  exportDialogVisible.value = false;
+};
+
+// 异步处理订单状态更新和发送邮件
+const handlePostExportActions = async (orders: Order[]) => {
+  if (!exportConfig.updateShippedStatus && !exportConfig.sendShippedEmail) {
+    return;
+  }
+
+  ElMessage.info({
+    message: `正在后台处理 ${orders.length} 个订单的发货操作...`,
+    duration: 3000
+  });
+
+  let successCount = 0;
+  let failCount = 0;
+  const errors: string[] = [];
+
+  // 异步处理每个订单
+  for (const order of orders) {
+    try {
+      // 更新订单状态为已发货
+      if (exportConfig.updateShippedStatus) {
+        await updateOrderStatusApi(order.id, { status: OrderStatus.SHIPPED });
+      }
+
+      // 发送发货通知邮件
+      if (exportConfig.sendShippedEmail && order.email) {
+        await sendShippedNotificationEmailApi(order.id);
+      }
+
+      successCount++;
+    } catch (error: any) {
+      failCount++;
+      errors.push(`订单 ${order.order_number}: ${error.message || "操作失败"}`);
+      console.error(`处理订单 ${order.order_number} 失败:`, error);
+    }
+  }
+
+  // 显示处理结果
+  if (failCount === 0) {
+    ElMessage.success(`成功处理 ${successCount} 个订单的发货操作`);
+  } else if (successCount > 0) {
+    ElMessage.warning({
+      message: `成功: ${successCount} 个，失败: ${failCount} 个。请查看控制台了解详情。`,
+      duration: 5000
+    });
+    console.error("失败的订单:", errors);
+  } else {
+    ElMessage.error(`所有订单处理失败！请查看控制台了解详情。`);
+    console.error("失败的订单:", errors);
+  }
+
+  // 刷新订单列表
+  loadData();
+};
+
+// 单个订单导出
+const handleSingleExport = (order: Order, logisticsCompany: string) => {
+  // 保存单个订单导出模式的信息
+  singleOrderExportMode.value = true;
+  singleOrderToExport.value = order;
+  singleOrderLogisticsCompany.value = logisticsCompany;
+
+  // 设置物流公司
+  exportConfig.logisticsCompany = logisticsCompany;
+
+  // 单个订单导出时，设置导出数量为1
+  exportConfig.exportLimit = 1;
+
+  // 打开导出配置对话框
+  exportDialogVisible.value = true;
+
+  console.log(`准备导出单个订单: ${order.order_number}, 物流公司: ${logisticsCompany}`);
+};
+
+// 跨速达（匈牙利发货）模板导出
+const handleKuasuodaExport = async () => {
+  await handleExportConfirm();
 };
 
 // 导出确认 - 匈牙利发货模板格式
 const handleExportConfirm = async () => {
   exportLoading.value = true;
   try {
-    // 获取订单数据（使用用户设置的导出数量）
-    const exportLimit = exportConfig.exportLimit || 100;
-    const params: OrderListParams = {
-      page: 1,
-      size: exportLimit, // 使用用户设置的导出数量
-      order_number: searchForm.order_number || undefined,
-      customer_name: searchForm.customer_name || undefined,
-      phone: searchForm.phone || undefined,
-      status: (searchForm.status as OrderStatus) || undefined,
-      start_date: searchForm.start_date || undefined,
-      end_date: searchForm.end_date || undefined,
-      product_id: searchForm.product_id || undefined
-    };
+    let orders: Order[] = [];
 
-    console.log("获取订单数据参数:", params);
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      // 单个订单导出模式：直接使用保存的订单
+      orders = [singleOrderToExport.value];
+      console.log(`单个订单导出模式: ${orders[0].order_number}`);
+    } else {
+      // 批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined
+      };
 
-    const { data } = await getOrderListApi(params);
-    const orders = data.list;
+      // 功能1：如果选择只导出未发货的订单，添加状态筛选
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined; // 先获取所有状态
+      }
+
+      console.log("获取订单数据参数:", params);
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 功能1：前端过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      // 按国家筛选
+      if (exportConfig.filterByCountry) {
+        console.log(`开始按国家筛选，选择的国家: ${exportConfig.selectedCountry}`);
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          console.log(
+            `订单 ${order.order_number}: language_code=${order.language_code}, 判断国家=${countryCode}, 匹配=${countryCode === exportConfig.selectedCountry}`
+          );
+          return countryCode === exportConfig.selectedCountry;
+        });
+        console.log(`按国家筛选后剩余: ${orders.length} 条`);
+      }
+    }
 
     if (!orders || orders.length === 0) {
       ElMessage.warning("没有找到符合条件的订单数据");
       return;
     }
 
-    console.log(`获取到 ${orders.length} 条订单数据`);
+    console.log(`获取到 ${orders.length} 条订单数据，将要导出`);
 
     // 匈牙利发货模板字段映射（使用原始模板的表头）
     const hungaryTemplateFields = [
@@ -1328,8 +1877,11 @@ const handleExportConfirm = async () => {
     // 添加表头
     excelData.push(hungaryTemplateFields);
 
+    // 功能6：统计空邮箱数量，用于自动填充
+    let emptyEmailCount = 0;
+
     // 在模板基础上添加新的订单数据
-    orders.forEach((order, index) => {
+    orders.forEach(order => {
       const row: any[] = [];
 
       // 仓库编码 - 固定值
@@ -1338,9 +1890,8 @@ const handleExportConfirm = async () => {
       // 客户编码 - 固定值
       row.push("773");
 
-      // 客户单号 - 使用配置的起始值递增
-      const startNumber = parseInt(exportConfig.customerNumberStart.substring(1));
-      row.push(`A${startNumber + index}`);
+      // 功能5：客户单号 - 使用系统订单号而不是配置的起始值递增
+      row.push(order.order_number || "");
 
       // 物流编码 - 空
       row.push("");
@@ -1354,17 +1905,27 @@ const handleExportConfirm = async () => {
       // 物流单号2 - 空
       row.push("");
 
-      // 运输方式 - 使用配置的值
-      row.push(exportConfig.transportMethod);
+      // 功能2和3：根据订单数据自动判断国家和运输方式
+      const countryCode = getCountryCode(order);
+      const countryName = countryCodeMap[countryCode] || "斯洛伐克";
 
-      // 国家/地区 - 使用配置的值
-      row.push(exportConfig.country);
+      // 功能3：运输方式 - 根据国家代码自动填充
+      const transportMethod = getTransportMethod(countryCode);
+      row.push(transportMethod);
+
+      // 功能2：国家/地区 - 自动填充（使用映射后的国家名称）
+      row.push(countryName);
 
       // 收件人姓名
       row.push(order.customer_name || "");
 
-      // 邮箱
-      row.push(order.email || "");
+      // 功能6：邮箱 - 如果为空，自动填充testN@gmail.com
+      let email = order.email || "";
+      if (!email || email.trim() === "") {
+        emptyEmailCount++;
+        email = `test${emptyEmailCount}@gmail.com`;
+      }
+      row.push(email);
 
       // 州,省
       row.push(order.province || "");
@@ -1414,12 +1975,13 @@ const handleExportConfirm = async () => {
       // 订单备注 - 空
       row.push("");
 
-      // 配货信息
-      row.push(order.product_title || "");
+      // 功能4：配货信息 - 清理表情和特殊字符
+      const cleanedProductInfo = removeEmojiAndSpecialChars(order.product_title || "");
+      row.push(cleanedProductInfo);
 
       // 货物类型（默认为P，只有仿品才是R）
-      // original = P (正品), fake = R (仿品)
-      row.push(order.product_type === "fake" ? "R" : "P");
+      // original = P (正品), fake = R (仿品), replica = R (仿品)
+      row.push(order.product_type === "fake" || order.product_type === "replica" ? "R" : "P");
 
       // 规格信息 - 使用配置的值
       row.push(exportConfig.specification);
@@ -1430,8 +1992,9 @@ const handleExportConfirm = async () => {
       // SKU - 使用配置的值
       row.push(exportConfig.sku);
 
-      // 配货名称
-      row.push(order.product_title || "");
+      // 功能4：配货名称 - 清理表情和特殊字符
+      const cleanedProductName = removeEmojiAndSpecialChars(order.product_title || "");
+      row.push(cleanedProductName);
 
       // 申报币种
       row.push(order.currency || "EUR");
@@ -1474,15 +2037,519 @@ const handleExportConfirm = async () => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为匈牙利发货模板`);
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为跨速达模板`);
 
-    // 保存配置到缓存，更新下次的起始单号
-    saveExportConfigToCache(orders.length);
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件（不阻塞导出流程）
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      // 使用 setTimeout 确保异步执行，不影响导出流程
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
   } catch (error) {
     console.error("导出失败:", error);
     ElMessage.error("导出失败：" + (error as Error).message);
   } finally {
     exportLoading.value = false;
+    // 重置单个订单导出模式
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      // 恢复默认导出数量
+      exportConfig.exportLimit = 100;
+    }
+  }
+};
+
+// 华熙导出 - 波兰COD模板格式
+const handleHuaxiExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      // 单个订单导出模式：直接使用保存的订单
+      orders = [singleOrderToExport.value];
+      console.log(`华熙单个订单导出模式: ${orders[0].order_number}`);
+    } else {
+      // 批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined
+      };
+
+      // 如果选择只导出未发货的订单
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 前端过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      // 按国家筛选
+      if (exportConfig.filterByCountry) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`华熙导出：获取到 ${orders.length} 条订单数据`);
+
+    // 华熙模板字段（完整的22个字段）
+    const huaxiTemplateFields = [
+      "客户单号",
+      "转单号",
+      "运输方式",
+      "目的国家",
+      "收件人姓名",
+      "州,省",
+      "城市",
+      "联系地址",
+      "收件人门牌号",
+      "收件人电话",
+      "收件人邮箱",
+      "收件人邮编",
+      "重量",
+      "海关报关品名1",
+      "中文品名1",
+      "配货信息1",
+      "申报价值1",
+      "申报品数量1",
+      "代收货款",
+      "代收币种",
+      "IOSS税号",
+      "保险金额"
+    ];
+
+    // 准备Excel数据
+    const excelData: any[][] = [];
+    excelData.push(huaxiTemplateFields);
+
+    // 统计空邮箱数量
+    let emptyEmailCount = 0;
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      // 客户单号 - 使用系统订单号
+      row.push(order.order_number || "");
+
+      // 转单号 - 留空
+      row.push("");
+
+      // 运输方式 - 使用配置的值
+      row.push(exportConfig.huaxiTransportMethod);
+
+      // 目的国家 - 从订单获取国家代码并映射（使用华熙专用映射）
+      const countryCode = getCountryCode(order);
+      const countryName = huaxiCountryCodeMap[countryCode] || "";
+      row.push(countryName);
+
+      // 收件人姓名
+      row.push(order.customer_name || "");
+
+      // 州,省
+      row.push(order.province || "");
+
+      // 城市
+      row.push(order.city || "");
+
+      // 联系地址
+      row.push(order.address || "");
+
+      // 收件人门牌号 - 留空
+      row.push("");
+
+      // 收件人电话
+      row.push(order.phone || "");
+
+      // 收件人邮箱 - 如果为空，自动填充testN@gmail.com
+      let email = order.email || "";
+      if (!email || email.trim() === "") {
+        emptyEmailCount++;
+        email = `test${emptyEmailCount}@gmail.com`;
+      }
+      row.push(email);
+
+      // 收件人邮编
+      row.push(order.postal_code || "");
+
+      // 重量
+      row.push(exportConfig.huaxiWeight);
+
+      // 海关报关品名1
+      const cleanedCustomsName = removeEmojiAndSpecialChars(exportConfig.huaxiCustomsName);
+      row.push(cleanedCustomsName);
+
+      // 中文品名1
+      const cleanedChineseName = removeEmojiAndSpecialChars(exportConfig.huaxiChineseName);
+      row.push(cleanedChineseName);
+
+      // 配货信息1
+      const cleanedProductInfo = removeEmojiAndSpecialChars(exportConfig.huaxiProductInfo);
+      row.push(cleanedProductInfo);
+
+      // 申报价值1 - 固定10
+      row.push("10");
+
+      // 申报品数量1
+      row.push(order.quantity || 1);
+
+      // 代收货款
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 代收币种
+      row.push(order.currency || "EUR");
+
+      // IOSS税号 - 留空
+      row.push("");
+
+      // 保险金额 - 留空
+      row.push("");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = huaxiTemplateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "华熙发货订单");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `华熙发货订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为华熙模板`);
+
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件（不阻塞导出流程）
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      // 使用 setTimeout 确保异步执行，不影响导出流程
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    // 重置单个订单导出模式
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      // 恢复默认导出数量
+      exportConfig.exportLimit = 100;
+    }
+  }
+};
+
+// 盈派导出
+const handleYingpaiExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      // 单个订单导出模式：直接使用保存的订单
+      orders = [singleOrderToExport.value];
+      console.log(`盈派单个订单导出模式: ${orders[0].order_number}`);
+    } else {
+      // 批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined
+      };
+
+      // 如果选择只导出未发货的订单
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 前端过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      // 按国家筛选
+      if (exportConfig.filterByCountry) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`盈派导出：获取到 ${orders.length} 条订单数据`);
+
+    // 盈派模板字段（完整字段列表，包含必填和选填）
+    const yingpaiTemplateFields = [
+      "参考单号", // 必填
+      "快递物流商", // 必填
+      "代收货款", // 必填
+      "收件人姓名", // 必填
+      "收件人公司",
+      "收件人地址", // 必填
+      "收件人地址2",
+      "收件人地址3",
+      "收件人电话", // 必填
+      "收件人邮编", // 必填
+      "收件人手机", // 必填
+      "收件人城市", // 必填
+      "收件人省",
+      "收件人区", // 必填
+      "SKU1", // 必填
+      "SKU1件数", // 必填
+      "SKU2",
+      "SKU2件数",
+      "SKU3",
+      "SKU3件数",
+      "SKU4",
+      "SKU4件数",
+      "SKU5",
+      "SKU5件数",
+      "国家（二字代码）", // 必填
+      "收件人邮箱",
+      "订单备注",
+      "保险金额",
+      "收件人身份证",
+      "商品名称",
+      "商品申报价值"
+    ];
+
+    // 准备Excel数据
+    const excelData: any[][] = [];
+    excelData.push(yingpaiTemplateFields);
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      // 参考单号 - 使用系统订单号（必填）
+      row.push(order.order_number || "");
+
+      // 快递物流商 - 盈派（必填）
+      row.push("盈派");
+
+      // 代收货款（必填）
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 收件人姓名（必填）
+      row.push(order.customer_name || "");
+
+      // 收件人公司（选填）
+      row.push("");
+
+      // 收件人地址（必填）
+      row.push(order.address || "");
+
+      // 收件人地址2（选填）
+      row.push("");
+
+      // 收件人地址3（选填）
+      row.push("");
+
+      // 收件人电话（必填）
+      row.push(order.phone || "");
+
+      // 收件人邮编（必填）
+      row.push(order.postal_code || "");
+
+      // 收件人手机（必填）
+      row.push(order.phone || "");
+
+      // 收件人城市（必填）
+      row.push(order.city || "");
+
+      // 收件人省（选填）
+      row.push(order.province || "");
+
+      // 收件人区（必填）
+      row.push(order.district || "");
+
+      // SKU1 - 使用配置的值或留空（必填）
+      row.push(exportConfig.yingpaiSku || "");
+
+      // SKU1件数 - 默认1件（必填）
+      row.push(1);
+
+      // SKU2（选填）
+      row.push("");
+
+      // SKU2件数（选填）
+      row.push("");
+
+      // SKU3（选填）
+      row.push("");
+
+      // SKU3件数（选填）
+      row.push("");
+
+      // SKU4（选填）
+      row.push("");
+
+      // SKU4件数（选填）
+      row.push("");
+
+      // SKU5（选填）
+      row.push("");
+
+      // SKU5件数（选填）
+      row.push("");
+
+      // 国家（二字代码）（必填）
+      const countryCode = getCountryCode(order);
+      row.push(countryCode);
+
+      // 收件人邮箱（选填）
+      row.push(order.email || "");
+
+      // 订单备注（选填）
+      row.push(order.comments || "");
+
+      // 保险金额（选填）
+      row.push("");
+
+      // 收件人身份证（选填）
+      row.push("");
+
+      // 商品名称（选填）
+      row.push("");
+
+      // 商品申报价值（选填）
+      row.push("");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = yingpaiTemplateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "盈派发货订单");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `盈派发货订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为盈派模板`);
+
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件（不阻塞导出流程）
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      // 使用 setTimeout 确保异步执行，不影响导出流程
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    // 重置单个订单导出模式
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      // 恢复默认导出数量
+      exportConfig.exportLimit = 100;
+    }
   }
 };
 
