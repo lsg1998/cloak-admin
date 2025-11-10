@@ -1,1 +1,0 @@
-import{a5 as o}from"./index-Bd3dUhGd.js";const a=()=>o.get("/admin/domain-configs"),t=n=>o.get("/admin/domain-configs/all",n),e=n=>o.post("/admin/domain-configs",n),s=n=>o.put(`/admin/domain-configs/${n.id}`,n),m=n=>o.delete(`/admin/domain-configs/${n}`);export{a,e as c,m as d,t as g,s as u};
