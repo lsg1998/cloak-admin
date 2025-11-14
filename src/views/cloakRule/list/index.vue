@@ -292,6 +292,24 @@
           </el-col>
         </el-row>
 
+        <el-form-item label="em访问次数限制">
+          <el-input-number
+            v-model="formData.em_visit_limit"
+            :min="0"
+            :max="1000"
+            :step="1"
+            placeholder="0表示不启用"
+            style="width: 200px"
+          />
+          <div class="form-tip" style="color: #e6a23c; margin-top: 8px">
+            <el-icon><InfoFilled /></el-icon>
+            当URL包含em参数时，前N次访问强制显示仿品页。计数存储在Redis，10天过期。设置为0或留空则不启用此功能。
+          </div>
+          <div class="form-tip" style="color: #909399; margin-top: 4px">
+            示例：设置为10，则 em=ChenmSonwBaol 的前10次访问都显示仿品页，第11次开始按正常斗篷规则判断。
+          </div>
+        </el-form-item>
+
         <el-form-item label="备注">
           <el-input
             v-model="formData.description"
@@ -395,7 +413,7 @@ const countryToTimezoneMap = {
 const searchForm = reactive({
   name: "",
   mode: "",
-  is_active: null as number | null
+  is_active: undefined as number | undefined
 });
 
 // 分页数据
@@ -427,6 +445,7 @@ const formData = reactive<CloakRuleFormData>({
   allowed_timezones: [],
   allowed_referers: [],
   description: "",
+  em_visit_limit: 0,
   is_active: 1
 });
 
@@ -668,6 +687,7 @@ const resetForm = () => {
     redirect_url: "",
     audit_url: "",
     description: "",
+    em_visit_limit: 0,
     is_active: 1
   });
 

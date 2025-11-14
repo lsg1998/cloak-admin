@@ -179,6 +179,13 @@
                 <el-tag :type="OrderStatusColors[row.status]" size="small">
                   {{ OrderStatusLabels[row.status] || row.status }}
                 </el-tag>
+                <!-- 发货邮件状态标识 -->
+                <el-tooltip v-if="row.shipped_email_sent" content="已发送发货邮件" placement="top">
+                  <el-tag type="success" size="small" style="margin-left: 4px" class="email-sent-tag">
+                    <el-icon><Message /></el-icon>
+                    已发货邮件
+                  </el-tag>
+                </el-tooltip>
               </div>
               <div class="time-info">
                 <el-icon class="time-icon"><Calendar /></el-icon>
@@ -216,6 +223,13 @@
                   <el-link :href="row.from_url" target="_blank" type="primary" size="small">
                     {{ row.from_url.length > 60 ? row.from_url.substring(0, 60) + "..." : row.from_url }}
                   </el-link>
+                </div>
+                <!-- 显示em参数（谷歌账号） -->
+                <div class="em-param" v-if="extractEmParameter(row.from_url)">
+                  <el-tag size="small" class="em-tag" effect="dark">
+                    <el-icon><User /></el-icon>
+                    {{ extractEmParameter(row.from_url) }}
+                  </el-tag>
                 </div>
               </div>
               <div v-if="!row.ip_address && !row.from_url" class="no-data">--</div>
@@ -260,6 +274,7 @@
                     <el-dropdown-item command="shipped">🚚 发货通知</el-dropdown-item>
                     <el-dropdown-item command="arrival" divided>📍 到达提醒</el-dropdown-item>
                     <el-dropdown-item command="reshipment">🔄 补发通知</el-dropdown-item>
+                    <el-dropdown-item command="custom" divided>✉️ 自定义邮件</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -401,9 +416,22 @@
             <span v-else class="no-data">--</span>
           </el-descriptions-item>
           <el-descriptions-item label="来源URL" :span="2">
-            <el-link v-if="currentOrder.from_url" :href="currentOrder.from_url" target="_blank" type="primary" size="small">
-              {{ currentOrder.from_url }}
-            </el-link>
+            <div v-if="currentOrder.from_url" class="url-with-em">
+              <el-link :href="currentOrder.from_url" target="_blank" type="primary" size="small">
+                {{ currentOrder.from_url }}
+              </el-link>
+              <!-- 显示em参数（谷歌账号） -->
+              <el-tag
+                v-if="extractEmParameter(currentOrder.from_url)"
+                size="small"
+                class="em-tag"
+                effect="dark"
+                style="margin-left: 10px"
+              >
+                <el-icon><User /></el-icon>
+                谷歌账号: {{ extractEmParameter(currentOrder.from_url) }}
+              </el-tag>
+            </div>
             <span v-else class="no-data">--</span>
           </el-descriptions-item>
           <el-descriptions-item label="浏览器信息" :span="2">
@@ -411,6 +439,16 @@
               <el-text size="small" type="info">{{ currentOrder.user_agent }}</el-text>
             </div>
             <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="发货邮件状态" :span="2">
+            <el-tag v-if="currentOrder.shipped_email_sent" type="success" size="small">
+              <el-icon><Message /></el-icon>
+              已发送发货邮件
+            </el-tag>
+            <el-tag v-else type="info" size="small">
+              <el-icon><Close /></el-icon>
+              未发送发货邮件
+            </el-tag>
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -633,9 +671,14 @@
 
           <!-- 盈派专用配置 -->
           <template v-if="exportConfig.logisticsCompany === 'yingpai'">
+            <el-form-item label="快递物流商">
+              <el-input v-model="exportConfig.yingpaiLogistics" placeholder="请输入快递物流商名称" style="width: 300px" />
+              <div class="form-tip">快递物流商默认：欧洲小包特货</div>
+            </el-form-item>
+
             <el-form-item label="SKU">
-              <el-input v-model="exportConfig.yingpaiSku" placeholder="请输入SKU，留空则需手动填写" style="width: 300px" />
-              <div class="form-tip">SKU需要手动填写或者在这里配置默认值</div>
+              <el-input v-model="exportConfig.yingpaiSku" placeholder="请输入SKU" style="width: 300px" />
+              <div class="form-tip">SKU默认：15000W</div>
             </el-form-item>
           </template>
         </el-form>
@@ -725,6 +768,40 @@
       </template>
     </el-dialog>
 
+    <!-- 自定义邮件对话框 -->
+    <el-dialog v-model="customEmailDialogVisible" title="发送自定义邮件" width="800px" :close-on-click-modal="false">
+      <el-form :model="customEmailForm" label-width="100px">
+        <el-form-item label="收件人">
+          <el-input v-model="customEmailForm.email_to" placeholder="收件人邮箱" disabled></el-input>
+        </el-form-item>
+        <el-form-item label="邮件主题">
+          <el-input v-model="customEmailForm.subject" placeholder="请输入邮件主题" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="邮件内容">
+          <el-input
+            v-model="customEmailForm.html_content"
+            type="textarea"
+            :rows="12"
+            placeholder="请输入邮件内容（支持HTML格式）"
+          ></el-input>
+          <div class="form-tip">支持HTML格式，可以使用简单的HTML标签如 &lt;b&gt;粗体&lt;/b&gt;、&lt;br/&gt;换行等</div>
+        </el-form-item>
+      </el-form>
+
+      <el-divider content-position="left">邮件预览</el-divider>
+      <div class="email-content-preview" v-html="customEmailForm.html_content || '暂无内容'"></div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="customEmailDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmSendCustomEmail" :loading="customEmailSending">
+            <el-icon><Promotion /></el-icon>
+            发送邮件
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 商品选择对话框 -->
     <el-dialog v-model="productDialogVisible" title="选择商品" width="800px" :close-on-click-modal="false">
       <div class="product-selector">
@@ -805,7 +882,8 @@ import {
   Close,
   Message,
   Promotion,
-  Warning
+  Warning,
+  User
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -823,7 +901,7 @@ import {
   OrderStatusLabels,
   OrderStatusColors
 } from "@/api/modules/order";
-import { sendArrivalReminderApi, sendReshipmentNoticeApi } from "@/api/modules/email";
+import { sendArrivalReminderApi, sendReshipmentNoticeApi, sendCustomEmailApi, type CustomEmailParams } from "@/api/modules/email";
 import { getProductListApi, type Product } from "@/api/modules/product";
 
 // 响应式数据
@@ -855,6 +933,16 @@ const currentEmailPreview = ref<{
   orderId: number;
   action: string;
 } | null>(null);
+
+// 自定义邮件相关
+const customEmailDialogVisible = ref(false);
+const customEmailSending = ref(false);
+const customEmailForm = reactive({
+  order_id: 0,
+  email_to: "",
+  subject: "",
+  html_content: ""
+});
 
 // 国家代码映射
 const countryCodeMap: { [key: string]: string } = {
@@ -965,6 +1053,17 @@ const provinceToCountryMap: { [key: string]: string } = {
 };
 
 // 从订单数据中获取国家代码
+// 从URL中提取em参数（谷歌账号）
+const extractEmParameter = (url: string): string | null => {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    return urlObj.searchParams.get("em");
+  } catch (e) {
+    return null;
+  }
+};
+
 const getCountryCode = (order: Order): string => {
   // 优先使用language_code字段（如果存在且是有效的国家代码）
   if (order.language_code) {
@@ -1034,7 +1133,8 @@ const exportConfig = reactive({
   huaxiChineseName: "焊枪",
   huaxiProductInfo: "焊枪套装",
   // 盈派专用配置
-  yingpaiSku: ""
+  yingpaiLogistics: "欧洲小包特货",
+  yingpaiSku: "15000W"
 });
 
 // 从本地缓存加载导出配置
@@ -1063,6 +1163,7 @@ const loadExportConfigFromCache = () => {
       if (config.huaxiChineseName) exportConfig.huaxiChineseName = config.huaxiChineseName;
       if (config.huaxiProductInfo) exportConfig.huaxiProductInfo = config.huaxiProductInfo;
       // 盈派配置
+      if (config.yingpaiLogistics !== undefined) exportConfig.yingpaiLogistics = config.yingpaiLogistics;
       if (config.yingpaiSku !== undefined) exportConfig.yingpaiSku = config.yingpaiSku;
     }
   } catch (error) {
@@ -1549,6 +1650,17 @@ const handleEmailAction = async (row: Order, action: string) => {
     return;
   }
 
+  // 处理自定义邮件
+  if (action === "custom") {
+    console.log("2. 打开自定义邮件对话框");
+    customEmailForm.order_id = row.id;
+    customEmailForm.email_to = row.email;
+    customEmailForm.subject = "";
+    customEmailForm.html_content = "";
+    customEmailDialogVisible.value = true;
+    return;
+  }
+
   const emailTypes = {
     picking: {
       name: "拣货通知",
@@ -1643,6 +1755,45 @@ const confirmSendEmail = async () => {
   }
 
   console.log("=== 邮件发送结束 ===\n");
+};
+
+// 确认发送自定义邮件
+const confirmSendCustomEmail = async () => {
+  if (!customEmailForm.subject.trim()) {
+    ElMessage.warning("请输入邮件主题");
+    return;
+  }
+
+  if (!customEmailForm.html_content.trim()) {
+    ElMessage.warning("请输入邮件内容");
+    return;
+  }
+
+  customEmailSending.value = true;
+
+  try {
+    const params: CustomEmailParams = {
+      order_id: customEmailForm.order_id,
+      email_to: customEmailForm.email_to,
+      subject: customEmailForm.subject,
+      html_content: customEmailForm.html_content
+    };
+
+    await sendCustomEmailApi(params);
+    ElMessage.success("自定义邮件发送成功！");
+    customEmailDialogVisible.value = false;
+
+    // 清空表单
+    customEmailForm.order_id = 0;
+    customEmailForm.email_to = "";
+    customEmailForm.subject = "";
+    customEmailForm.html_content = "";
+  } catch (error: any) {
+    console.error("自定义邮件发送失败:", error);
+    ElMessage.error(error.response?.data?.message || error.message || "自定义邮件发送失败");
+  } finally {
+    customEmailSending.value = false;
+  }
 };
 
 // 计算当前页未发货订单数量
@@ -1835,7 +1986,26 @@ const handleExportConfirm = async () => {
       return;
     }
 
-    console.log(`获取到 ${orders.length} 条订单数据，将要导出`);
+    console.log(`过滤前订单数量: ${orders.length} 条`);
+
+    // 去重：根据手机号去重
+    const uniqueOrders = new Map<string, Order>();
+    orders.forEach(order => {
+      const phone = order.phone || "";
+      // 如果该手机号还不存在，或者当前订单更早，则保留
+      if (!uniqueOrders.has(phone)) {
+        uniqueOrders.set(phone, order);
+      } else {
+        // 保留订单号较小的（通常是较早的订单）
+        const existingOrder = uniqueOrders.get(phone)!;
+        if (order.order_number < existingOrder.order_number) {
+          uniqueOrders.set(phone, order);
+        }
+      }
+    });
+    orders = Array.from(uniqueOrders.values());
+
+    console.log(`去重后订单数量: ${orders.length} 条，将要导出`);
 
     // 匈牙利发货模板字段映射（使用原始模板的表头）
     const hungaryTemplateFields = [
@@ -2358,21 +2528,21 @@ const handleYingpaiExport = async () => {
 
     console.log(`盈派导出：获取到 ${orders.length} 条订单数据`);
 
-    // 盈派模板字段（完整字段列表，包含必填和选填）
+    // 盈派模板字段（完整44个字段）
     const yingpaiTemplateFields = [
+      "快递单号（请勿填写）",
       "参考单号", // 必填
       "快递物流商", // 必填
       "代收货款", // 必填
       "收件人姓名", // 必填
       "收件人公司",
+      "收件人邮箱",
       "收件人地址", // 必填
-      "收件人地址2",
-      "收件人地址3",
       "收件人电话", // 必填
       "收件人邮编", // 必填
       "收件人手机", // 必填
-      "收件人城市", // 必填
       "收件人省",
+      "收件人城市", // 必填
       "收件人区", // 必填
       "SKU1", // 必填
       "SKU1件数", // 必填
@@ -2384,13 +2554,26 @@ const handleYingpaiExport = async () => {
       "SKU4件数",
       "SKU5",
       "SKU5件数",
+      "SKU6",
+      "SKU6件数",
+      "SKU7",
+      "SKU7件数",
+      "SKU8",
+      "SKU8件数",
+      "SKU9",
+      "SKU9件数",
+      "SKU10",
+      "SKU10件数",
       "国家（二字代码）", // 必填
-      "收件人邮箱",
-      "订单备注",
-      "保险金额",
-      "收件人身份证",
-      "商品名称",
-      "商品申报价值"
+      "备注",
+      "面单标题（现在在面单上）",
+      "订单标题",
+      "电商平台",
+      "所属店铺",
+      "订单总金额",
+      "订单总金额币种",
+      "独立站URL",
+      "收件人门牌号码"
     ];
 
     // 准备Excel数据
@@ -2400,11 +2583,14 @@ const handleYingpaiExport = async () => {
     orders.forEach(order => {
       const row: any[] = [];
 
+      // 快递单号（请勿填写）- 留空
+      row.push("");
+
       // 参考单号 - 使用系统订单号（必填）
       row.push(order.order_number || "");
 
-      // 快递物流商 - 盈派（必填）
-      row.push("盈派");
+      // 快递物流商 - 使用配置的值（必填）
+      row.push(exportConfig.yingpaiLogistics || "欧洲小包特货");
 
       // 代收货款（必填）
       row.push(order.total_amount || order.product_price * order.quantity || 0);
@@ -2415,14 +2601,11 @@ const handleYingpaiExport = async () => {
       // 收件人公司（选填）
       row.push("");
 
+      // 收件人邮箱（选填）
+      row.push(order.email || "");
+
       // 收件人地址（必填）
       row.push(order.address || "");
-
-      // 收件人地址2（选填）
-      row.push("");
-
-      // 收件人地址3（选填）
-      row.push("");
 
       // 收件人电话（必填）
       row.push(order.phone || "");
@@ -2433,17 +2616,17 @@ const handleYingpaiExport = async () => {
       // 收件人手机（必填）
       row.push(order.phone || "");
 
-      // 收件人城市（必填）
-      row.push(order.city || "");
-
       // 收件人省（选填）
       row.push(order.province || "");
+
+      // 收件人城市（必填）
+      row.push(order.city || "");
 
       // 收件人区（必填）
       row.push(order.district || "");
 
-      // SKU1 - 使用配置的值或留空（必填）
-      row.push(exportConfig.yingpaiSku || "");
+      // SKU1 - 使用配置的值（必填）
+      row.push(exportConfig.yingpaiSku || "15000W");
 
       // SKU1件数 - 默认1件（必填）
       row.push(1);
@@ -2472,26 +2655,65 @@ const handleYingpaiExport = async () => {
       // SKU5件数（选填）
       row.push("");
 
+      // SKU6（选填）
+      row.push("");
+
+      // SKU6件数（选填）
+      row.push("");
+
+      // SKU7（选填）
+      row.push("");
+
+      // SKU7件数（选填）
+      row.push("");
+
+      // SKU8（选填）
+      row.push("");
+
+      // SKU8件数（选填）
+      row.push("");
+
+      // SKU9（选填）
+      row.push("");
+
+      // SKU9件数（选填）
+      row.push("");
+
+      // SKU10（选填）
+      row.push("");
+
+      // SKU10件数（选填）
+      row.push("");
+
       // 国家（二字代码）（必填）
       const countryCode = getCountryCode(order);
       row.push(countryCode);
 
-      // 收件人邮箱（选填）
-      row.push(order.email || "");
-
-      // 订单备注（选填）
+      // 备注（选填）
       row.push(order.comments || "");
 
-      // 保险金额（选填）
+      // 面单标题（现在在面单上）（选填）
       row.push("");
 
-      // 收件人身份证（选填）
+      // 订单标题（选填）
       row.push("");
 
-      // 商品名称（选填）
+      // 电商平台（选填）
       row.push("");
 
-      // 商品申报价值（选填）
+      // 所属店铺（选填）
+      row.push("");
+
+      // 订单总金额（选填）
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 订单总金额币种（选填）
+      row.push(order.currency || "EUR");
+
+      // 独立站URL（选填）
+      row.push("");
+
+      // 收件人门牌号码（选填）
       row.push("");
 
       excelData.push(row);
@@ -2634,7 +2856,8 @@ const loadProducts = async () => {
     const params = {
       page: productPagination.current,
       size: productPagination.size,
-      title: productSearchKeyword.value || undefined
+      title: productSearchKeyword.value || undefined,
+      product_type: "original" // 只显示正品，排除仿品
     };
 
     const response = await getProductListApi(params);
@@ -2945,6 +3168,61 @@ onMounted(() => {
 .ip-url-info .url-info {
   text-align: center;
   word-break: break-all;
+}
+
+.ip-url-info .em-param {
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* em参数标签样式（金色显眼） */
+.em-tag {
+  background: linear-gradient(135deg, #f6d365 0%, #fda085 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(253, 160, 133, 0.4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.em-tag .el-icon {
+  margin-right: 4px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 2px 8px rgba(253, 160, 133, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(253, 160, 133, 0.6);
+  }
+}
+
+.url-with-em {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 邮件发送状态标签样式 */
+.email-sent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.email-sent-tag .el-icon {
+  font-size: 12px;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 /* 时间信息 */

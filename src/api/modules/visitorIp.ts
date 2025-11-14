@@ -6,7 +6,9 @@ export interface VisitorIp {
   ip_address: string;
   product_id?: string;
   access_address?: string;
+  em_param?: string;
   product_type?: "original" | "fake";
+  cloak_reason?: string;
   hostname?: string;
   city?: string;
   region?: string;
@@ -67,6 +69,7 @@ export interface VisitorIpListParams {
   timeRange?: string;
   visitorType?: string;
   productId?: string;
+  emParam?: string;
 }
 
 export interface IpStatistics {

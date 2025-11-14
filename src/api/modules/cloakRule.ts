@@ -19,6 +19,7 @@ export interface CloakRule {
   blocked_organizations: string[];
   allowed_timezones: string[];
   description?: string;
+  em_visit_limit?: number;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ export interface CloakRuleListParams {
 }
 
 export interface CloakRuleFormData {
+  id?: number;
   name: string;
   target_regions: string[];
   mode: "cloak" | "green" | "open" | "audit";
@@ -49,6 +51,7 @@ export interface CloakRuleFormData {
   blocked_organizations: string[];
   allowed_timezones: string[];
   description?: string;
+  em_visit_limit?: number;
   is_active: number;
 }
 

@@ -16,6 +16,19 @@
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item label="商品号">
+          <el-input
+            v-model="searchForm.product_id"
+            placeholder="请输入商品号"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px">
             <el-option label="上架" value="active" />
@@ -71,14 +84,16 @@
       </template>
 
       <el-table
-        :data="tableData"
+        :data="displayTableData"
         v-loading="loading"
         stripe
         border
         style="width: 100%"
         :header-cell-style="{ background: '#f8f9fa', color: '#606266' }"
+        row-key="id"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
       >
-        <el-table-column prop="title" label="商品标题" width="180" show-overflow-tooltip>
+        <el-table-column prop="title" label="商品标题" width="240" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="product-info">
               <el-avatar :size="40" class="product-avatar" v-if="row.image_urls && row.image_urls[0]">
@@ -90,11 +105,19 @@
               <div class="product-details">
                 <div
                   class="product-title"
-                  style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                  :style="{
+                    maxWidth: '150px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }"
                 >
                   {{ row.title }}
                 </div>
                 <div class="product-subtitle">{{ row.sell_price ? "¥" + row.sell_price : "暂未定价" }}</div>
+                <div class="product-id" :title="`商品号: ${row.id}`">
+                  <span style="color: #909399; font-size: 12px">#{{ row.id }}</span>
+                </div>
               </div>
             </div>
           </template>
@@ -124,49 +147,44 @@
         </el-table-column>
         <el-table-column prop="product_type" label="类型" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.product_type === 'original' ? 'success' : 'warning'" size="small">
+            <el-tag :type="row.product_type === 'original' ? 'success' : 'warning'" size="default">
               {{ row.product_type === "original" ? "正品" : "仿品" }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="关联关系" width="150" align="center">
+        <el-table-column label="关联状态" width="140" align="center">
           <template #default="{ row }">
-            <!-- 正品显示关联的仿品 -->
+            <!-- 正品显示关联的仿品数量 -->
             <div v-if="row.product_type === 'original'">
-              <div v-if="getFakeProductsForOriginal(row.id).length > 0">
-                <el-tooltip
-                  v-for="fakeProduct in getFakeProductsForOriginal(row.id)"
-                  :key="fakeProduct.id"
-                  :content="`仿品: ${fakeProduct.title}`"
-                  placement="top"
-                >
-                  <el-tag type="warning" size="small" style="margin: 2px; cursor: pointer" @click="handleView(fakeProduct)">
-                    仿品
-                  </el-tag>
-                </el-tooltip>
+              <div v-if="row.children && row.children.length > 0">
+                <el-tag type="success" size="default">
+                  <el-icon style="margin-right: 4px"><Link /></el-icon>
+                  {{ row.children.length }} 个仿品
+                </el-tag>
               </div>
-              <span v-else style="color: #999999">-</span>
+              <div v-else>
+                <span style="color: #909399; font-size: 13px">-</span>
+              </div>
             </div>
-            <!-- 仿品显示关联的正品 -->
-            <div v-else-if="row.linked_original_ids && row.linked_original_ids.length > 0">
-              <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center">
-                <el-tooltip
-                  v-for="originalId in row.linked_original_ids"
-                  :key="originalId"
-                  :content="`关联正品: ${getOriginalProductTitle(originalId)}`"
-                  placement="top"
-                >
-                  <el-tag type="success" size="small" style="cursor: pointer" @click="handleViewOriginal(originalId)">
-                    {{ getOriginalProductTitle(originalId, true) }}
-                  </el-tag>
-                </el-tooltip>
+            <!-- 仿品显示关联正品提示 -->
+            <div v-else>
+              <div
+                v-if="
+                  (row.b_page_product_id && row.b_page_product_id !== '') ||
+                  (row.linked_original_ids && row.linked_original_ids.length > 0)
+                "
+                style="display: flex; flex-direction: column; gap: 4px; align-items: center"
+              >
+                <el-tag type="warning" size="small">已关联</el-tag>
                 <el-button size="small" type="danger" link @click="handleCancelAssociation(row)">
                   <el-icon><Close /></el-icon>
                   取消
                 </el-button>
               </div>
+              <div v-else>
+                <span style="color: #909399; font-size: 13px">未关联</span>
+              </div>
             </div>
-            <span v-else style="color: #f56c6c">未关联</span>
           </template>
         </el-table-column>
         <el-table-column label="配置信息" width="150" align="center">
@@ -229,33 +247,43 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="420" fixed="right" align="center">
+        <el-table-column label="操作" width="260" fixed="right" align="center">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button size="small" type="primary" link @click="handleView(row)">
-                <el-icon><View /></el-icon>
-                查看
-              </el-button>
-              <el-button size="small" type="success" link @click="handleManageSkus(row)">
-                <el-icon><Setting /></el-icon>
-                SKU管理
-              </el-button>
-              <el-button v-if="row.product_type === 'original'" size="small" type="info" link @click="handleSetFakeProduct(row)">
-                <el-icon><Plus /></el-icon>
-                关联仿品
-              </el-button>
-              <el-button size="small" type="warning" link @click="handleEdit(row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button size="small" type="info" link @click="handleCopy(row)">
-                <el-icon><DocumentCopy /></el-icon>
-                复制
-              </el-button>
-              <el-button size="small" type="danger" link @click="handleDelete(row)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+            <div class="action-buttons-wrap">
+              <div class="action-row">
+                <el-button size="small" type="primary" link @click="handleView(row)">
+                  <el-icon><View /></el-icon>
+                  查看
+                </el-button>
+                <el-button size="small" type="warning" link @click="handleEdit(row)">
+                  <el-icon><Edit /></el-icon>
+                  编辑
+                </el-button>
+                <el-button size="small" type="info" link @click="handleCopy(row)">
+                  <el-icon><DocumentCopy /></el-icon>
+                  复制
+                </el-button>
+              </div>
+              <div class="action-row">
+                <el-button size="small" type="success" link @click="handleManageSkus(row)">
+                  <el-icon><Setting /></el-icon>
+                  SKU
+                </el-button>
+                <el-button
+                  v-if="row.product_type === 'original'"
+                  size="small"
+                  type="info"
+                  link
+                  @click="handleSetFakeProduct(row)"
+                >
+                  <el-icon><Plus /></el-icon>
+                  仿品
+                </el-button>
+                <el-button size="small" type="danger" link @click="handleDelete(row)">
+                  <el-icon><Delete /></el-icon>
+                  删除
+                </el-button>
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -1414,6 +1442,7 @@ const imageInputMode = ref("url");
 // 搜索表单
 const searchForm = reactive({
   title: "",
+  product_id: "",
   status: null,
   product_type: "" // 默认显示全部
 });
@@ -1427,6 +1456,57 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<Product[]>([]);
+
+// 转换为树形结构的数据（仅显示正品，仿品作为子节点）
+const displayTableData = computed(() => {
+  // 如果有搜索条件或筛选仿品，返回原始扁平数据
+  if (searchForm.title || searchForm.status || searchForm.product_type === "fake") {
+    return tableData.value;
+  }
+
+  // 如果筛选了正品，只返回正品（不显示树形结构）
+  if (searchForm.product_type === "original") {
+    return tableData.value.filter(p => p.product_type === "original");
+  }
+
+  // 分离正品和仿品
+  const originals = tableData.value.filter(p => p.product_type === "original");
+  const fakes = tableData.value.filter(p => p.product_type === "fake");
+
+  // 为每个正品构建树形结构
+  const treeData = originals.map(original => {
+    // 查找该正品关联的所有仿品
+    const relatedFakes = fakes.filter(fake => {
+      // 支持新格式（linked_original_ids 数组）
+      if (fake.linked_original_ids && Array.isArray(fake.linked_original_ids)) {
+        return fake.linked_original_ids.includes(original.id);
+      }
+      // 兼容旧格式（b_page_product_id 单个ID）
+      return fake.b_page_product_id === original.id;
+    });
+
+    // 如果有仿品，添加children属性
+    if (relatedFakes.length > 0) {
+      return {
+        ...original,
+        children: relatedFakes,
+        hasChildren: true
+      };
+    }
+
+    return original;
+  });
+
+  // 将未关联的仿品也显示出来（放在最后）
+  const unlinkedFakes = fakes.filter(fake => {
+    if (fake.linked_original_ids && Array.isArray(fake.linked_original_ids)) {
+      return fake.linked_original_ids.length === 0;
+    }
+    return !fake.b_page_product_id;
+  });
+
+  return [...treeData, ...unlinkedFakes];
+});
 
 // 斗篷规则数据
 const cloakRules = ref<CloakRule[]>([]);
@@ -1676,6 +1756,7 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     title: "",
+    product_id: "",
     status: null,
     product_type: "" // 重置时显示全部
   });
@@ -1848,7 +1929,7 @@ const handleDelete = (row: Product) => {
 
 // 复制商品
 const handleCopy = (row: Product) => {
-  ElMessageBox.confirm(`确定要复制商品 "${row.title}" 吗？复制后的商品将以草稿状态保存，标题会添加"(复制)"后缀。`, "复制确认", {
+  ElMessageBox.confirm(`确定要复制商品 "${row.title}" 吗？复制后的商品将以草稿状态保存，不会复制关联关系。`, "复制确认", {
     confirmButtonText: "确定复制",
     cancelButtonText: "取消",
     type: "info"
@@ -1879,13 +1960,20 @@ const handleSubmit = async () => {
         console.log("斗篷规则ID:", form.cloak_rule_id);
         console.log("斗篷规则ID类型:", typeof form.cloak_rule_id);
 
+        // 处理 b_page_product_id 字段（数组转为单个值）
+        const submitData = {
+          ...form,
+          b_page_product_id:
+            Array.isArray(form.b_page_product_id) && form.b_page_product_id.length > 0 ? form.b_page_product_id[0] : null
+        };
+
         if (form.id) {
           console.log("更新商品，ID:", form.id);
-          await updateProductApi(form.id, form);
+          await updateProductApi(form.id, submitData);
           ElMessage.success("更新成功");
         } else {
           console.log("创建新商品");
-          await createProductApi(form);
+          await createProductApi(submitData);
           ElMessage.success("添加成功");
         }
         dialogVisible.value = false;
@@ -1998,6 +2086,7 @@ const loadData = async () => {
       page: pagination.current,
       size: pagination.size,
       title: searchForm.title || undefined,
+      product_id: searchForm.product_id || undefined,
       status: searchForm.status || undefined,
       product_type: searchForm.product_type || undefined
     };
@@ -2710,41 +2799,6 @@ const loadOriginalProducts = async () => {
   }
 };
 
-// 获取正品商品标题
-const getOriginalProductTitle = (productId: string, short: boolean = false) => {
-  const product = tableData.value.find(p => p.id === productId);
-  if (!product) return "未知商品";
-
-  // 如果需要简短标题，截取前10个字符
-  if (short && product.title.length > 10) {
-    return product.title.substring(0, 10) + "...";
-  }
-  return product.title;
-};
-
-// 获取正品关联的所有仿品（支持新的关联格式）
-const getFakeProductsForOriginal = (originalProductId: string) => {
-  return tableData.value.filter(p => {
-    if (p.product_type !== "fake") return false;
-
-    // 支持新格式（linked_original_ids 数组）
-    if (p.linked_original_ids && Array.isArray(p.linked_original_ids)) {
-      return p.linked_original_ids.includes(originalProductId);
-    }
-
-    // 兼容旧格式（b_page_product_id 单个ID）
-    return p.b_page_product_id === originalProductId;
-  });
-};
-
-// 查看正品详情
-const handleViewOriginal = (originalProductId: string) => {
-  const originalProduct = tableData.value.find(p => p.id === originalProductId);
-  if (originalProduct) {
-    handleView(originalProduct);
-  }
-};
-
 // 关联仿品商品
 const handleSetFakeProduct = (originalProduct: Product) => {
   currentOriginalProduct.value = originalProduct;
@@ -2988,6 +3042,104 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 树形表格样式优化 - 简洁美观 */
+
+/* 正品行样式 */
+:deep(.el-table__row--level-0) {
+  background-color: #ffffff !important;
+  border-left: 3px solid #67c23a !important;
+}
+
+:deep(.el-table__row--level-0:hover) {
+  background-color: #f5f7fa !important;
+}
+
+/* 仿品行样式 */
+:deep(.el-table__row--level-1) {
+  background-color: #fafafa !important;
+  border-left: 3px solid #e6a23c !important;
+}
+
+:deep(.el-table__row--level-1:hover) {
+  background-color: #f0f0f0 !important;
+}
+
+/* 展开/收起图标 - 清晰明显 */
+:deep(.el-table__expand-icon) {
+  font-size: 16px !important;
+  width: 24px !important;
+  height: 24px !important;
+  color: #409eff !important;
+  background-color: #f0f8ff !important;
+  border: 1.5px solid #409eff !important;
+  border-radius: 4px !important;
+  transition: all 0.25s ease;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 4px !important;
+}
+
+:deep(.el-table__expand-icon:hover) {
+  background-color: #409eff !important;
+  color: #ffffff !important;
+  transform: scale(1.05);
+}
+
+:deep(.el-table__expand-icon--expanded) {
+  background-color: #409eff !important;
+  color: #ffffff !important;
+}
+
+/* 仿品行内容缩进 */
+:deep(.el-table__row--level-1 .product-info) {
+  padding-left: 20px;
+}
+
+/* 树形表格整体过渡效果 */
+:deep(.el-table__body-wrapper .el-table__body tbody tr) {
+  transition: all 0.2s ease;
+}
+
+/* 展开图标内部图标 */
+:deep(.el-table__expand-icon .el-icon) {
+  font-weight: 600 !important;
+}
+
+/* 正品行标题 */
+:deep(.el-table__row--level-0 .product-title) {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
+}
+
+/* 仿品行标题 */
+:deep(.el-table__row--level-1 .product-title) {
+  font-size: 13px;
+  color: #606266;
+}
+
+/* 操作按钮2行布局 */
+.action-buttons-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.action-row {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.action-row .el-button {
+  min-width: auto;
+  padding: 4px 8px;
+}
+
 /* 图片输入方式选择样式 */
 .image-input-section {
   .input-mode-selector {

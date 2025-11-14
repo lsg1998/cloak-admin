@@ -66,6 +66,7 @@ export interface Order {
   ip_address?: string;
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
+  shipped_email_sent?: boolean; // 是否已发送发货邮件
   // 关联商品信息
   product_title?: string;
   product_price?: number;

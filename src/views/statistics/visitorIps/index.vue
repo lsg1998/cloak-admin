@@ -42,6 +42,15 @@
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item label="推广参数">
+          <el-input
+            v-model="searchForm.emParam"
+            placeholder="请输入em参数"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -308,6 +317,11 @@
                 <div class="type-line">
                   <span class="label">商品ID:</span>
                   <el-tag v-if="row.product_id" size="small" type="success">{{ row.product_id }}</el-tag>
+                  <span v-else class="value">-</span>
+                </div>
+                <div class="type-line">
+                  <span class="label">推广参数:</span>
+                  <el-tag v-if="row.em_param" size="small" type="warning">{{ row.em_param }}</el-tag>
                   <span v-else class="value">-</span>
                 </div>
                 <div class="type-line">
@@ -800,7 +814,8 @@ const searchForm = reactive({
   ip: "",
   timeRange: "today", // 默认今天
   visitorType: "",
-  productId: ""
+  productId: "",
+  emParam: ""
 });
 
 // 商品选择相关
@@ -1019,8 +1034,8 @@ const getBotDescription = (row: VisitorIp) => {
 };
 
 // 获取产品类型标签颜色
-const getProductTypeColor = (type: string) => {
-  const colorMap: Record<string, string> = {
+const getProductTypeColor = (type: string): "success" | "warning" | "info" | "primary" | "danger" => {
+  const colorMap: Record<string, "success" | "warning" | "info" | "primary" | "danger"> = {
     A: "primary",
     B: "success",
     C: "warning",
@@ -1043,8 +1058,8 @@ const getProductTypeLabel = (type: string) => {
 };
 
 // 获取来源标签类型
-const getSourceTagType = (source: string) => {
-  const typeMap: Record<string, "success" | "primary" | "warning" | "danger" | "info"> = {
+const getSourceTagType = (source: string): "success" | "warning" | "info" | "primary" | "danger" => {
+  const typeMap: Record<string, "success" | "warning" | "info" | "primary" | "danger"> = {
     YouTube: "danger",
     "Android App": "success",
     Google: "primary",
@@ -1053,7 +1068,7 @@ const getSourceTagType = (source: string) => {
     TikTok: "danger",
     "Twitter/X": "info",
     直接访问: "info",
-    其他: ""
+    其他: "info"
   };
   return typeMap[source] || "info";
 };
@@ -1121,7 +1136,8 @@ const handleReset = () => {
     ip: "",
     timeRange: "today", // 重置为默认今天
     visitorType: "",
-    productId: ""
+    productId: "",
+    emParam: ""
   });
   selectedProductName.value = "";
   handleSearch();

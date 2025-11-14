@@ -267,3 +267,18 @@ export interface ManualEmailParams {
 export const sendManualEmailApi = (data: ManualEmailParams) => {
   return http.post("/admin/email-send", data);
 };
+
+// 自定义邮件发送参数
+export interface CustomEmailParams {
+  order_id: number;
+  email_to: string;
+  subject: string;
+  html_content: string;
+}
+
+/**
+ * 发送自定义邮件
+ */
+export const sendCustomEmailApi = (data: CustomEmailParams) => {
+  return http.post("/admin/orders/send-custom-email", data);
+};

@@ -51,6 +51,7 @@ export interface ProductListParams {
   page?: number;
   size?: number;
   title?: string;
+  product_id?: string;
   status?: string;
   product_type?: string;
   category_id?: string;
@@ -109,6 +110,7 @@ export const getProductListApi = (params: ProductListParams) => {
   if (params.page) searchParams.append("page", params.page.toString());
   if (params.size) searchParams.append("size", params.size.toString());
   if (params.title) searchParams.append("title", params.title);
+  if (params.product_id) searchParams.append("product_id", params.product_id);
   if (params.status) searchParams.append("status", params.status);
   if (params.product_type) searchParams.append("product_type", params.product_type);
   if (params.category_id) searchParams.append("category_id", params.category_id);
