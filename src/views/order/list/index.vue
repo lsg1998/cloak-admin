@@ -890,6 +890,7 @@ import {
   getOrderListApi,
   getOrderDetailApi,
   updateOrderStatusApi,
+  batchUpdateOrderStatusApi,
   deleteOrderApi,
   batchDeleteOrdersApi,
   sendPickingNotificationEmailApi,
@@ -955,6 +956,28 @@ const countryCodeMap: { [key: string]: string } = {
   LV: "拉脱维亚",
   LT: "立陶宛",
   ES: "西班牙",
+  PT: "葡萄牙",
+  IT: "意大利",
+  FR: "法国",
+  DE: "德国",
+  GB: "英国",
+  UK: "英国",
+  NL: "荷兰",
+  BE: "比利时",
+  AT: "奥地利",
+  CH: "瑞士",
+  SE: "瑞典",
+  NO: "挪威",
+  DK: "丹麦",
+  FI: "芬兰",
+  IE: "爱尔兰",
+  GR: "希腊",
+  RO: "罗马尼亚",
+  BG: "保加利亚",
+  EE: "爱沙尼亚",
+  LU: "卢森堡",
+  MT: "马耳他",
+  CY: "塞浦路斯",
   JA: "日本",
   JP: "日本"
 };
@@ -970,6 +993,28 @@ const huaxiCountryCodeMap: { [key: string]: string } = {
   LV: "拉脱维亚",
   LT: "立陶宛",
   ES: "西班牙",
+  PT: "葡萄牙",
+  IT: "意大利",
+  FR: "法国",
+  DE: "德国",
+  GB: "英国",
+  UK: "英国",
+  NL: "荷兰",
+  BE: "比利时",
+  AT: "奥地利",
+  CH: "瑞士",
+  SE: "瑞典",
+  NO: "挪威",
+  DK: "丹麦",
+  FI: "芬兰",
+  IE: "爱尔兰",
+  GR: "希腊",
+  RO: "罗马尼亚",
+  BG: "保加利亚",
+  EE: "爱沙尼亚",
+  LU: "卢森堡",
+  MT: "马耳他",
+  CY: "塞浦路斯",
   JA: "日本",
   JP: "日本"
 };
@@ -1853,43 +1898,72 @@ const handlePostExportActions = async (orders: Order[]) => {
     duration: 3000
   });
 
-  let successCount = 0;
-  let failCount = 0;
+  let statusUpdateSuccess = false;
+  let emailSuccessCount = 0;
+  let emailFailCount = 0;
   const errors: string[] = [];
 
-  // 异步处理每个订单
-  for (const order of orders) {
-    try {
-      // 更新订单状态为已发货
-      if (exportConfig.updateShippedStatus) {
-        await updateOrderStatusApi(order.id, { status: OrderStatus.SHIPPED });
-      }
+  try {
+    // 批量更新订单状态为已发货
+    if (exportConfig.updateShippedStatus) {
+      const orderIds = orders.map(order => order.id);
+      await batchUpdateOrderStatusApi({
+        ids: orderIds,
+        status: OrderStatus.SHIPPED
+      });
+      statusUpdateSuccess = true;
+    }
+  } catch (error: any) {
+    errors.push(`批量更新订单状态失败: ${error.message || "操作失败"}`);
+    console.error("批量更新订单状态失败:", error);
+  }
 
-      // 发送发货通知邮件
-      if (exportConfig.sendShippedEmail && order.email) {
-        await sendShippedNotificationEmailApi(order.id);
+  // 发送发货通知邮件（仍需逐个发送）
+  if (exportConfig.sendShippedEmail) {
+    for (const order of orders) {
+      if (order.email) {
+        try {
+          await sendShippedNotificationEmailApi(order.id);
+          emailSuccessCount++;
+        } catch (error: any) {
+          emailFailCount++;
+          errors.push(`订单 ${order.order_number} 邮件发送失败: ${error.message || "操作失败"}`);
+          console.error(`订单 ${order.order_number} 邮件发送失败:`, error);
+        }
       }
-
-      successCount++;
-    } catch (error: any) {
-      failCount++;
-      errors.push(`订单 ${order.order_number}: ${error.message || "操作失败"}`);
-      console.error(`处理订单 ${order.order_number} 失败:`, error);
     }
   }
 
   // 显示处理结果
-  if (failCount === 0) {
-    ElMessage.success(`成功处理 ${successCount} 个订单的发货操作`);
-  } else if (successCount > 0) {
+  const messages: string[] = [];
+  if (exportConfig.updateShippedStatus) {
+    if (statusUpdateSuccess) {
+      messages.push(`成功批量更新 ${orders.length} 个订单状态`);
+    } else {
+      messages.push(`订单状态更新失败`);
+    }
+  }
+  if (exportConfig.sendShippedEmail) {
+    if (emailFailCount === 0 && emailSuccessCount > 0) {
+      messages.push(`成功发送 ${emailSuccessCount} 封邮件`);
+    } else if (emailSuccessCount > 0) {
+      messages.push(`邮件: 成功 ${emailSuccessCount} 个，失败 ${emailFailCount} 个`);
+    } else if (emailFailCount > 0) {
+      messages.push(`所有邮件发送失败`);
+    }
+  }
+
+  if (errors.length === 0) {
+    ElMessage.success(messages.join("，"));
+  } else if (statusUpdateSuccess || emailSuccessCount > 0) {
     ElMessage.warning({
-      message: `成功: ${successCount} 个，失败: ${failCount} 个。请查看控制台了解详情。`,
+      message: messages.join("，") + "。部分操作失败，请查看控制台了解详情。",
       duration: 5000
     });
-    console.error("失败的订单:", errors);
+    console.error("错误详情:", errors);
   } else {
-    ElMessage.error(`所有订单处理失败！请查看控制台了解详情。`);
-    console.error("失败的订单:", errors);
+    ElMessage.error(`所有操作失败！请查看控制台了解详情。`);
+    console.error("错误详情:", errors);
   }
 
   // 刷新订单列表

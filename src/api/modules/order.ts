@@ -126,6 +126,17 @@ export const updateOrderStatusApi = (id: number, data: UpdateOrderStatusParams) 
 };
 
 /**
+ * 批量更新订单状态
+ */
+export interface BatchUpdateOrderStatusParams {
+  ids: number[];
+  status: OrderStatus;
+}
+export const batchUpdateOrderStatusApi = (data: BatchUpdateOrderStatusParams) => {
+  return http.post("/admin/orders/batch-update-status", data);
+};
+
+/**
  * 删除订单
  */
 export const deleteOrderApi = (id: number) => {
