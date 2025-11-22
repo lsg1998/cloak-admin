@@ -55,6 +55,7 @@ export interface ProductListParams {
   status?: string;
   product_type?: string;
   category_id?: string;
+  country?: string;
 }
 
 export interface ProductListResponse {
@@ -114,6 +115,7 @@ export const getProductListApi = (params: ProductListParams) => {
   if (params.status) searchParams.append("status", params.status);
   if (params.product_type) searchParams.append("product_type", params.product_type);
   if (params.category_id) searchParams.append("category_id", params.category_id);
+  if (params.country) searchParams.append("country", params.country);
 
   const queryString = searchParams.toString();
   const url = queryString ? `/admin/products?${queryString}` : "/admin/products";

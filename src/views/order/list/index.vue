@@ -66,6 +66,28 @@
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item label="国家筛选">
+          <el-select v-model="searchForm.country" placeholder="请选择国家" clearable style="width: 200px">
+            <!-- 有订单的国家 -->
+            <el-option
+              v-for="country in sortedCountryOptions.withOrders"
+              :key="country.code"
+              :label="`${country.name} (${country.count}条)`"
+              :value="country.code"
+            />
+            <!-- 分隔线 -->
+            <el-option v-if="sortedCountryOptions.withOrders.length > 0" disabled value="">
+              <span style="color: #dcdfe6">──────────</span>
+            </el-option>
+            <!-- 无订单的国家 -->
+            <el-option
+              v-for="country in sortedCountryOptions.withoutOrders"
+              :key="country.code"
+              :label="country.name"
+              :value="country.code"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -130,7 +152,9 @@
           <template #default="{ row }">
             <div class="customer-info">
               <div class="customer-name">{{ row.customer_name }}</div>
-              <div class="customer-phone">{{ row.phone }}</div>
+              <div class="customer-phone" :class="{ 'duplicate-phone': isPhoneDuplicate(row.phone) }">
+                {{ row.phone }}
+              </div>
               <div v-if="row.email" class="customer-email">{{ row.email }}</div>
             </div>
           </template>
@@ -199,7 +223,13 @@
             <div class="ip-url-info">
               <div class="ip-sk-row" v-if="row.ip_address">
                 <div class="ip-address">
-                  <el-tag size="small" type="info" style="cursor: pointer" @click="handleViewIPInfo(row.ip_address)">
+                  <el-tag
+                    size="small"
+                    :type="isIPDuplicate(row.ip_address) ? 'danger' : 'info'"
+                    style="cursor: pointer"
+                    :class="{ 'duplicate-ip': isIPDuplicate(row.ip_address) }"
+                    @click="handleViewIPInfo(row.ip_address)"
+                  >
                     {{ row.ip_address }}
                   </el-tag>
                 </div>
@@ -306,6 +336,20 @@
         <el-alert :title="`已选择 ${selectedOrders.length} 个订单`" type="info" show-icon :closable="false">
           <template #default>
             <div class="batch-buttons">
+              <el-dropdown @command="handleBatchExport">
+                <el-button size="small" type="primary">
+                  <el-icon><Download /></el-icon>
+                  批量导出
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="kuasuoda">📦 跨速达</el-dropdown-item>
+                    <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
+                    <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button size="small" type="danger" @click="handleBatchDelete">
                 <el-icon><Delete /></el-icon>
                 批量删除
@@ -637,12 +681,40 @@
 
           <!-- 跨速达专用配置 -->
           <template v-if="exportConfig.logisticsCompany === 'kuasuoda'">
+            <el-form-item label="货物类型">
+              <el-select v-model="exportConfig.kuasuodaCargoType" placeholder="请选择货物类型" style="width: 300px">
+                <el-option label="P" value="P" />
+                <el-option label="T" value="T" />
+              </el-select>
+              <div class="form-tip">默认为T，可根据实际货物类型选择P或T</div>
+            </el-form-item>
+
             <el-form-item label="规格信息">
               <el-input v-model="exportConfig.specification" placeholder="请输入规格信息" style="width: 300px" />
             </el-form-item>
 
             <el-form-item label="SKU">
               <el-input v-model="exportConfig.sku" placeholder="请输入SKU" style="width: 300px" />
+            </el-form-item>
+
+            <el-form-item label="配货信息" required>
+              <el-input
+                v-model="exportConfig.kuasuodaProductInfo"
+                placeholder="请输入配货信息（必填）"
+                style="width: 300px"
+                clearable
+              />
+              <div class="form-tip">导出时将使用该配货信息，而不是产品名称</div>
+            </el-form-item>
+
+            <el-form-item label="配货名称" required>
+              <el-input
+                v-model="exportConfig.kuasuodaProductName"
+                placeholder="请输入配货名称（必填）"
+                style="width: 300px"
+                clearable
+              />
+              <div class="form-tip">导出时将使用该配货名称，而不是产品名称</div>
             </el-form-item>
           </template>
 
@@ -867,7 +939,7 @@
 </template>
 
 <script setup lang="ts" name="OrderList">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Box,
@@ -933,6 +1005,7 @@ const currentEmailPreview = ref<{
   htmlContent: string;
   orderId: number;
   action: string;
+  order: Order;
 } | null>(null);
 
 // 自定义邮件相关
@@ -1165,6 +1238,9 @@ const exportConfig = reactive({
   country: "斯洛伐克",
   specification: "welding gun",
   sku: "DH20251006*1",
+  kuasuodaCargoType: "T", // 跨速达货物类型：P或T，默认为T
+  kuasuodaProductInfo: "", // 跨速达配货信息
+  kuasuodaProductName: "", // 跨速达配货名称
   exportLimit: 100, // 默认导出100条
   onlyUnshipped: false, // 只导出未发货的订单
   filterByCountry: false, // 是否按国家筛选
@@ -1195,6 +1271,9 @@ const loadExportConfigFromCache = () => {
       if (config.country) exportConfig.country = config.country;
       if (config.specification) exportConfig.specification = config.specification;
       if (config.sku) exportConfig.sku = config.sku;
+      if (config.kuasuodaCargoType) exportConfig.kuasuodaCargoType = config.kuasuodaCargoType;
+      if (config.kuasuodaProductInfo) exportConfig.kuasuodaProductInfo = config.kuasuodaProductInfo;
+      if (config.kuasuodaProductName) exportConfig.kuasuodaProductName = config.kuasuodaProductName;
       if (config.exportLimit) exportConfig.exportLimit = config.exportLimit;
       if (config.onlyUnshipped !== undefined) exportConfig.onlyUnshipped = config.onlyUnshipped;
       if (config.filterByCountry !== undefined) exportConfig.filterByCountry = config.filterByCountry;
@@ -1227,6 +1306,9 @@ const saveExportConfigToCache = () => {
       country: exportConfig.country,
       specification: exportConfig.specification,
       sku: exportConfig.sku,
+      kuasuodaCargoType: exportConfig.kuasuodaCargoType,
+      kuasuodaProductInfo: exportConfig.kuasuodaProductInfo,
+      kuasuodaProductName: exportConfig.kuasuodaProductName,
       exportLimit: exportConfig.exportLimit,
       onlyUnshipped: exportConfig.onlyUnshipped,
       filterByCountry: exportConfig.filterByCountry,
@@ -1256,7 +1338,8 @@ const searchForm = reactive({
   status: "",
   start_date: "",
   end_date: "",
-  product_id: ""
+  product_id: "",
+  country: "" // 国家筛选
 });
 
 // 日期范围
@@ -1271,6 +1354,105 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<Order[]>([]);
+
+// 所有可选国家列表
+const allCountries = [
+  { code: "SK", name: "斯洛伐克" },
+  { code: "CZ", name: "捷克" },
+  { code: "PL", name: "波兰" },
+  { code: "HU", name: "匈牙利" },
+  { code: "DE", name: "德国" },
+  { code: "AT", name: "奥地利" },
+  { code: "RO", name: "罗马尼亚" },
+  { code: "JP", name: "日本" }
+];
+
+// 计算当前页面每个国家的订单数量
+const countryOrderCounts = computed(() => {
+  const counts: { [key: string]: number } = {};
+
+  // 统计每个国家的订单数量
+  tableData.value.forEach(order => {
+    const countryCode = getCountryCode(order);
+    if (countryCode) {
+      counts[countryCode] = (counts[countryCode] || 0) + 1;
+    }
+  });
+
+  return counts;
+});
+
+// 计算排序后的国家列表（有订单的在前面）
+const sortedCountryOptions = computed(() => {
+  const counts = countryOrderCounts.value;
+
+  // 分为有订单和无订单两组
+  const withOrders: { code: string; name: string; count: number }[] = [];
+  const withoutOrders: { code: string; name: string }[] = [];
+
+  allCountries.forEach(country => {
+    const count = counts[country.code] || 0;
+    if (count > 0) {
+      withOrders.push({ ...country, count });
+    } else {
+      withoutOrders.push(country);
+    }
+  });
+
+  // 有订单的按数量降序排列
+  withOrders.sort((a, b) => b.count - a.count);
+
+  return {
+    withOrders,
+    withoutOrders
+  };
+});
+
+// 检测重复的手机号
+const duplicatePhones = computed(() => {
+  const phoneMap = new Map<string, number>();
+  const duplicates = new Set<string>();
+
+  tableData.value.forEach(order => {
+    if (order.phone) {
+      const count = phoneMap.get(order.phone) || 0;
+      phoneMap.set(order.phone, count + 1);
+      if (count > 0) {
+        duplicates.add(order.phone);
+      }
+    }
+  });
+
+  return duplicates;
+});
+
+// 检测重复的IP地址
+const duplicateIPs = computed(() => {
+  const ipMap = new Map<string, number>();
+  const duplicates = new Set<string>();
+
+  tableData.value.forEach(order => {
+    if (order.ip_address) {
+      const count = ipMap.get(order.ip_address) || 0;
+      ipMap.set(order.ip_address, count + 1);
+      if (count > 0) {
+        duplicates.add(order.ip_address);
+      }
+    }
+  });
+
+  return duplicates;
+});
+
+// 判断手机号是否重复
+const isPhoneDuplicate = (phone: string) => {
+  return duplicatePhones.value.has(phone);
+};
+
+// 判断IP是否重复
+const isIPDuplicate = (ip: string) => {
+  return duplicateIPs.value.has(ip);
+};
 
 // 商品筛选相关
 const productDialogVisible = ref(false);
@@ -1373,6 +1555,29 @@ const handleDelete = (row: Order) => {
       ElMessage.error("删除失败");
     }
   });
+};
+
+// 批量导出
+const batchExportMode = ref(false); // 是否为批量导出模式
+const batchExportOrders = ref<Order[]>([]); // 批量导出的订单列表
+
+const handleBatchExport = (logisticsCompany: string) => {
+  if (selectedOrders.value.length === 0) {
+    ElMessage.warning("请先选择要导出的订单");
+    return;
+  }
+
+  // 设置为批量导出模式
+  batchExportMode.value = true;
+  batchExportOrders.value = [...selectedOrders.value];
+
+  // 设置物流公司
+  exportConfig.logisticsCompany = logisticsCompany;
+
+  // 打开导出配置对话框
+  exportDialogVisible.value = true;
+
+  console.log(`准备批量导出 ${selectedOrders.value.length} 个订单, 物流公司: ${logisticsCompany}`);
 };
 
 // 批量删除
@@ -1750,7 +1955,8 @@ const handleEmailAction = async (row: Order, action: string) => {
     typeName: emailType.name,
     htmlContent: htmlContent,
     orderId: row.id,
-    action: action
+    action: action,
+    order: row
   };
 
   console.log("4. 显示邮件预览对话框");
@@ -1761,7 +1967,14 @@ const handleEmailAction = async (row: Order, action: string) => {
 const confirmSendEmail = async () => {
   if (!currentEmailPreview.value) return;
 
-  const { orderId, action, typeName } = currentEmailPreview.value;
+  const { orderId, action, typeName, order } = currentEmailPreview.value;
+
+  // 再次验证邮箱地址
+  if (!order?.email || !order.email.trim()) {
+    ElMessage.warning("该订单没有邮箱地址，无法发送邮件");
+    emailPreviewDialogVisible.value = false;
+    return;
+  }
 
   const emailTypes = {
     picking: { name: "拣货通知", api: sendPickingNotificationEmailApi },
@@ -1804,6 +2017,19 @@ const confirmSendEmail = async () => {
 
 // 确认发送自定义邮件
 const confirmSendCustomEmail = async () => {
+  // 验证邮箱地址
+  if (!customEmailForm.email_to || !customEmailForm.email_to.trim()) {
+    ElMessage.warning("收件人邮箱地址不能为空");
+    return;
+  }
+
+  // 简单的邮箱格式验证
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(customEmailForm.email_to.trim())) {
+    ElMessage.warning("请输入有效的邮箱地址");
+    return;
+  }
+
   if (!customEmailForm.subject.trim()) {
     ElMessage.warning("请输入邮件主题");
     return;
@@ -1918,10 +2144,11 @@ const handlePostExportActions = async (orders: Order[]) => {
     console.error("批量更新订单状态失败:", error);
   }
 
-  // 发送发货通知邮件（仍需逐个发送）
+  // 发送发货通知邮件（仅发送给有邮箱的订单）
+  let noEmailCount = 0;
   if (exportConfig.sendShippedEmail) {
     for (const order of orders) {
-      if (order.email) {
+      if (order.email && order.email.trim()) {
         try {
           await sendShippedNotificationEmailApi(order.id);
           emailSuccessCount++;
@@ -1930,6 +2157,9 @@ const handlePostExportActions = async (orders: Order[]) => {
           errors.push(`订单 ${order.order_number} 邮件发送失败: ${error.message || "操作失败"}`);
           console.error(`订单 ${order.order_number} 邮件发送失败:`, error);
         }
+      } else {
+        noEmailCount++;
+        console.log(`订单 ${order.order_number} 没有邮箱地址，跳过发送邮件`);
       }
     }
   }
@@ -1944,12 +2174,18 @@ const handlePostExportActions = async (orders: Order[]) => {
     }
   }
   if (exportConfig.sendShippedEmail) {
-    if (emailFailCount === 0 && emailSuccessCount > 0) {
-      messages.push(`成功发送 ${emailSuccessCount} 封邮件`);
-    } else if (emailSuccessCount > 0) {
-      messages.push(`邮件: 成功 ${emailSuccessCount} 个，失败 ${emailFailCount} 个`);
-    } else if (emailFailCount > 0) {
-      messages.push(`所有邮件发送失败`);
+    const emailParts: string[] = [];
+    if (emailSuccessCount > 0) {
+      emailParts.push(`成功 ${emailSuccessCount} 个`);
+    }
+    if (emailFailCount > 0) {
+      emailParts.push(`失败 ${emailFailCount} 个`);
+    }
+    if (noEmailCount > 0) {
+      emailParts.push(`无邮箱 ${noEmailCount} 个`);
+    }
+    if (emailParts.length > 0) {
+      messages.push(`邮件: ${emailParts.join("，")}`);
     }
   }
 
@@ -1996,6 +2232,18 @@ const handleKuasuodaExport = async () => {
 
 // 导出确认 - 匈牙利发货模板格式
 const handleExportConfirm = async () => {
+  // 跨速达导出前验证配货信息和配货名称
+  if (exportConfig.logisticsCompany === "kuasuoda") {
+    if (!exportConfig.kuasuodaProductInfo || !exportConfig.kuasuodaProductInfo.trim()) {
+      ElMessage.error("请填写配货信息");
+      return;
+    }
+    if (!exportConfig.kuasuodaProductName || !exportConfig.kuasuodaProductName.trim()) {
+      ElMessage.error("请填写配货名称");
+      return;
+    }
+  }
+
   exportLoading.value = true;
   try {
     let orders: Order[] = [];
@@ -2005,8 +2253,12 @@ const handleExportConfirm = async () => {
       // 单个订单导出模式：直接使用保存的订单
       orders = [singleOrderToExport.value];
       console.log(`单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      // 批量导出模式：使用选中的订单
+      orders = [...batchExportOrders.value];
+      console.log(`批量导出模式: 共 ${orders.length} 个订单`);
     } else {
-      // 批量导出模式：查询订单数据
+      // 普通批量导出模式：查询订单数据
       const exportLimit = exportConfig.exportLimit || 100;
       const params: OrderListParams = {
         page: 1,
@@ -2219,13 +2471,11 @@ const handleExportConfirm = async () => {
       // 订单备注 - 空
       row.push("");
 
-      // 功能4：配货信息 - 清理表情和特殊字符
-      const cleanedProductInfo = removeEmojiAndSpecialChars(order.product_title || "");
-      row.push(cleanedProductInfo);
+      // 配货信息 - 使用用户输入的配货信息
+      row.push(exportConfig.kuasuodaProductInfo || "");
 
-      // 货物类型（默认为P，只有仿品才是R）
-      // original = P (正品), fake = R (仿品), replica = R (仿品)
-      row.push(order.product_type === "fake" || order.product_type === "replica" ? "R" : "P");
+      // 货物类型 - 使用配置的值（默认为T，可选P或T）
+      row.push(exportConfig.kuasuodaCargoType);
 
       // 规格信息 - 使用配置的值
       row.push(exportConfig.specification);
@@ -2236,9 +2486,8 @@ const handleExportConfirm = async () => {
       // SKU - 使用配置的值
       row.push(exportConfig.sku);
 
-      // 功能4：配货名称 - 清理表情和特殊字符
-      const cleanedProductName = removeEmojiAndSpecialChars(order.product_title || "");
-      row.push(cleanedProductName);
+      // 配货名称 - 使用用户输入的配货名称
+      row.push(exportConfig.kuasuodaProductName || "");
 
       // 申报币种
       row.push(order.currency || "EUR");
@@ -2306,6 +2555,13 @@ const handleExportConfirm = async () => {
       // 恢复默认导出数量
       exportConfig.exportLimit = 100;
     }
+    // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      // 清空选中的订单
+      selectedOrders.value = [];
+    }
   }
 };
 
@@ -2320,8 +2576,12 @@ const handleHuaxiExport = async () => {
       // 单个订单导出模式：直接使用保存的订单
       orders = [singleOrderToExport.value];
       console.log(`华熙单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      // 批量导出模式：使用选中的订单
+      orders = [...batchExportOrders.value];
+      console.log(`华熙批量导出模式: 共 ${orders.length} 个订单`);
     } else {
-      // 批量导出模式：查询订单数据
+      // 普通批量导出模式：查询订单数据
       const exportLimit = exportConfig.exportLimit || 100;
       const params: OrderListParams = {
         page: 1,
@@ -2535,8 +2795,13 @@ const handleHuaxiExport = async () => {
       singleOrderExportMode.value = false;
       singleOrderToExport.value = null;
       singleOrderLogisticsCompany.value = "";
-      // 恢复默认导出数量
       exportConfig.exportLimit = 100;
+    }
+    // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
     }
   }
 };
@@ -2552,8 +2817,12 @@ const handleYingpaiExport = async () => {
       // 单个订单导出模式：直接使用保存的订单
       orders = [singleOrderToExport.value];
       console.log(`盈派单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      // 批量导出模式：使用选中的订单
+      orders = [...batchExportOrders.value];
+      console.log(`盈派批量导出模式: 共 ${orders.length} 个订单`);
     } else {
-      // 批量导出模式：查询订单数据
+      // 普通批量导出模式：查询订单数据
       const exportLimit = exportConfig.exportLimit || 100;
       const params: OrderListParams = {
         page: 1,
@@ -2843,8 +3112,13 @@ const handleYingpaiExport = async () => {
       singleOrderExportMode.value = false;
       singleOrderToExport.value = null;
       singleOrderLogisticsCompany.value = "";
-      // 恢复默认导出数量
       exportConfig.exportLimit = 100;
+    }
+    // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
     }
   }
 };
@@ -2883,8 +3157,18 @@ const loadData = async () => {
     };
 
     const { data } = await getOrderListApi(params);
-    tableData.value = data.list;
-    pagination.total = data.total;
+
+    // 如果有国家筛选，在前端过滤数据
+    let filteredList = data.list;
+    if (searchForm.country) {
+      filteredList = data.list.filter(order => {
+        const countryCode = getCountryCode(order);
+        return countryCode === searchForm.country;
+      });
+    }
+
+    tableData.value = filteredList;
+    pagination.total = searchForm.country ? filteredList.length : data.total;
   } catch (error) {
     ElMessage.error("获取订单列表失败");
   } finally {
@@ -3096,6 +3380,10 @@ onMounted(() => {
   font-size: 12px;
   color: #666;
   margin-bottom: 2px;
+}
+.customer-phone.duplicate-phone {
+  color: #f56c6c;
+  font-weight: 600;
 }
 .customer-email {
   font-size: 12px;
@@ -3368,6 +3656,10 @@ onMounted(() => {
 
 .ip-address {
   margin-bottom: 4px;
+}
+
+.duplicate-ip {
+  font-weight: 600 !important;
 }
 
 .ip-location {

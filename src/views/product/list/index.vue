@@ -49,6 +49,28 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <el-form-item label="国家筛选">
+          <el-select v-model="searchForm.country" placeholder="请选择国家" clearable style="width: 200px">
+            <!-- 有商品的国家 -->
+            <el-option
+              v-for="country in sortedCountryOptions.withProducts"
+              :key="country.code"
+              :label="`${country.name} (${country.count}条)`"
+              :value="country.code"
+            />
+            <!-- 分隔线 -->
+            <el-option v-if="sortedCountryOptions.withProducts.length > 0" disabled value="">
+              <span style="color: #dcdfe6">──────────</span>
+            </el-option>
+            <!-- 无商品的国家 -->
+            <el-option
+              v-for="country in sortedCountryOptions.withoutProducts"
+              :key="country.code"
+              :label="country.name"
+              :value="country.code"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -1444,7 +1466,8 @@ const searchForm = reactive({
   title: "",
   product_id: "",
   status: null,
-  product_type: "" // 默认显示全部
+  product_type: "", // 默认显示全部
+  country: "" // 国家筛选
 });
 
 // 分页数据
@@ -1456,6 +1479,59 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<Product[]>([]);
+
+// 所有可选国家列表
+const allCountries = [
+  { code: "SK", name: "斯洛伐克" },
+  { code: "CZ", name: "捷克" },
+  { code: "PL", name: "波兰" },
+  { code: "HU", name: "匈牙利" },
+  { code: "DE", name: "德国" },
+  { code: "AT", name: "奥地利" },
+  { code: "RO", name: "罗马尼亚" },
+  { code: "JP", name: "日本" }
+];
+
+// 计算当前页面每个国家的商品数量
+const countryProductCounts = computed(() => {
+  const counts: { [key: string]: number } = {};
+
+  // 统计每个国家的商品数量
+  tableData.value.forEach(product => {
+    if (product.country) {
+      const countryCode = product.country.toUpperCase();
+      counts[countryCode] = (counts[countryCode] || 0) + 1;
+    }
+  });
+
+  return counts;
+});
+
+// 计算排序后的国家列表（有商品的在前面）
+const sortedCountryOptions = computed(() => {
+  const counts = countryProductCounts.value;
+
+  // 分为有商品和无商品两组
+  const withProducts: { code: string; name: string; count: number }[] = [];
+  const withoutProducts: { code: string; name: string }[] = [];
+
+  allCountries.forEach(country => {
+    const count = counts[country.code] || 0;
+    if (count > 0) {
+      withProducts.push({ ...country, count });
+    } else {
+      withoutProducts.push(country);
+    }
+  });
+
+  // 有商品的按数量降序排列
+  withProducts.sort((a, b) => b.count - a.count);
+
+  return {
+    withProducts,
+    withoutProducts
+  };
+});
 
 // 转换为树形结构的数据（仅显示正品，仿品作为子节点）
 const displayTableData = computed(() => {
@@ -1758,7 +1834,8 @@ const handleReset = () => {
     title: "",
     product_id: "",
     status: null,
-    product_type: "" // 重置时显示全部
+    product_type: "", // 重置时显示全部
+    country: "" // 重置国家筛选
   });
   handleSearch();
 };
@@ -2088,7 +2165,8 @@ const loadData = async () => {
       title: searchForm.title || undefined,
       product_id: searchForm.product_id || undefined,
       status: searchForm.status || undefined,
-      product_type: searchForm.product_type || undefined
+      product_type: searchForm.product_type || undefined,
+      country: searchForm.country || undefined
     };
 
     const { data } = await getProductListApi(params);

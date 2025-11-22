@@ -247,7 +247,9 @@ const customPixels = ref<Array<{ name: string; code: string; enabled: boolean }>
 const loadProductList = async () => {
   productLoading.value = true;
   try {
-    const { data } = await getProductListApi({});
+    const { data } = await getProductListApi({
+      product_type: "original" // 只获取正品商品
+    });
     productList.value = data.list.map((item: any) => ({
       id: item.id,
       title: item.title

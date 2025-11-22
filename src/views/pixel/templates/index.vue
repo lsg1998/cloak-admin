@@ -288,9 +288,31 @@
     <el-dialog v-model="applyDialogVisible" title="应用模板到商品" width="600px" :close-on-click-modal="false">
       <el-form :model="applyForm" label-width="120px">
         <el-form-item label="选择商品">
-          <el-select v-model="applyForm.productIds" multiple filterable placeholder="请选择要应用模板的商品" style="width: 100%">
-            <el-option v-for="product in productList" :key="product.id" :label="product.title" :value="product.id" />
-          </el-select>
+          <el-input
+            v-model="selectedProductsText"
+            placeholder="点击选择商品（可多选）"
+            readonly
+            style="cursor: pointer"
+            @click="openProductDialog"
+          >
+            <template #suffix>
+              <el-icon v-if="applyForm.productIds.length > 0" @click.stop="clearProducts" style="cursor: pointer">
+                <Close />
+              </el-icon>
+              <el-icon v-else><Search /></el-icon>
+            </template>
+          </el-input>
+          <div v-if="applyForm.productIds.length > 0" style="margin-top: 8px">
+            <el-tag
+              v-for="productId in applyForm.productIds"
+              :key="productId"
+              closable
+              @close="removeProduct(productId)"
+              style="margin-right: 8px; margin-bottom: 8px"
+            >
+              {{ getProductName(productId) }}
+            </el-tag>
+          </div>
         </el-form-item>
 
         <el-form-item label="应用方式">
@@ -308,13 +330,111 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 商品选择弹窗 -->
+    <el-dialog v-model="productDialogVisible" title="选择商品（可多选）" width="900px" :close-on-click-modal="false">
+      <el-form :model="productSearchForm" inline style="margin-bottom: 16px">
+        <el-form-item label="商品标题">
+          <el-input
+            v-model="productSearchForm.title"
+            placeholder="请输入商品标题"
+            clearable
+            style="width: 200px"
+            @keyup.enter="searchProducts"
+          />
+        </el-form-item>
+        <el-form-item label="国家">
+          <el-select v-model="productSearchForm.country" placeholder="请选择国家" clearable style="width: 200px">
+            <el-option
+              v-for="country in sortedCountryOptions.withProducts"
+              :key="country.code"
+              :label="`${country.name} (${country.count}条)`"
+              :value="country.code"
+            />
+            <el-option v-if="sortedCountryOptions.withProducts.length > 0" disabled value="">
+              <span style="color: #dcdfe6">──────────</span>
+            </el-option>
+            <el-option
+              v-for="country in sortedCountryOptions.withoutProducts"
+              :key="country.code"
+              :label="country.name"
+              :value="country.code"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="searchProducts">搜索</el-button>
+          <el-button @click="resetProductSearch">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table
+        :data="productDialogList"
+        v-loading="productDialogLoading"
+        max-height="400px"
+        @selection-change="handleProductSelectionChange"
+        :row-key="(row: Product) => row.id"
+        ref="productTableRef"
+      >
+        <el-table-column type="selection" width="55" :reserve-selection="true" />
+        <el-table-column label="商品图片" width="80">
+          <template #default="{ row }">
+            <el-avatar :size="50" v-if="row.image_urls && row.image_urls[0]">
+              <img :src="row.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
+            </el-avatar>
+            <el-avatar :size="50" v-else><el-icon><Picture /></el-icon></el-avatar>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="商品标题" show-overflow-tooltip min-width="200" />
+        <el-table-column label="国家" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.country" type="success" size="small">{{
+              countryCodeMap[row.country.toUpperCase()] || row.country
+            }}</el-tag>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sell_price" label="价格" width="100" align="right">
+          <template #default="{ row }">
+            <span v-if="row.sell_price">{{ row.sell_price }}</span>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+              {{ row.status === "active" ? "上架" : row.status === "inactive" ? "下架" : "草稿" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="productDialogPagination.current"
+        v-model:page-size="productDialogPagination.size"
+        :total="productDialogPagination.total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        @current-change="loadProductDialog"
+        @size-change="loadProductDialog"
+        style="margin-top: 16px; justify-content: center"
+      />
+
+      <template #footer>
+        <div style="text-align: left; margin-bottom: 12px">
+          <el-text>已选择 {{ applyForm.productIds.length }} 个商品</el-text>
+        </div>
+        <el-button @click="productDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmProductSelection">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts" name="PixelTemplates">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Upload, Download, Edit, Delete, Check, User, Calendar } from "@element-plus/icons-vue";
+import { Plus, Upload, Download, Edit, Delete, Check, User, Calendar, Close, Search, Picture } from "@element-plus/icons-vue";
 import { getProductListApi, type Product } from "@/api/modules/product";
 
 // 响应式数据
@@ -327,6 +447,81 @@ const selectedTemplate = ref<any>(null);
 const activeTab = ref("google_ads");
 const configActiveTab = ref("google_ads");
 const productList = ref<Product[]>([]);
+const selectedProductsText = ref("");
+const productTableRef = ref();
+
+// 商品选择弹窗
+const productDialogVisible = ref(false);
+const productDialogLoading = ref(false);
+const productDialogList = ref<Product[]>([]);
+const productSearchForm = reactive({
+  title: "",
+  country: ""
+});
+const productDialogPagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0
+});
+
+// 国家列表
+const allCountries = [
+  { code: "SK", name: "斯洛伐克" },
+  { code: "CZ", name: "捷克" },
+  { code: "PL", name: "波兰" },
+  { code: "HU", name: "匈牙利" },
+  { code: "DE", name: "德国" },
+  { code: "AT", name: "奥地利" },
+  { code: "RO", name: "罗马尼亚" },
+  { code: "JP", name: "日本" }
+];
+
+// 国家代码映射
+const countryCodeMap: { [key: string]: string } = {
+  SK: "斯洛伐克",
+  CZ: "捷克",
+  PL: "波兰",
+  HU: "匈牙利",
+  DE: "德国",
+  AT: "奥地利",
+  RO: "罗马尼亚",
+  JP: "日本"
+};
+
+// 计算国家商品数量
+const countryProductCounts = computed(() => {
+  const counts: { [key: string]: number } = {};
+  productDialogList.value.forEach(product => {
+    if (product.country) {
+      const countryCode = product.country.toUpperCase();
+      counts[countryCode] = (counts[countryCode] || 0) + 1;
+    }
+  });
+  return counts;
+});
+
+// 排序后的国家选项
+const sortedCountryOptions = computed(() => {
+  const counts = countryProductCounts.value;
+  const withProducts: { code: string; name: string; count: number }[] = [];
+  const withoutProducts: { code: string; name: string }[] = [];
+
+  allCountries.forEach(country => {
+    const count = counts[country.code] || 0;
+    if (count > 0) {
+      withProducts.push({ ...country, count });
+    } else {
+      withoutProducts.push(country);
+    }
+  });
+
+  withProducts.sort((a, b) => b.count - a.count);
+
+  return {
+    withProducts,
+    withoutProducts
+  };
+});
 
 // 模板列表 - 从后端API加载
 const templates = ref([]);
@@ -586,11 +781,107 @@ const getPlatformName = (platform: string) => {
 // 加载商品列表
 const loadProductList = async () => {
   try {
-    const { data } = await getProductListApi({ page: 1, size: 1000 });
+    const { data } = await getProductListApi({
+      page: 1,
+      size: 1000,
+      product_type: "original" // 只获取正品商品
+    });
     productList.value = data.list;
   } catch (error) {
     console.error("加载商品列表失败:", error);
   }
+};
+
+// 打开商品选择弹窗
+const openProductDialog = () => {
+  productDialogVisible.value = true;
+  loadProductDialog();
+};
+
+// 加载商品弹窗数据
+const loadProductDialog = async () => {
+  productDialogLoading.value = true;
+  try {
+    const { data } = await getProductListApi({
+      page: productDialogPagination.current,
+      size: productDialogPagination.size,
+      title: productSearchForm.title || undefined,
+      country: productSearchForm.country || undefined,
+      product_type: "original" // 只获取正品商品
+    });
+    productDialogList.value = data.list;
+    productDialogPagination.total = data.total;
+
+    // 恢复已选中状态
+    await nextTick();
+    if (productTableRef.value && applyForm.productIds.length > 0) {
+      productDialogList.value.forEach(product => {
+        if (applyForm.productIds.includes(product.id)) {
+          productTableRef.value.toggleRowSelection(product, true);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("加载商品列表失败:", error);
+    ElMessage.error("加载商品列表失败");
+  } finally {
+    productDialogLoading.value = false;
+  }
+};
+
+// 搜索商品
+const searchProducts = () => {
+  productDialogPagination.current = 1;
+  loadProductDialog();
+};
+
+// 重置商品搜索
+const resetProductSearch = () => {
+  productSearchForm.title = "";
+  productSearchForm.country = "";
+  searchProducts();
+};
+
+// 商品选择变化
+const handleProductSelectionChange = (selection: Product[]) => {
+  // 保持所有选中的商品ID
+  const currentPageIds = productDialogList.value.map(p => p.id);
+  const otherPageIds = applyForm.productIds.filter(id => !currentPageIds.includes(id));
+  applyForm.productIds = [...otherPageIds, ...selection.map(p => p.id)];
+  updateSelectedProductsText();
+};
+
+// 确认商品选择
+const confirmProductSelection = () => {
+  productDialogVisible.value = false;
+  updateSelectedProductsText();
+};
+
+// 更新选中商品的显示文本
+const updateSelectedProductsText = () => {
+  if (applyForm.productIds.length === 0) {
+    selectedProductsText.value = "";
+  } else {
+    selectedProductsText.value = `已选择 ${applyForm.productIds.length} 个商品`;
+  }
+};
+
+// 获取商品名称
+const getProductName = (productId: string) => {
+  const product = productList.value.find(p => p.id === productId);
+  return product ? product.title : productId;
+};
+
+// 移除单个商品
+const removeProduct = (productId: string) => {
+  applyForm.productIds = applyForm.productIds.filter(id => id !== productId);
+  updateSelectedProductsText();
+};
+
+// 清空商品选择
+const clearProducts = () => {
+  applyForm.productIds = [];
+  selectedProductsText.value = "";
 };
 
 // 初始化

@@ -30,10 +30,18 @@
           </el-select>
         </el-form-item>
         <el-form-item label="商品">
-          <el-select v-model="filterForm.productId" placeholder="选择商品" clearable filterable @change="handleFilterChange">
-            <el-option label="全部商品" value="" />
-            <el-option v-for="product in productList" :key="product.id" :label="product.title" :value="product.id" />
-          </el-select>
+          <el-input
+            v-model="selectedProductName"
+            placeholder="点击选择商品"
+            readonly
+            style="width: 250px; cursor: pointer"
+            @click="openProductDialog"
+          >
+            <template #suffix>
+              <el-icon v-if="filterForm.productId" @click.stop="clearProduct" style="cursor: pointer"><Close /></el-icon>
+              <el-icon v-else><Search /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadAnalyticsData">
@@ -281,11 +289,99 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 商品选择弹窗 -->
+    <el-dialog v-model="productDialogVisible" title="选择商品" width="900px" :close-on-click-modal="false">
+      <el-form :model="productSearchForm" inline style="margin-bottom: 16px">
+        <el-form-item label="商品标题">
+          <el-input
+            v-model="productSearchForm.title"
+            placeholder="请输入商品标题"
+            clearable
+            style="width: 200px"
+            @keyup.enter="searchProducts"
+          />
+        </el-form-item>
+        <el-form-item label="国家">
+          <el-select v-model="productSearchForm.country" placeholder="请选择国家" clearable style="width: 200px">
+            <el-option
+              v-for="country in sortedCountryOptions.withProducts"
+              :key="country.code"
+              :label="`${country.name} (${country.count}条)`"
+              :value="country.code"
+            />
+            <el-option v-if="sortedCountryOptions.withProducts.length > 0" disabled value="">
+              <span style="color: #dcdfe6">──────────</span>
+            </el-option>
+            <el-option
+              v-for="country in sortedCountryOptions.withoutProducts"
+              :key="country.code"
+              :label="country.name"
+              :value="country.code"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="searchProducts">搜索</el-button>
+          <el-button @click="resetProductSearch">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table
+        :data="productDialogList"
+        v-loading="productDialogLoading"
+        max-height="400px"
+        @row-click="handleProductSelect"
+        style="cursor: pointer"
+      >
+        <el-table-column label="商品图片" width="80">
+          <template #default="{ row }">
+            <el-avatar :size="50" v-if="row.image_urls && row.image_urls[0]">
+              <img :src="row.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
+            </el-avatar>
+            <el-avatar :size="50" v-else><el-icon><Picture /></el-icon></el-avatar>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="商品标题" show-overflow-tooltip min-width="200" />
+        <el-table-column label="国家" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.country" type="success" size="small">{{
+              countryCodeMap[row.country.toUpperCase()] || row.country
+            }}</el-tag>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sell_price" label="价格" width="100" align="right">
+          <template #default="{ row }">
+            <span v-if="row.sell_price">{{ row.sell_price }}</span>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+              {{ row.status === "active" ? "上架" : row.status === "inactive" ? "下架" : "草稿" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="productDialogPagination.current"
+        v-model:page-size="productDialogPagination.size"
+        :total="productDialogPagination.total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        @current-change="loadProductDialog"
+        @size-change="loadProductDialog"
+        style="margin-top: 16px; justify-content: center"
+      />
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts" name="PixelAnalytics">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import { ElMessage } from "element-plus";
 import {
   Search,
@@ -300,7 +396,8 @@ import {
   Share,
   Monitor,
   Picture,
-  View
+  View,
+  Close
 } from "@element-plus/icons-vue";
 import { getProductListApi, type Product } from "@/api/modules/product";
 
@@ -318,6 +415,80 @@ const filterForm = reactive({
 
 // 商品列表
 const productList = ref<Product[]>([]);
+const selectedProductName = ref("");
+
+// 商品选择弹窗
+const productDialogVisible = ref(false);
+const productDialogLoading = ref(false);
+const productDialogList = ref<Product[]>([]);
+const productSearchForm = reactive({
+  title: "",
+  country: ""
+});
+const productDialogPagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0
+});
+
+// 国家列表
+const allCountries = [
+  { code: "SK", name: "斯洛伐克" },
+  { code: "CZ", name: "捷克" },
+  { code: "PL", name: "波兰" },
+  { code: "HU", name: "匈牙利" },
+  { code: "DE", name: "德国" },
+  { code: "AT", name: "奥地利" },
+  { code: "RO", name: "罗马尼亚" },
+  { code: "JP", name: "日本" }
+];
+
+// 国家代码映射
+const countryCodeMap: { [key: string]: string } = {
+  SK: "斯洛伐克",
+  CZ: "捷克",
+  PL: "波兰",
+  HU: "匈牙利",
+  DE: "德国",
+  AT: "奥地利",
+  RO: "罗马尼亚",
+  JP: "日本"
+};
+
+// 计算国家商品数量
+const countryProductCounts = computed(() => {
+  const counts: { [key: string]: number } = {};
+  productDialogList.value.forEach(product => {
+    if (product.country) {
+      const countryCode = product.country.toUpperCase();
+      counts[countryCode] = (counts[countryCode] || 0) + 1;
+    }
+  });
+  return counts;
+});
+
+// 排序后的国家选项
+const sortedCountryOptions = computed(() => {
+  const counts = countryProductCounts.value;
+  const withProducts: { code: string; name: string; count: number }[] = [];
+  const withoutProducts: { code: string; name: string }[] = [];
+
+  allCountries.forEach(country => {
+    const count = counts[country.code] || 0;
+    if (count > 0) {
+      withProducts.push({ ...country, count });
+    } else {
+      withoutProducts.push(country);
+    }
+  });
+
+  withProducts.sort((a, b) => b.count - a.count);
+
+  return {
+    withProducts,
+    withoutProducts
+  };
+});
 
 // 概览统计
 const overviewStats = reactive({
@@ -352,6 +523,7 @@ const handleReset = () => {
   filterForm.dateRange = [];
   filterForm.platform = "";
   filterForm.productId = "";
+  selectedProductName.value = "";
   loadAnalyticsData();
 };
 
@@ -441,11 +613,70 @@ const getRoiType = (roi: number) => {
 // 加载商品列表
 const loadProductList = async () => {
   try {
-    const { data } = await getProductListApi({ page: 1, size: 1000 });
+    const { data } = await getProductListApi({
+      page: 1,
+      size: 1000,
+      product_type: "original" // 只获取正品商品
+    });
     productList.value = data.list;
   } catch (error) {
     console.error("加载商品列表失败:", error);
   }
+};
+
+// 打开商品选择弹窗
+const openProductDialog = () => {
+  productDialogVisible.value = true;
+  loadProductDialog();
+};
+
+// 加载商品弹窗数据
+const loadProductDialog = async () => {
+  productDialogLoading.value = true;
+  try {
+    const { data } = await getProductListApi({
+      page: productDialogPagination.current,
+      size: productDialogPagination.size,
+      title: productSearchForm.title || undefined,
+      country: productSearchForm.country || undefined,
+      product_type: "original" // 只获取正品商品
+    });
+    productDialogList.value = data.list;
+    productDialogPagination.total = data.total;
+  } catch (error) {
+    console.error("加载商品列表失败:", error);
+    ElMessage.error("加载商品列表失败");
+  } finally {
+    productDialogLoading.value = false;
+  }
+};
+
+// 搜索商品
+const searchProducts = () => {
+  productDialogPagination.current = 1;
+  loadProductDialog();
+};
+
+// 重置商品搜索
+const resetProductSearch = () => {
+  productSearchForm.title = "";
+  productSearchForm.country = "";
+  searchProducts();
+};
+
+// 选择商品
+const handleProductSelect = (row: Product) => {
+  filterForm.productId = row.id;
+  selectedProductName.value = row.title;
+  productDialogVisible.value = false;
+  handleFilterChange();
+};
+
+// 清空商品选择
+const clearProduct = () => {
+  filterForm.productId = "";
+  selectedProductName.value = "";
+  handleFilterChange();
 };
 
 // 初始化
