@@ -626,17 +626,20 @@
           <el-form-item label="导出筛选" v-if="!singleOrderExportMode">
             <div style="display: flex; flex-direction: column; gap: 8px">
               <el-checkbox v-model="exportConfig.onlyUnshipped">只导出未发货的订单</el-checkbox>
-              <el-checkbox v-model="exportConfig.filterByCountry">按国家筛选</el-checkbox>
+              <el-checkbox v-model="exportConfig.filterByCountry" :disabled="!!searchForm.country">按国家筛选</el-checkbox>
             </div>
             <div class="form-tip">
               当前页未发货：<el-tag type="warning" size="small">{{ getUnshippedCountInCurrentPage() }} 条</el-tag>， 全部订单：{{
                 pagination.total
               }}
               条
+              <el-tag v-if="searchForm.country" type="success" size="small" style="margin-left: 8px">
+                {{ countryCodeMap[searchForm.country] }}
+              </el-tag>
             </div>
           </el-form-item>
 
-          <el-form-item v-if="exportConfig.filterByCountry" label="选择国家">
+          <el-form-item v-if="exportConfig.filterByCountry && !searchForm.country" label="选择国家">
             <el-select v-model="exportConfig.selectedCountry" placeholder="请选择国家" style="width: 300px">
               <el-option label="斯洛伐克 (SK)" value="SK" />
               <el-option label="捷克 (CZ)" value="CZ" />
@@ -2269,7 +2272,8 @@ const handleExportConfirm = async () => {
         status: (searchForm.status as OrderStatus) || undefined,
         start_date: searchForm.start_date || undefined,
         end_date: searchForm.end_date || undefined,
-        product_id: searchForm.product_id || undefined
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
       };
 
       // 功能1：如果选择只导出未发货的订单，添加状态筛选
@@ -2293,8 +2297,8 @@ const handleExportConfirm = async () => {
         });
       }
 
-      // 按国家筛选
-      if (exportConfig.filterByCountry) {
+      // 按国家筛选（仅当列表页面没有国家筛选时才使用导出配置的国家筛选）
+      if (exportConfig.filterByCountry && !searchForm.country) {
         console.log(`开始按国家筛选，选择的国家: ${exportConfig.selectedCountry}`);
         orders = orders.filter(order => {
           const countryCode = getCountryCode(order);
@@ -2304,6 +2308,8 @@ const handleExportConfirm = async () => {
           return countryCode === exportConfig.selectedCountry;
         });
         console.log(`按国家筛选后剩余: ${orders.length} 条`);
+      } else if (searchForm.country) {
+        console.log(`使用列表页面的国家筛选: ${searchForm.country}`);
       }
     }
 
@@ -2592,7 +2598,8 @@ const handleHuaxiExport = async () => {
         status: (searchForm.status as OrderStatus) || undefined,
         start_date: searchForm.start_date || undefined,
         end_date: searchForm.end_date || undefined,
-        product_id: searchForm.product_id || undefined
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
       };
 
       // 如果选择只导出未发货的订单
@@ -2614,8 +2621,8 @@ const handleHuaxiExport = async () => {
         });
       }
 
-      // 按国家筛选
-      if (exportConfig.filterByCountry) {
+      // 按国家筛选（仅当列表页面没有国家筛选时才使用导出配置的国家筛选）
+      if (exportConfig.filterByCountry && !searchForm.country) {
         orders = orders.filter(order => {
           const countryCode = getCountryCode(order);
           return countryCode === exportConfig.selectedCountry;
@@ -2833,7 +2840,8 @@ const handleYingpaiExport = async () => {
         status: (searchForm.status as OrderStatus) || undefined,
         start_date: searchForm.start_date || undefined,
         end_date: searchForm.end_date || undefined,
-        product_id: searchForm.product_id || undefined
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
       };
 
       // 如果选择只导出未发货的订单
@@ -2855,8 +2863,8 @@ const handleYingpaiExport = async () => {
         });
       }
 
-      // 按国家筛选
-      if (exportConfig.filterByCountry) {
+      // 按国家筛选（仅当列表页面没有国家筛选时才使用导出配置的国家筛选）
+      if (exportConfig.filterByCountry && !searchForm.country) {
         orders = orders.filter(order => {
           const countryCode = getCountryCode(order);
           return countryCode === exportConfig.selectedCountry;

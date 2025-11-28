@@ -382,7 +382,9 @@
             <el-avatar :size="50" v-if="row.image_urls && row.image_urls[0]">
               <img :src="row.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
             </el-avatar>
-            <el-avatar :size="50" v-else><el-icon><Picture /></el-icon></el-avatar>
+            <el-avatar :size="50" v-else>
+              <el-icon><Picture /></el-icon>
+            </el-avatar>
           </template>
         </el-table-column>
         <el-table-column prop="title" label="商品标题" show-overflow-tooltip min-width="200" />

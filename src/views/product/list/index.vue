@@ -1686,7 +1686,9 @@ const countryOptions = [
   { label: "捷克", value: "CZ" },
   { label: "立陶宛", value: "LT" },
   { label: "拉脱维亚", value: "LV" },
-  { label: "克罗地亚", value: "HR" }
+  { label: "克罗地亚", value: "HR" },
+  { label: "奥地利", value: "AT" },
+  { label: "德国", value: "DE" }
 ];
 
 // 富文本编辑器配置
