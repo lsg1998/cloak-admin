@@ -67,6 +67,11 @@ export interface Order {
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
   shipped_email_sent?: boolean; // 是否已发送发货邮件
+  // 重复订单标识（基于全数据库统计）
+  duplicate_phone_count?: number; // 相同手机号的其他订单数量
+  duplicate_ip_count?: number; // 相同IP地址的其他订单数量
+  is_duplicate_phone?: boolean; // 手机号是否重复
+  is_duplicate_ip?: boolean; // IP地址是否重复
   // 关联商品信息
   product_title?: string;
   product_price?: number;

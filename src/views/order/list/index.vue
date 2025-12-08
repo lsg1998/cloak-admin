@@ -152,8 +152,15 @@
           <template #default="{ row }">
             <div class="customer-info">
               <div class="customer-name">{{ row.customer_name }}</div>
-              <div class="customer-phone" :class="{ 'duplicate-phone': isPhoneDuplicate(row.phone) }">
+              <div class="customer-phone" :class="{ 'duplicate-phone': isPhoneDuplicate(row) }">
                 {{ row.phone }}
+                <span
+                  v-if="isPhoneDuplicate(row)"
+                  class="duplicate-badge"
+                  :title="`相同手机号有 ${getPhoneDuplicateCount(row)} 个其他订单`"
+                >
+                  (重复{{ getPhoneDuplicateCount(row) }})
+                </span>
               </div>
               <div v-if="row.email" class="customer-email">{{ row.email }}</div>
             </div>
@@ -225,9 +232,10 @@
                 <div class="ip-address">
                   <el-tag
                     size="small"
-                    :type="isIPDuplicate(row.ip_address) ? 'danger' : 'info'"
+                    :type="isIPDuplicate(row) ? 'danger' : 'info'"
                     style="cursor: pointer"
-                    :class="{ 'duplicate-ip': isIPDuplicate(row.ip_address) }"
+                    :class="{ 'duplicate-ip': isIPDuplicate(row) }"
+                    :title="isIPDuplicate(row) ? `相同IP地址有 ${getIPDuplicateCount(row)} 个其他订单` : ''"
                     @click="handleViewIPInfo(row.ip_address)"
                   >
                     {{ row.ip_address }}
@@ -1411,50 +1419,24 @@ const sortedCountryOptions = computed(() => {
   };
 });
 
-// 检测重复的手机号
-const duplicatePhones = computed(() => {
-  const phoneMap = new Map<string, number>();
-  const duplicates = new Set<string>();
-
-  tableData.value.forEach(order => {
-    if (order.phone) {
-      const count = phoneMap.get(order.phone) || 0;
-      phoneMap.set(order.phone, count + 1);
-      if (count > 0) {
-        duplicates.add(order.phone);
-      }
-    }
-  });
-
-  return duplicates;
-});
-
-// 检测重复的IP地址
-const duplicateIPs = computed(() => {
-  const ipMap = new Map<string, number>();
-  const duplicates = new Set<string>();
-
-  tableData.value.forEach(order => {
-    if (order.ip_address) {
-      const count = ipMap.get(order.ip_address) || 0;
-      ipMap.set(order.ip_address, count + 1);
-      if (count > 0) {
-        duplicates.add(order.ip_address);
-      }
-    }
-  });
-
-  return duplicates;
-});
-
-// 判断手机号是否重复
-const isPhoneDuplicate = (phone: string) => {
-  return duplicatePhones.value.has(phone);
+// 判断手机号是否重复（使用后端返回的标识）
+const isPhoneDuplicate = (order: any) => {
+  return order?.is_duplicate_phone === true || (order?.duplicate_phone_count ?? 0) > 0;
 };
 
-// 判断IP是否重复
-const isIPDuplicate = (ip: string) => {
-  return duplicateIPs.value.has(ip);
+// 判断IP是否重复（使用后端返回的标识）
+const isIPDuplicate = (order: any) => {
+  return order?.is_duplicate_ip === true || (order?.duplicate_ip_count ?? 0) > 0;
+};
+
+// 获取手机号重复次数
+const getPhoneDuplicateCount = (order: any) => {
+  return order?.duplicate_phone_count ?? 0;
+};
+
+// 获取IP重复次数
+const getIPDuplicateCount = (order: any) => {
+  return order?.duplicate_ip_count ?? 0;
 };
 
 // 商品筛选相关
@@ -3392,6 +3374,12 @@ onMounted(() => {
 .customer-phone.duplicate-phone {
   color: #f56c6c;
   font-weight: 600;
+}
+.duplicate-badge {
+  font-size: 11px;
+  color: #f56c6c;
+  margin-left: 4px;
+  font-weight: normal;
 }
 .customer-email {
   font-size: 12px;

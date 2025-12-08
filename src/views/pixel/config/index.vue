@@ -35,10 +35,18 @@
             <el-text type="info">{{ row.conversion_label }}</el-text>
           </template>
         </el-table-column>
-        <el-table-column prop="product_ids" label="应用商品" min-width="180">
+        <el-table-column prop="product_ids" label="应用商品" min-width="150">
           <template #default="{ row }">
             <el-tag v-if="!row.product_ids || row.product_ids.length === 0" type="success">全部商品</el-tag>
             <el-tag v-else type="warning">指定 {{ row.product_ids.length }} 个商品</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="em_params" label="em参数" min-width="180">
+          <template #default="{ row }">
+            <div v-if="row.em_params && row.em_params.length > 0" style="display: flex; flex-wrap: wrap; gap: 4px">
+              <el-tag v-for="em in row.em_params" :key="em" type="primary" size="small">{{ em }}</el-tag>
+            </div>
+            <el-tag v-else type="info" size="small">全部加载</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="enabled" label="状态" width="100" align="center">
@@ -168,17 +176,50 @@
           <div class="form-tip">转化操作对应的标签代码</div>
         </el-form-item>
         <el-form-item label="应用商品">
+          <el-input
+            v-model="selectedProductsText"
+            placeholder="点击选择商品（不选择则应用到全部商品）"
+            readonly
+            style="width: 100%; cursor: pointer"
+            @click="openProductSelectDialog"
+          >
+            <template #suffix>
+              <el-icon v-if="accountForm.product_ids.length > 0" @click.stop="clearSelectedProducts" style="cursor: pointer">
+                <Close />
+              </el-icon>
+              <el-icon v-else><Search /></el-icon>
+            </template>
+          </el-input>
+          <div v-if="accountForm.product_ids.length > 0" style="margin-top: 8px">
+            <el-tag
+              v-for="productId in accountForm.product_ids"
+              :key="productId"
+              closable
+              @close="removeSelectedProduct(productId)"
+              style="margin-right: 8px; margin-bottom: 8px"
+            >
+              {{ getProductName(productId) }}
+            </el-tag>
+          </div>
+          <div class="form-tip">不选择任何商品时，此像素将应用到全部商品页面</div>
+        </el-form-item>
+        <el-form-item label="em参数绑定">
           <el-select
-            v-model="accountForm.product_ids"
+            v-model="accountForm.em_params"
             multiple
             filterable
-            placeholder="不选择则应用到全部商品"
+            allow-create
+            default-first-option
+            placeholder="输入em参数值（可多个）"
             style="width: 100%"
-            :loading="productLoading"
           >
-            <el-option v-for="product in productList" :key="product.id" :label="product.title" :value="product.id" />
+            <el-option v-for="em in allEmParams" :key="em" :label="em" :value="em" />
           </el-select>
-          <div class="form-tip">不选择任何商品时，此像素将应用到全部商品页面</div>
+          <div class="form-tip">
+            绑定em参数后，只有URL包含对应em参数时才会加载此像素<br />
+            例如：绑定"account1"，则访问 ?em=account1 时加载此像素<br />
+            不绑定则加载到所有页面（兼容旧逻辑）
+          </div>
         </el-form-item>
         <el-form-item label="启用状态">
           <el-switch v-model="accountForm.enabled" />
@@ -189,13 +230,165 @@
         <el-button type="primary" @click="handleSaveAccount">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 商品选择弹窗 -->
+    <el-dialog v-model="productSelectDialogVisible" title="选择商品" width="900px" :close-on-click-modal="false">
+      <el-alert
+        title="快速搜索"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 16px"
+        description="输入商品标题即可快速搜索，支持按国家筛选"
+      />
+
+      <el-form :model="productSearchForm" inline style="margin-bottom: 16px">
+        <el-form-item label="快速搜索">
+          <el-input
+            v-model="productSearchForm.title"
+            placeholder="输入商品标题搜索"
+            clearable
+            style="width: 250px"
+            @input="onSearchInput"
+            @clear="resetProductSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="国家筛选">
+          <el-select
+            v-model="productSearchForm.country"
+            placeholder="全部国家"
+            clearable
+            style="width: 180px"
+            @change="searchProducts"
+          >
+            <el-option
+              v-for="country in sortedCountryOptions.withProducts"
+              :key="country.code"
+              :label="`${country.name} (${country.count}条)`"
+              :value="country.code"
+            />
+            <el-option v-if="sortedCountryOptions.withProducts.length > 0" disabled value="">
+              <span style="color: #dcdfe6">──────────</span>
+            </el-option>
+            <el-option
+              v-for="country in sortedCountryOptions.withoutProducts"
+              :key="country.code"
+              :label="country.name"
+              :value="country.code"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button @click="resetProductSearch">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center">
+        <div style="color: #606266; font-size: 14px">
+          <el-icon><List /></el-icon>
+          共找到 <el-text type="primary" style="font-weight: 600">{{ productDialogPagination.total }}</el-text> 个商品
+          <span v-if="productSearchForm.title || productSearchForm.country" style="color: #909399"> （已筛选） </span>
+        </div>
+        <div>
+          <el-button size="small" @click="selectAllCurrentPage">
+            <el-icon><Select /></el-icon>
+            全选当前页
+          </el-button>
+          <el-button size="small" @click="clearAllSelection">
+            <el-icon><Close /></el-icon>
+            清空选择
+          </el-button>
+        </div>
+      </div>
+
+      <el-table
+        :data="productDialogList"
+        v-loading="productDialogLoading"
+        max-height="400px"
+        @selection-change="handleProductSelectionChange"
+        :row-key="row => row.id"
+        ref="productTableRef"
+      >
+        <el-table-column type="selection" width="55" :reserve-selection="true" />
+        <el-table-column label="商品图片" width="80">
+          <template #default="{ row }">
+            <el-avatar :size="50" v-if="row.image_urls && row.image_urls[0]">
+              <img :src="row.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
+            </el-avatar>
+            <el-avatar :size="50" v-else>
+              <el-icon><Picture /></el-icon>
+            </el-avatar>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="商品标题" show-overflow-tooltip min-width="200" />
+        <el-table-column label="国家" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.country" type="success" size="small">{{
+              countryCodeMap[row.country.toUpperCase()] || row.country
+            }}</el-tag>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sell_price" label="价格" width="100" align="right">
+          <template #default="{ row }">
+            <span v-if="row.sell_price">{{ row.sell_price }}</span>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+              {{ row.status === "active" ? "上架" : row.status === "inactive" ? "下架" : "草稿" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="productDialogPagination.current"
+        v-model:page-size="productDialogPagination.size"
+        :total="productDialogPagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadProductDialog"
+        @size-change="loadProductDialog"
+        style="margin-top: 16px; justify-content: center"
+      />
+
+      <template #footer>
+        <div style="text-align: left; margin-bottom: 12px">
+          <el-text>已选择 {{ accountForm.product_ids.length }} 个商品</el-text>
+        </div>
+        <el-button @click="productSelectDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmProductSelection">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts" name="PixelConfig">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Delete, Edit, Check, Refresh, Share, VideoCamera } from "@element-plus/icons-vue";
+import {
+  Plus,
+  Delete,
+  Edit,
+  Check,
+  Refresh,
+  Share,
+  VideoCamera,
+  Close,
+  Search,
+  Picture,
+  List,
+  Select
+} from "@element-plus/icons-vue";
 import { getGlobalPixelConfigApi, updateGlobalPixelConfigApi } from "@/api/modules/pixel";
 import { getProductListApi } from "@/api/modules/product";
 
@@ -206,7 +399,23 @@ const accountDialogTitle = ref("添加 Google Ads 账户");
 const accountFormRef = ref();
 const editingIndex = ref(-1);
 const productLoading = ref(false);
-const productList = ref<Array<{ id: string; title: string }>>([]);
+const productList = ref<Array<{ id: string; title: string; country?: string }>>([]);
+
+// 商品选择弹窗
+const productSelectDialogVisible = ref(false);
+const productDialogLoading = ref(false);
+const productDialogList = ref<any[]>([]);
+const selectedProductsText = ref("");
+const productTableRef = ref();
+const productSearchForm = reactive({
+  title: "",
+  country: ""
+});
+const productDialogPagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0
+});
 
 // Google Ads 账户列表
 const googleAdsAccounts = ref<
@@ -219,12 +428,15 @@ const accountForm = reactive({
   conversion_id: "",
   conversion_label: "",
   enabled: true,
-  product_ids: [] as string[]
+  product_ids: [] as string[],
+  em_params: [] as string[]
 });
+
+// 所有em参数列表（用于下拉选择）
+const allEmParams = ref<string[]>([]);
 
 // 表单验证规则
 const accountRules = {
-  name: [{ required: true, message: "请输入账户名称", trigger: "blur" }],
   conversion_id: [
     { required: true, message: "请输入转化ID", trigger: "blur" },
     { pattern: /^\d+$/, message: "转化ID只能包含数字", trigger: "blur" }
@@ -243,23 +455,64 @@ const config = reactive({
 // 自定义像素
 const customPixels = ref<Array<{ name: string; code: string; enabled: boolean }>>([]);
 
-// 加载商品列表
-const loadProductList = async () => {
-  productLoading.value = true;
-  try {
-    const { data } = await getProductListApi({
-      product_type: "original" // 只获取正品商品
-    });
-    productList.value = data.list.map((item: any) => ({
-      id: item.id,
-      title: item.title
-    }));
-  } catch (error) {
-    console.error("加载商品列表失败", error);
-  } finally {
-    productLoading.value = false;
-  }
+// 国家列表
+const allCountries = [
+  { code: "SK", name: "斯洛伐克" },
+  { code: "CZ", name: "捷克" },
+  { code: "PL", name: "波兰" },
+  { code: "HU", name: "匈牙利" },
+  { code: "DE", name: "德国" },
+  { code: "AT", name: "奥地利" },
+  { code: "RO", name: "罗马尼亚" },
+  { code: "JP", name: "日本" }
+];
+
+// 国家代码映射
+const countryCodeMap: { [key: string]: string } = {
+  SK: "斯洛伐克",
+  CZ: "捷克",
+  PL: "波兰",
+  HU: "匈牙利",
+  DE: "德国",
+  AT: "奥地利",
+  RO: "罗马尼亚",
+  JP: "日本"
 };
+
+// 计算国家商品数量
+const countryProductCounts = computed(() => {
+  const counts: { [key: string]: number } = {};
+  productDialogList.value.forEach(product => {
+    if (product.country) {
+      const countryCode = product.country.toUpperCase();
+      counts[countryCode] = (counts[countryCode] || 0) + 1;
+    }
+  });
+  return counts;
+});
+
+// 排序后的国家选项
+const sortedCountryOptions = computed(() => {
+  const counts = countryProductCounts.value;
+  const withProducts: { code: string; name: string; count: number }[] = [];
+  const withoutProducts: { code: string; name: string }[] = [];
+
+  allCountries.forEach(country => {
+    const count = counts[country.code] || 0;
+    if (count > 0) {
+      withProducts.push({ ...country, count });
+    } else {
+      withoutProducts.push(country);
+    }
+  });
+
+  withProducts.sort((a, b) => b.count - a.count);
+
+  return {
+    withProducts,
+    withoutProducts
+  };
+});
 
 // 加载配置
 const loadConfig = async () => {
@@ -271,6 +524,15 @@ const loadConfig = async () => {
         try {
           googleAdsAccounts.value =
             typeof data.google_ads_accounts === "string" ? JSON.parse(data.google_ads_accounts) : data.google_ads_accounts;
+
+          // 收集所有em参数用于下拉选择
+          const emSet = new Set<string>();
+          googleAdsAccounts.value.forEach(account => {
+            if (account.em_params && Array.isArray(account.em_params)) {
+              account.em_params.forEach(em => emSet.add(em));
+            }
+          });
+          allEmParams.value = Array.from(emSet);
         } catch (e) {
           googleAdsAccounts.value = [];
         }
@@ -316,8 +578,10 @@ const handleAddAccount = () => {
     conversion_id: "",
     conversion_label: "",
     enabled: true,
-    product_ids: []
+    product_ids: [],
+    em_params: []
   });
+  selectedProductsText.value = "";
   accountDialogVisible.value = true;
 };
 
@@ -327,8 +591,11 @@ const handleEditAccount = (row: any, index: number) => {
   editingIndex.value = index;
   Object.assign(accountForm, {
     ...row,
-    product_ids: row.product_ids || []
+    product_ids: row.product_ids || [],
+    em_params: row.em_params || []
   });
+  // 更新选中商品显示文本
+  updateSelectedProductsText();
   accountDialogVisible.value = true;
 };
 
@@ -344,7 +611,8 @@ const handleSaveAccount = async () => {
       conversion_id: accountForm.conversion_id,
       conversion_label: accountForm.conversion_label,
       enabled: accountForm.enabled,
-      product_ids: accountForm.product_ids || []
+      product_ids: accountForm.product_ids || [],
+      em_params: accountForm.em_params || []
     };
 
     if (editingIndex.value >= 0) {
@@ -494,6 +762,158 @@ const handleSave = async () => {
 const handleReset = () => {
   loadConfig();
   ElMessage.info("已重置为当前保存的配置");
+};
+
+// 加载商品列表
+const loadProductList = async () => {
+  productLoading.value = true;
+  try {
+    const { data } = await getProductListApi({
+      page: 1,
+      size: 1000,
+      product_type: "original" // 只获取正品商品
+    });
+    productList.value = data.list.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      country: item.country
+    }));
+  } catch (error) {
+    console.error("加载商品列表失败", error);
+  } finally {
+    productLoading.value = false;
+  }
+};
+
+// 打开商品选择弹窗
+const openProductSelectDialog = () => {
+  // 重置搜索条件
+  productSearchForm.title = "";
+  productSearchForm.country = "";
+  productDialogPagination.current = 1;
+  productDialogPagination.size = 10;
+  productSelectDialogVisible.value = true;
+  loadProductDialog();
+};
+
+// 加载商品弹窗数据
+const loadProductDialog = async () => {
+  productDialogLoading.value = true;
+  try {
+    const { data } = await getProductListApi({
+      page: productDialogPagination.current,
+      size: productDialogPagination.size,
+      title: productSearchForm.title || undefined,
+      country: productSearchForm.country || undefined,
+      product_type: "original" // 只获取正品商品
+    });
+    productDialogList.value = data.list;
+    productDialogPagination.total = data.total;
+
+    // 恢复已选中状态
+    await nextTick();
+    if (productTableRef.value && accountForm.product_ids.length > 0) {
+      productDialogList.value.forEach(product => {
+        if (accountForm.product_ids.includes(product.id)) {
+          productTableRef.value.toggleRowSelection(product, true);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("加载商品列表失败:", error);
+    ElMessage.error("加载商品列表失败");
+  } finally {
+    productDialogLoading.value = false;
+  }
+};
+
+// 搜索防抖定时器
+let searchTimer: number | null = null;
+
+// 输入搜索
+const onSearchInput = () => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+  }
+  // 设置新的定时器，500ms 后执行搜索
+  searchTimer = window.setTimeout(() => {
+    searchProducts();
+  }, 500);
+};
+
+// 搜索商品
+const searchProducts = () => {
+  productDialogPagination.current = 1;
+  loadProductDialog();
+};
+
+// 重置商品搜索
+const resetProductSearch = () => {
+  productSearchForm.title = "";
+  productSearchForm.country = "";
+  productDialogPagination.current = 1;
+  loadProductDialog();
+};
+
+// 商品选择变化
+const handleProductSelectionChange = (selection: any[]) => {
+  // 保持所有选中的商品ID
+  const currentPageIds = productDialogList.value.map(p => p.id);
+  const otherPageIds = accountForm.product_ids.filter(id => !currentPageIds.includes(id));
+  accountForm.product_ids = [...otherPageIds, ...selection.map(p => p.id)];
+  updateSelectedProductsText();
+};
+
+// 确认商品选择
+const confirmProductSelection = () => {
+  productSelectDialogVisible.value = false;
+  updateSelectedProductsText();
+};
+
+// 更新选中商品的显示文本
+const updateSelectedProductsText = () => {
+  if (accountForm.product_ids.length === 0) {
+    selectedProductsText.value = "";
+  } else {
+    selectedProductsText.value = `已选择 ${accountForm.product_ids.length} 个商品`;
+  }
+};
+
+// 获取商品名称
+const getProductName = (productId: string) => {
+  const product = productList.value.find(p => p.id === productId);
+  return product ? product.title : productId;
+};
+
+// 移除单个商品
+const removeSelectedProduct = (productId: string) => {
+  accountForm.product_ids = accountForm.product_ids.filter((id: string) => id !== productId);
+  updateSelectedProductsText();
+};
+
+// 清空商品选择
+const clearSelectedProducts = () => {
+  accountForm.product_ids = [];
+  selectedProductsText.value = "";
+};
+
+// 全选当前页
+const selectAllCurrentPage = () => {
+  if (productTableRef.value) {
+    productDialogList.value.forEach(row => {
+      productTableRef.value.toggleRowSelection(row, true);
+    });
+  }
+};
+
+// 清空所有选择
+const clearAllSelection = () => {
+  accountForm.product_ids = [];
+  if (productTableRef.value) {
+    productTableRef.value.clearSelection();
+  }
+  updateSelectedProductsText();
 };
 
 // 初始化
