@@ -52,35 +52,42 @@
       </el-col>
     </el-row>
 
-    <!-- 数据表格 -->
-    <el-card class="table-card" shadow="never">
-      <template #header>
-        <div class="table-header">
-          <span>最近订单</span>
-          <el-button type="primary" size="small" @click="$router.push('/order/list')">
-            查看全部
-            <el-icon class="el-icon--right"><ArrowRight /></el-icon>
-          </el-button>
-        </div>
-      </template>
-      <el-table :data="recentOrders" v-loading="loading" stripe>
-        <el-table-column prop="order_number" label="订单号" width="180" />
-        <el-table-column prop="customer_name" label="客户" width="120" />
-        <el-table-column prop="total_amount" label="金额" width="100" align="center">
-          <template #default="{ row }">
-            <span class="amount">{{ row.total_amount }} {{ row.currency }}</span>
+    <!-- 数据表格和流量统计 -->
+    <el-row :gutter="20" class="bottom-section">
+      <el-col :xs="24" :lg="12">
+        <el-card class="table-card" shadow="never">
+          <template #header>
+            <div class="table-header">
+              <span>最近订单</span>
+              <el-button type="primary" size="small" @click="$router.push('/order/list')">
+                查看全部
+                <el-icon class="el-icon--right"><ArrowRight /></el-icon>
+              </el-button>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="下单时间" show-overflow-tooltip />
-      </el-table>
-    </el-card>
+          <el-table :data="recentOrders" v-loading="loading" stripe>
+            <el-table-column prop="order_number" label="订单号" width="180" />
+            <el-table-column prop="customer_name" label="客户" width="120" />
+            <el-table-column prop="total_amount" label="金额" width="100" align="center">
+              <template #default="{ row }">
+                <span class="amount">{{ row.total_amount }} {{ row.currency }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" size="small">
+                  {{ getStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="下单时间" show-overflow-tooltip />
+          </el-table>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :lg="12">
+        <TrafficStatistics />
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -96,6 +103,7 @@ import {
   OrderStatusLabels,
   OrderStatusColors
 } from "@/api/modules/order";
+import TrafficStatistics from "@/components/TrafficStatistics/index.vue";
 
 // 响应式数据
 const loading = ref(false);
@@ -424,6 +432,11 @@ onMounted(async () => {
 .chart-container {
   height: 300px;
   width: 100%;
+}
+
+/* 底部区域 */
+.bottom-section {
+  margin-top: 20px;
 }
 
 /* 表格卡片 */

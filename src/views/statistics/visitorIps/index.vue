@@ -119,30 +119,30 @@
       <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.totalCountries }}</div>
-            <div class="stat-label">涉及国家</div>
+            <div class="stat-value">{{ statistics.totalBots }}</div>
+            <div class="stat-label">访问爬虫</div>
           </div>
           <div class="stat-icon">
-            <el-icon><Location /></el-icon>
+            <el-icon><Warning /></el-icon>
           </div>
         </el-card>
       </el-col>
       <el-col :span="4">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.totalCities }}</div>
-            <div class="stat-label">涉及城市</div>
+            <div class="stat-value">{{ statistics.totalProxies }}</div>
+            <div class="stat-label">访问代理</div>
           </div>
           <div class="stat-icon">
-            <el-icon><MapLocation /></el-icon>
+            <el-icon><Connection /></el-icon>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 来源统计卡片 -->
+    <!-- 来源统计和设备统计卡片 -->
     <el-row :gutter="20" class="statistics-cards" style="margin-top: 20px">
-      <el-col :span="24">
+      <el-col :span="12">
         <el-card class="source-stats-card">
           <div class="card-header">
             <h3>访问来源统计</h3>
@@ -152,6 +152,26 @@
               <div class="source-name">
                 <el-tag :type="getSourceTagType(item.source)" size="default">
                   {{ item.source }}
+                </el-tag>
+              </div>
+              <div class="source-count">
+                <span class="count-value">{{ item.count }}</span>
+                <span class="count-label">次</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card class="source-stats-card">
+          <div class="card-header">
+            <h3>设备统计</h3>
+          </div>
+          <div class="source-stats-list">
+            <div v-for="item in statistics.deviceStats" :key="item.device" class="source-item">
+              <div class="source-name">
+                <el-tag type="info" size="default">
+                  {{ item.device }}
                 </el-tag>
               </div>
               <div class="source-count">
@@ -780,14 +800,12 @@ import { ElMessage } from "element-plus";
 import {
   Monitor,
   TrendCharts,
-  Location,
-  MapLocation,
   Refresh,
   RefreshRight,
   Delete,
   // Clock, // 暂时不用
   // View, // 暂时不用
-  // Connection, // 暂时不用
+  Connection,
   Search,
   Close,
   Checked,
@@ -846,14 +864,13 @@ const tableData = ref<VisitorIp[]>([]);
 const statistics = ref<IpStatistics>({
   totalIps: 0,
   todayIps: 0,
-  totalCountries: 0,
-  totalCities: 0,
+  totalBots: 0,
+  totalProxies: 0,
   genuineCount: 0,
   fakeCount: 0,
-  countryStats: [],
-  cityStats: [],
   productTypeStats: [],
-  sourceStats: []
+  sourceStats: [],
+  deviceStats: []
 });
 
 // 格式化日期

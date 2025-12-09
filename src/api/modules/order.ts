@@ -9,7 +9,8 @@ export enum OrderStatus {
   DELIVERED = "delivered",
   CANCELLED = "cancelled",
   REFUNDED = "refunded",
-  DELETED = "deleted"
+  DELETED = "deleted",
+  DUPLICATE = "duplicate"
 }
 
 // 订单状态标签映射
@@ -21,7 +22,8 @@ export const OrderStatusLabels = {
   [OrderStatus.DELIVERED]: "已送达",
   [OrderStatus.CANCELLED]: "已取消",
   [OrderStatus.REFUNDED]: "已退款",
-  [OrderStatus.DELETED]: "已删除"
+  [OrderStatus.DELETED]: "已删除",
+  [OrderStatus.DUPLICATE]: "已重复"
 };
 
 // 订单状态颜色映射
@@ -33,7 +35,8 @@ export const OrderStatusColors = {
   [OrderStatus.DELIVERED]: "success",
   [OrderStatus.CANCELLED]: "danger",
   [OrderStatus.REFUNDED]: "danger",
-  [OrderStatus.DELETED]: "info"
+  [OrderStatus.DELETED]: "info",
+  [OrderStatus.DUPLICATE]: "warning"
 };
 
 // 订单接口数据类型

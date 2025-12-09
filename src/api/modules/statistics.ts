@@ -79,3 +79,112 @@ export interface SalesStatistics {
 export const getSalesStatisticsApi = (params: { start_date?: string; end_date?: string } = {}) => {
   return http.get<SalesStatistics>("/admin/statistics/sales", params);
 };
+
+// 流量统计数据类型
+export interface TrafficStatistics {
+  total_visits: number; // 总访问量
+  source_stats: Array<{
+    source: string;
+    count: number;
+  }>; // 流量来源统计
+  hourly_stats: Array<{
+    hour: number;
+    count: number;
+    label: string;
+  }>; // 按小时统计（24小时）
+  daily_stats: Array<{
+    date: string;
+    count: number;
+  }>; // 按日期统计
+  peak_hour: number; // 流量最多的小时（0-23）
+  peak_count: number; // 峰值访问量
+  low_hour: number | null; // 流量最少的小时
+  low_count: number; // 最低访问量
+}
+
+// 获取流量统计数据
+export const getTrafficStatisticsApi = (params?: {
+  timeRange?: string;
+  start_date?: string;
+  end_date?: string;
+  timezone?: string;
+}) => {
+  return http.get<TrafficStatistics>("/admin/statistics/traffic", params);
+};
+
+// 流量详细分析数据类型
+export interface TrafficAnalysis {
+  total_visits: number; // 总访问量
+  source_count: number; // 来源数量
+  peak_hour: number; // 峰值小时
+  peak_count: number; // 峰值访问量
+  avg_visits_per_hour: number; // 平均每小时访问量
+  source_stats: Array<{
+    source: string;
+    count: number;
+  }>; // 来源统计
+  hourly_stats: Array<{
+    hour: number;
+    count: number;
+    label: string;
+  }>; // 按小时统计
+  daily_stats: Array<{
+    date: string;
+    count: number;
+  }>; // 按日期统计
+}
+
+// 获取流量详细分析数据
+export const getTrafficAnalysisApi = (params?: { timeRange?: string; source?: string; timezone?: string }) => {
+  return http.get<TrafficAnalysis>("/admin/statistics/traffic/analysis", params);
+};
+
+// 设备统计数据类型
+export interface DeviceStatistics {
+  total_visits: number; // 总访问量
+  device_count: number; // 设备类型数量
+  peak_hour: number; // 峰值小时
+  peak_count: number; // 峰值访问量
+  avg_visits_per_hour: number; // 平均每小时访问量
+  device_stats: Array<{
+    device: string;
+    count: number;
+  }>; // 设备类型统计
+  hourly_stats: Array<{
+    hour: number;
+    count: number;
+    label: string;
+  }>; // 按小时统计
+  daily_stats: Array<{
+    date: string;
+    count: number;
+  }>; // 按日期统计
+}
+
+// 获取设备统计数据
+export const getDeviceStatisticsApi = (params?: { timeRange?: string; device?: string; timezone?: string }) => {
+  return http.get<DeviceStatistics>("/admin/statistics/device", params);
+};
+
+// 转化统计数据类型
+export interface ConversionStatistics {
+  total_visitors: number; // 总访客数
+  total_order_users: number; // 下单用户数（去重）
+  total_orders: number; // 总订单数
+  overall_conversion_rate: number; // 总体转化率
+  product_count: number; // 商品数量
+  conversion_data: Array<{
+    product_id: string;
+    product_title: string;
+    product_image: string | null;
+    visitor_count: number;
+    order_count: number;
+    total_orders: number;
+    conversion_rate: number;
+  }>; // 各商品转化数据
+}
+
+// 获取转化统计数据
+export const getConversionStatisticsApi = (params?: { timeRange?: string; product_id?: string; timezone?: string }) => {
+  return http.get<ConversionStatistics>("/admin/statistics/conversion", params);
+};

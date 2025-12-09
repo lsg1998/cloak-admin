@@ -75,19 +75,10 @@ export interface VisitorIpListParams {
 export interface IpStatistics {
   totalIps: number;
   todayIps: number;
-  totalCountries: number;
-  totalCities: number;
+  totalBots: number;
+  totalProxies: number;
   genuineCount: number;
   fakeCount: number;
-  countryStats: Array<{
-    country: string;
-    count: number;
-  }>;
-  cityStats: Array<{
-    city: string;
-    country: string;
-    count: number;
-  }>;
   productTypeStats: Array<{
     product_type: string;
     count: number;
@@ -95,6 +86,10 @@ export interface IpStatistics {
   }>;
   sourceStats: Array<{
     source: string;
+    count: number;
+  }>;
+  deviceStats: Array<{
+    device: string;
     count: number;
   }>;
 }

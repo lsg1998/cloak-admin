@@ -162,7 +162,15 @@
                   (重复{{ getPhoneDuplicateCount(row) }})
                 </span>
               </div>
-              <div v-if="row.email" class="customer-email">{{ row.email }}</div>
+              <div v-if="row.email" class="customer-email" :class="{ 'invalid-email': !isEmailValid(row.email) }">
+                {{ row.email }}
+                <el-tooltip v-if="!isEmailValid(row.email)" content="邮箱格式不正确" placement="top">
+                  <el-tag type="warning" size="small" class="email-invalid-tag" style="margin-left: 4px">
+                    <el-icon><Warning /></el-icon>
+                    邮箱有误
+                  </el-tag>
+                </el-tooltip>
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -184,6 +192,7 @@
               <div class="address-line" v-if="row.comments && row.comments.trim()">
                 <span class="address-label">备注:</span>
                 <span class="address-value comments-value">{{ row.comments }}</span>
+                <el-tag type="success" size="small" class="complaint-tag" style="margin-left: 4px">备注疑是客诉订单</el-tag>
               </div>
             </div>
           </template>
@@ -1419,12 +1428,12 @@ const sortedCountryOptions = computed(() => {
   };
 });
 
-// 判断手机号是否重复（使用后端返回的标识）
+// 判断手机号是否重复（使用后端返回的标识，不管什么状态只要有重复就标记）
 const isPhoneDuplicate = (order: any) => {
   return order?.is_duplicate_phone === true || (order?.duplicate_phone_count ?? 0) > 0;
 };
 
-// 判断IP是否重复（使用后端返回的标识）
+// 判断IP是否重复（使用后端返回的标识，不管什么状态只要有重复就标记）
 const isIPDuplicate = (order: any) => {
   return order?.is_duplicate_ip === true || (order?.duplicate_ip_count ?? 0) > 0;
 };
@@ -1437,6 +1446,16 @@ const getPhoneDuplicateCount = (order: any) => {
 // 获取IP重复次数
 const getIPDuplicateCount = (order: any) => {
   return order?.duplicate_ip_count ?? 0;
+};
+
+// 验证邮箱格式
+const isEmailValid = (email: string) => {
+  if (!email || !email.trim()) {
+    return false;
+  }
+  // 使用标准的邮箱正则表达式
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
 };
 
 // 商品筛选相关
@@ -3384,6 +3403,12 @@ onMounted(() => {
 .customer-email {
   font-size: 12px;
   color: #999;
+}
+.customer-email.invalid-email {
+  color: #e6a23c;
+}
+.email-invalid-tag {
+  font-size: 11px;
 }
 
 /* 地址信息 */
