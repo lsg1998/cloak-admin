@@ -70,6 +70,9 @@ export interface Order {
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
   shipped_email_sent?: boolean; // 是否已发送发货邮件
+  sms_sent?: boolean; // 是否已发送短信
+  sms_sent_count?: number; // 已发送短信数量
+  last_sms_type?: string; // 最后发送的短信类型
   // 重复订单标识（基于全数据库统计）
   duplicate_phone_count?: number; // 相同手机号的其他订单数量
   duplicate_ip_count?: number; // 相同IP地址的其他订单数量

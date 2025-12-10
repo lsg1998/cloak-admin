@@ -1216,7 +1216,7 @@
                 :file-type="['image/jpeg', 'image/png', 'image/gif', 'image/webp']"
               >
                 <template #tip>
-                  <div class="upload-tip">支持 JPG、PNG、GIF、WebP 格式，文件大小不超过 2MB</div>
+                  <div class="upload-tip">支持 JPG、PNG、GIF、WebP 格式，文件大小不超过 10MB</div>
                 </template>
               </ProductImg>
             </div>
@@ -1702,7 +1702,7 @@ const wangEditorConfig = computed(() => ({
     uploadImage: {
       server: uploadUrl.value,
       fieldName: "file",
-      maxFileSize: 2 * 1024 * 1024, // 2M
+      maxFileSize: 10 * 1024 * 1024, // 10M
       allowedFileTypes: ["image/*"]
     }
   }
@@ -2084,14 +2084,14 @@ const handleCurrentChange = (current: number) => {
 // 图片上传相关方法
 const beforeImageUpload = (file: File) => {
   const isImage = file.type.startsWith("image/");
-  const isLt2M = file.size / 1024 / 1024 < 2;
+  const isLt2M = file.size / 1024 / 1024 < 10;
 
   if (!isImage) {
     ElMessage.error("只能上传图片文件!");
     return false;
   }
   if (!isLt2M) {
-    ElMessage.error("图片大小不能超过 2MB!");
+    ElMessage.error("图片大小不能超过 10MB!");
     return false;
   }
   return true;

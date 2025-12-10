@@ -9,7 +9,7 @@
             <el-option label="欧洲时间" value="Europe/Paris" />
           </el-select>
           <el-select v-model="timeRange" size="small" @change="handleTimeRangeChange" style="width: 120px">
-            <el-option label="最近24小时" value="24h" />
+            <el-option label="今天" value="today" />
             <el-option label="最近7天" value="7d" />
             <el-option label="最近30天" value="30d" />
           </el-select>
@@ -25,13 +25,13 @@
       <div class="hourly-chart">
         <div class="section-title">
           <span>
-            {{ timeRange === "24h" ? "24小时" : timeRange === "7d" ? "7天" : "30天" }}流量趋势
+            {{ timeRange === "today" ? "今日" : timeRange === "7d" ? "7天" : "30天" }}流量趋势
             <span class="timezone-label">({{ timezone === "Asia/Shanghai" ? "北京时间" : "欧洲时间" }})</span>
           </span>
           <span class="stats-inline">
             <span class="total-visits-inline">总访问量：{{ trafficData.total_visits || 0 }}</span>
-            <span v-if="trafficData.peak_hour !== undefined" class="peak-inline">
-              峰值时段：{{ formatHour(trafficData.peak_hour) }} ({{ trafficData.peak_count }}次访问)
+            <span v-if="trafficData.peak_count > 0" class="peak-inline">
+              峰值时段：{{ trafficData.peak_label || formatHour(trafficData.peak_hour) }} ({{ trafficData.peak_count }}次访问)
             </span>
           </span>
         </div>
@@ -50,7 +50,7 @@ import { getTrafficStatisticsApi, type TrafficStatistics } from "@/api/modules/s
 
 // 响应式数据
 const loading = ref(false);
-const timeRange = ref("24h");
+const timeRange = ref("today");
 const timezone = ref("Asia/Shanghai"); // 默认北京时间
 const trafficData = ref<TrafficStatistics>({
   total_visits: 0,
@@ -100,7 +100,7 @@ const initHourlyChart = () => {
       data: hours,
       axisLabel: {
         rotate: 45,
-        interval: timeRange.value === "24h" ? 2 : 0 // 24小时每2小时显示一个标签，其他全部显示
+        interval: 0 // 显示所有标签
       }
     },
     yAxis: {

@@ -88,6 +88,7 @@ export interface TrafficStatistics {
     count: number;
   }>; // 流量来源统计
   hourly_stats: Array<{
+    date?: string;
     hour: number;
     count: number;
     label: string;
@@ -98,8 +99,10 @@ export interface TrafficStatistics {
   }>; // 按日期统计
   peak_hour: number; // 流量最多的小时（0-23）
   peak_count: number; // 峰值访问量
+  peak_label?: string; // 峰值时段标签
   low_hour: number | null; // 流量最少的小时
   low_count: number; // 最低访问量
+  low_label?: string | null; // 最低时段标签
 }
 
 // 获取流量统计数据

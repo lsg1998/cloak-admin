@@ -226,6 +226,13 @@
                     已发货邮件
                   </el-tag>
                 </el-tooltip>
+                <!-- 短信发送状态标识 -->
+                <el-tooltip v-if="row.sms_sent" :content="`已发送${row.sms_sent_count}条短信`" placement="top">
+                  <el-tag type="success" size="small" style="margin-left: 4px" class="sms-sent-tag">
+                    <el-icon><Iphone /></el-icon>
+                    已发短信
+                  </el-tag>
+                </el-tooltip>
               </div>
               <div class="time-info">
                 <el-icon class="time-icon"><Calendar /></el-icon>
@@ -322,6 +329,22 @@
                     <el-dropdown-item command="arrival" divided>📍 到达提醒</el-dropdown-item>
                     <el-dropdown-item command="reshipment">🔄 补发通知</el-dropdown-item>
                     <el-dropdown-item command="custom" divided>✉️ 自定义邮件</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-dropdown v-if="row.phone" @command="command => handleSmsAction(row, command)">
+                <el-button size="small" type="success" link>
+                  <el-icon><Iphone /></el-icon>
+                  短信
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="picking">📦 拣货通知</el-dropdown-item>
+                    <el-dropdown-item command="shipped">🚚 发货通知</el-dropdown-item>
+                    <el-dropdown-item command="arrival" divided>📍 到达提醒</el-dropdown-item>
+                    <el-dropdown-item command="reshipment">🔄 补发通知</el-dropdown-item>
+                    <el-dropdown-item command="custom" divided>📝 自定义短信</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -501,14 +524,24 @@
             </div>
             <span v-else class="no-data">--</span>
           </el-descriptions-item>
-          <el-descriptions-item label="发货邮件状态" :span="2">
+          <el-descriptions-item label="发货邮件状态">
             <el-tag v-if="currentOrder.shipped_email_sent" type="success" size="small">
               <el-icon><Message /></el-icon>
-              已发送发货邮件
+              已发送
             </el-tag>
             <el-tag v-else type="info" size="small">
               <el-icon><Close /></el-icon>
-              未发送发货邮件
+              未发送
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="短信发送状态">
+            <el-tag v-if="currentOrder.sms_sent" type="success" size="small">
+              <el-icon><Iphone /></el-icon>
+              已发送 {{ currentOrder.sms_sent_count }} 条
+            </el-tag>
+            <el-tag v-else type="info" size="small">
+              <el-icon><Close /></el-icon>
+              未发送
             </el-tag>
           </el-descriptions-item>
         </el-descriptions>
@@ -894,6 +927,52 @@
       </template>
     </el-dialog>
 
+    <!-- 自定义短信对话框 -->
+    <el-dialog v-model="customSmsDialogVisible" title="发送自定义短信" width="600px" :close-on-click-modal="false">
+      <el-form :model="customSmsForm" label-width="100px">
+        <el-form-item label="收件人">
+          <el-input v-model="customSmsForm.phone" placeholder="收件人手机号" disabled>
+            <template #prefix>
+              <el-icon><Iphone /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="短信内容">
+          <el-input
+            v-model="customSmsForm.content"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入短信内容"
+            maxlength="1000"
+            show-word-limit
+          ></el-input>
+          <div class="form-tip">
+            <el-icon><Warning /></el-icon>
+            短信内容最多1000个字符，国际短信按实际字符数计费
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <el-divider content-position="left">发送说明</el-divider>
+      <div class="sms-tips">
+        <ul>
+          <li>短信将通过牛信云国际短信通道发送</li>
+          <li>请确保手机号格式正确（需包含国际区号）</li>
+          <li>发送成功后可在短信记录中查看状态</li>
+        </ul>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="customSmsDialogVisible = false">取消</el-button>
+          <el-button type="success" @click="confirmSendCustomSms" :loading="customSmsSending">
+            <el-icon><Iphone /></el-icon>
+            发送短信
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 商品选择对话框 -->
     <el-dialog v-model="productDialogVisible" title="选择商品" width="800px" :close-on-click-modal="false">
       <div class="product-selector">
@@ -975,7 +1054,8 @@ import {
   Message,
   Promotion,
   Warning,
-  User
+  User,
+  Iphone
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -995,6 +1075,14 @@ import {
   OrderStatusColors
 } from "@/api/modules/order";
 import { sendArrivalReminderApi, sendReshipmentNoticeApi, sendCustomEmailApi, type CustomEmailParams } from "@/api/modules/email";
+import {
+  sendPickingSmsApi,
+  sendShippedSmsApi,
+  sendArrivalSmsApi,
+  sendReshipmentSmsApi,
+  sendCustomSmsApi,
+  type CustomSmsParams
+} from "@/api/modules/sms";
 import { getProductListApi, type Product } from "@/api/modules/product";
 
 // 响应式数据
@@ -1036,6 +1124,15 @@ const customEmailForm = reactive({
   email_to: "",
   subject: "",
   html_content: ""
+});
+
+// 自定义短信相关
+const customSmsDialogVisible = ref(false);
+const customSmsSending = ref(false);
+const customSmsForm = reactive({
+  order_id: 0,
+  phone: "",
+  content: ""
 });
 
 // 国家代码映射
@@ -2068,6 +2165,130 @@ const confirmSendCustomEmail = async () => {
     ElMessage.error(error.response?.data?.message || error.message || "自定义邮件发送失败");
   } finally {
     customEmailSending.value = false;
+  }
+};
+
+// ==================== 短信发送相关方法 ====================
+
+// 处理短信发送操作
+const handleSmsAction = async (row: Order, action: string) => {
+  console.log("=== 短信发送开始 ===");
+  console.log("1. handleSmsAction 被调用");
+  console.log("   - 订单ID:", row.id);
+  console.log("   - 短信类型:", action);
+  console.log("   - 手机号:", row.phone);
+
+  if (!row.phone) {
+    console.log("2. ❌ 没有手机号，退出");
+    ElMessage.warning("该订单没有手机号，无法发送短信");
+    return;
+  }
+
+  // 处理自定义短信
+  if (action === "custom") {
+    console.log("2. 打开自定义短信对话框");
+    customSmsForm.order_id = row.id;
+    customSmsForm.phone = row.phone;
+    customSmsForm.content = "";
+    customSmsDialogVisible.value = true;
+    return;
+  }
+
+  const smsTypes: Record<string, { name: string; api: (id: number) => Promise<any> }> = {
+    picking: { name: "拣货通知", api: sendPickingSmsApi },
+    shipped: { name: "发货通知", api: sendShippedSmsApi },
+    arrival: { name: "到达提醒", api: sendArrivalSmsApi },
+    reshipment: { name: "补发通知", api: sendReshipmentSmsApi }
+  };
+
+  const smsType = smsTypes[action];
+  if (!smsType) {
+    console.log("3. ❌ 未知的短信类型:", action);
+    return;
+  }
+
+  console.log("3. ✓ 找到短信类型:", smsType.name);
+
+  // 确认发送
+  try {
+    await ElMessageBox.confirm(`确定要向 ${row.phone} 发送${smsType.name}短信吗？`, "发送确认", {
+      confirmButtonText: "确定发送",
+      cancelButtonText: "取消",
+      type: "info"
+    });
+
+    console.log("4. ✓ 用户确认发送");
+    console.log("5. 开始调用 API...");
+
+    const response = await smsType.api(row.id);
+    console.log("6. ✓ API 调用成功");
+    console.log("   - 完整响应:", response);
+
+    if (response.data?.test_mode) {
+      ElMessage.warning(`${smsType.name}短信已记录（测试模式，未实际发送）`);
+    } else {
+      ElMessage.success(`${smsType.name}短信发送成功！`);
+    }
+  } catch (error: any) {
+    if (error === "cancel") {
+      console.log("4. 用户取消发送");
+      return;
+    }
+    console.error("6. ❌ API 调用失败");
+    console.error("   - 错误对象:", error);
+    ElMessage.error(error.response?.data?.message || error.message || `${smsType.name}短信发送失败`);
+  }
+
+  console.log("=== 短信发送结束 ===\n");
+};
+
+// 确认发送自定义短信
+const confirmSendCustomSms = async () => {
+  // 验证手机号
+  if (!customSmsForm.phone || !customSmsForm.phone.trim()) {
+    ElMessage.warning("手机号不能为空");
+    return;
+  }
+
+  if (!customSmsForm.content.trim()) {
+    ElMessage.warning("请输入短信内容");
+    return;
+  }
+
+  // 短信内容长度限制
+  if (customSmsForm.content.length > 1000) {
+    ElMessage.warning("短信内容不能超过1000个字符");
+    return;
+  }
+
+  customSmsSending.value = true;
+
+  try {
+    const params: CustomSmsParams = {
+      order_id: customSmsForm.order_id,
+      phone: customSmsForm.phone,
+      content: customSmsForm.content
+    };
+
+    const response = await sendCustomSmsApi(params);
+
+    if (response.data?.test_mode) {
+      ElMessage.warning("自定义短信已记录（测试模式，未实际发送）");
+    } else {
+      ElMessage.success("自定义短信发送成功！");
+    }
+
+    customSmsDialogVisible.value = false;
+
+    // 清空表单
+    customSmsForm.order_id = 0;
+    customSmsForm.phone = "";
+    customSmsForm.content = "";
+  } catch (error: any) {
+    console.error("自定义短信发送失败:", error);
+    ElMessage.error(error.response?.data?.message || error.message || "自定义短信发送失败");
+  } finally {
+    customSmsSending.value = false;
   }
 };
 
@@ -3771,6 +3992,29 @@ onMounted(() => {
 .email-content-preview img {
   max-width: 100%;
   height: auto;
+}
+
+/* 短信提示样式 */
+.sms-tips {
+  background-color: #f0f9eb;
+  border: 1px solid #e1f3d8;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.sms-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #67c23a;
+}
+
+.sms-tips li {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.sms-tips li:last-child {
+  margin-bottom: 0;
 }
 
 /* 响应式设计 */
