@@ -171,6 +171,21 @@ export interface BatchSmsResult {
   }>;
 }
 
+// 验证手机号参数
+export interface ValidatePhoneParams {
+  phone: string;
+  country_code?: string;
+}
+
+// 验证手机号结果
+export interface ValidatePhoneResult {
+  valid: boolean;
+  original_phone: string;
+  formatted_phone?: string;
+  country_code?: string;
+  error?: string;
+}
+
 // ==================== 短信API接口 ====================
 
 /**
@@ -178,6 +193,13 @@ export interface BatchSmsResult {
  */
 export const getSmsConfigApi = () => {
   return http.get<SmsConfig>("/admin/sms/config");
+};
+
+/**
+ * 验证手机号是否可以发送短信
+ */
+export const validatePhoneApi = (params: ValidatePhoneParams) => {
+  return http.get<ValidatePhoneResult>("/admin/sms/validate-phone", params);
 };
 
 /**

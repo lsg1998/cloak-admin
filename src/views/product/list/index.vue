@@ -1,5 +1,44 @@
 <template>
   <div class="product-management">
+    <!-- 国家导航栏 -->
+    <div class="country-nav-bar">
+      <div class="country-nav-title">
+        <el-icon><Location /></el-icon>
+        <span>国家筛选</span>
+      </div>
+      <div class="country-nav-list">
+        <div class="country-nav-item" :class="{ active: searchForm.country === '' }" @click="handleCountryFilter('')">
+          <span class="country-name">全部</span>
+          <span class="country-count">{{ totalProductCount }}</span>
+        </div>
+        <div
+          v-for="country in sortedCountryOptions.withProducts"
+          :key="country.code"
+          class="country-nav-item"
+          :class="{ active: searchForm.country === country.code }"
+          @click="handleCountryFilter(country.code)"
+        >
+          <span class="country-flag">{{ getCountryFlag(country.code) }}</span>
+          <span class="country-name">{{ country.name }}</span>
+          <span class="country-count">{{ country.count }}</span>
+        </div>
+        <template v-if="sortedCountryOptions.withoutProducts.length > 0">
+          <div class="country-nav-divider"></div>
+          <div
+            v-for="country in sortedCountryOptions.withoutProducts"
+            :key="country.code"
+            class="country-nav-item empty"
+            :class="{ active: searchForm.country === country.code }"
+            @click="handleCountryFilter(country.code)"
+          >
+            <span class="country-flag">{{ getCountryFlag(country.code) }}</span>
+            <span class="country-name">{{ country.name }}</span>
+            <span class="country-count">0</span>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <!-- 搜索卡片 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline class="search-form">
@@ -1411,7 +1450,8 @@ import {
   MagicStick,
   Sort,
   Close,
-  DocumentCopy
+  DocumentCopy,
+  Location
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -1422,6 +1462,7 @@ import {
   getOriginalProductsApi,
   updateProductFakeLinkApi,
   updateProductCloakRuleApi,
+  getProductCountryStatsApi,
   type Product,
   type ProductListParams
 } from "@/api/modules/product";
@@ -1492,18 +1533,16 @@ const allCountries = [
   { code: "JP", name: "日本" }
 ];
 
-// 计算当前页面每个国家的商品数量
+// 后端国家统计数据
+const countryStats = ref<{ country: string; count: number }[]>([]);
+const totalProductCount = ref(0);
+
+// 计算每个国家的商品数量（使用后端数据）
 const countryProductCounts = computed(() => {
   const counts: { [key: string]: number } = {};
-
-  // 统计每个国家的商品数量
-  tableData.value.forEach(product => {
-    if (product.country) {
-      const countryCode = product.country.toUpperCase();
-      counts[countryCode] = (counts[countryCode] || 0) + 1;
-    }
+  countryStats.value.forEach(stat => {
+    counts[stat.country.toUpperCase()] = stat.count;
   });
-
   return counts;
 });
 
@@ -1830,6 +1869,38 @@ const handleSearch = () => {
   loadData();
 };
 
+// 国家导航快速筛选
+const handleCountryFilter = (countryCode: string) => {
+  searchForm.country = countryCode;
+  pagination.current = 1;
+  loadData();
+};
+
+// 获取国家旗帜 emoji
+const getCountryFlag = (code: string): string => {
+  const flags: { [key: string]: string } = {
+    SK: "🇸🇰",
+    CZ: "🇨🇿",
+    PL: "🇵🇱",
+    HU: "🇭🇺",
+    DE: "🇩🇪",
+    AT: "🇦🇹",
+    RO: "🇷🇴",
+    JP: "🇯🇵",
+    IT: "🇮🇹",
+    ES: "🇪🇸",
+    PT: "🇵🇹",
+    LT: "🇱🇹",
+    LV: "🇱🇻",
+    HR: "🇭🇷",
+    SI: "🇸🇮",
+    EN: "🇬🇧",
+    ZH: "🇨🇳",
+    JA: "🇯🇵"
+  };
+  return flags[code] || "🌍";
+};
+
 // 重置
 const handleReset = () => {
   Object.assign(searchForm, {
@@ -1999,7 +2070,7 @@ const handleDelete = (row: Product) => {
     try {
       await deleteProductApi(row.id);
       ElMessage.success("删除成功");
-      loadData();
+      loadData(true);
     } catch (error) {
       ElMessage.error("删除失败");
     }
@@ -2016,8 +2087,8 @@ const handleCopy = (row: Product) => {
     try {
       const result = await copyProductApi(row.id);
       ElMessage.success(`复制成功！新商品ID: ${result.data.id}`);
-      // 刷新列表
-      loadData();
+      // 刷新列表和统计
+      loadData(true);
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || error?.message || "复制失败";
       ElMessage.error(errorMsg);
@@ -2056,7 +2127,7 @@ const handleSubmit = async () => {
           ElMessage.success("添加成功");
         }
         dialogVisible.value = false;
-        loadData();
+        loadData(true);
       } catch (error) {
         console.error("提交失败:", error);
         ElMessage.error(form.id ? "更新失败" : "添加失败");
@@ -2158,7 +2229,7 @@ const clearRichTextContent = () => {
 };
 
 // 加载数据
-const loadData = async () => {
+const loadData = async (refreshStats = false) => {
   loading.value = true;
   try {
     const params: ProductListParams = {
@@ -2176,10 +2247,26 @@ const loadData = async () => {
     console.log("第一个商品数据:", data.list[0]);
     tableData.value = data.list;
     pagination.total = data.total;
+
+    // 如果需要刷新统计数据
+    if (refreshStats) {
+      await loadCountryStats();
+    }
   } catch (error) {
     ElMessage.error("获取商品列表失败");
   } finally {
     loading.value = false;
+  }
+};
+
+// 加载国家统计数据
+const loadCountryStats = async () => {
+  try {
+    const { data } = await getProductCountryStatsApi();
+    countryStats.value = data.stats;
+    totalProductCount.value = data.total;
+  } catch (error) {
+    console.error("获取国家统计失败:", error);
   }
 };
 
@@ -3118,6 +3205,7 @@ const handleCloakRuleChange = (ruleId: number | null) => {
 onMounted(() => {
   loadData();
   loadCloakRules();
+  loadCountryStats();
 });
 </script>
 
@@ -4077,5 +4165,108 @@ onMounted(() => {
   color: #909399;
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* 国家导航栏样式 */
+.country-nav-bar {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e4e7ed;
+}
+
+.country-nav-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.country-nav-title .el-icon {
+  font-size: 16px;
+}
+
+.country-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.country-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f5f7fa;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e4e7ed;
+}
+
+.country-nav-item:hover {
+  background: #ecf5ff;
+  border-color: #409eff;
+  transform: translateY(-2px);
+}
+
+.country-nav-item.active {
+  background: linear-gradient(135deg, #67c23a 0%, #52b788 100%);
+  border-color: #67c23a;
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+}
+
+.country-nav-item.active .country-name {
+  color: #fff;
+  font-weight: 600;
+}
+
+.country-nav-item.active .country-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.country-nav-item.empty {
+  opacity: 0.6;
+}
+
+.country-nav-item.empty:hover {
+  opacity: 0.8;
+}
+
+.country-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.country-nav-item .country-name {
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.country-nav-item .country-count {
+  background: #e4e7ed;
+  color: #606266;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.country-nav-divider {
+  width: 1px;
+  height: 24px;
+  background: #dcdfe6;
+  margin: 0 4px;
 }
 </style>

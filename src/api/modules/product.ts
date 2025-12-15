@@ -195,3 +195,13 @@ export const updateProductFakeLinkApi = (id: string, originalProductIds: string[
 export const getProductPixelConfigApi = (id: string) => {
   return http.get<{ pixel_config: PixelConfig; pixel_enabled: boolean }>(`/admin/products/${id}/pixel`);
 };
+
+// 获取商品国家统计
+export interface CountryStats {
+  stats: { country: string; count: number }[];
+  total: number;
+}
+
+export const getProductCountryStatsApi = () => {
+  return http.get<CountryStats>("/admin/products/country-stats");
+};
