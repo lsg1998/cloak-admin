@@ -224,3 +224,13 @@ export const getOrderStatisticsApi = (params: OrderStatisticsParams = {}) => {
 export const getIPInfoApi = (ip: string) => {
   return http.get<any>("/admin/orders/ip-info", { ip });
 };
+
+/**
+ * 导出所有订单IP（按国家分组）
+ * 直接下载文件，返回文件下载URL
+ */
+export const exportOrderIPsUrl = () => {
+  // 获取API基础URL
+  const baseURL = import.meta.env.VITE_API_URL || "";
+  return `${baseURL}/admin/orders/export-ips`;
+};

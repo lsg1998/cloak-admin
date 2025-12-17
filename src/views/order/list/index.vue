@@ -112,7 +112,11 @@
           <div class="table-actions">
             <el-button size="small" @click="handleExportDialog" :loading="exportLoading">
               <el-icon><Download /></el-icon>
-              导出
+              导出订单
+            </el-button>
+            <el-button size="small" type="primary" @click="handleExportIPs" :loading="exportIPLoading">
+              <el-icon><Download /></el-icon>
+              导出IP
             </el-button>
             <el-button size="small" @click="loadData">
               <el-icon><Refresh /></el-icon>
@@ -1068,6 +1072,7 @@ import {
   sendPickingNotificationEmailApi,
   sendShippedNotificationEmailApi,
   getIPInfoApi,
+  exportOrderIPsUrl,
   type Order,
   type OrderListParams,
   OrderStatus,
@@ -1088,6 +1093,7 @@ import { getProductListApi, type Product } from "@/api/modules/product";
 // 响应式数据
 const loading = ref(false);
 const exportLoading = ref(false);
+const exportIPLoading = ref(false);
 const detailDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
@@ -2311,6 +2317,31 @@ const handleExportDialog = () => {
   }
 
   exportDialogVisible.value = true;
+};
+
+// 导出所有订单IP（按国家分组）
+const handleExportIPs = async () => {
+  try {
+    exportIPLoading.value = true;
+
+    // 获取导出URL
+    const exportUrl = exportOrderIPsUrl();
+
+    // 创建一个隐藏的a标签来触发下载
+    const link = document.createElement("a");
+    link.href = exportUrl;
+    link.download = `order_ips_by_country_${new Date().getTime()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    ElMessage.success("IP导出已开始，请稍候...");
+  } catch (error) {
+    console.error("导出IP失败:", error);
+    ElMessage.error("导出IP失败");
+  } finally {
+    exportIPLoading.value = false;
+  }
 };
 
 // 取消导出，重置单个订单导出模式

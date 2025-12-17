@@ -131,3 +131,13 @@ export const visitorIpApi = {
     return http.post("/admin/statistics/visitor-ips/refresh", { ip });
   }
 };
+
+/**
+ * 导出最近7天的访客IP（按国家分组）
+ * 直接下载文件，返回文件下载URL
+ */
+export const exportVisitorIPsUrl = () => {
+  // 获取API基础URL
+  const baseURL = import.meta.env.VITE_API_URL || "";
+  return `${baseURL}/admin/statistics/visitor-ips/export`;
+};

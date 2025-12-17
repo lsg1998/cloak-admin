@@ -189,6 +189,10 @@
       <div class="table-header">
         <div class="table-title">访客IP列表</div>
         <div class="table-actions">
+          <el-button type="primary" @click="handleExportIPs" :loading="exportIPLoading">
+            <el-icon><Download /></el-icon>
+            导出IP(最近7天)
+          </el-button>
           <el-button @click="loadStatistics">
             <el-icon><Refresh /></el-icon>
             刷新统计
@@ -811,7 +815,7 @@ import {
   Checked,
   Warning
 } from "@element-plus/icons-vue";
-import { visitorIpApi, type VisitorIp, type IpStatistics } from "@/api/modules/visitorIp";
+import { visitorIpApi, exportVisitorIPsUrl, type VisitorIp, type IpStatistics } from "@/api/modules/visitorIp";
 // import { userBehaviorApi, type UserBehaviorTimeline } from "@/api/modules/userBehavior"; // 暂时不用
 import { getProductListApi } from "@/api/modules/product";
 
@@ -819,6 +823,7 @@ import { getProductListApi } from "@/api/modules/product";
 const loading = ref(false);
 // const syncLoading = ref(false); // 暂时不用
 const clearCacheLoading = ref(false);
+const exportIPLoading = ref(false);
 const detailDialogVisible = ref(false);
 const currentVisitorIp = ref<VisitorIp | null>(null);
 
@@ -1302,6 +1307,31 @@ const handleClearAllCache = async () => {
     ElMessage.error("清空缓存失败");
   } finally {
     clearCacheLoading.value = false;
+  }
+};
+
+// 导出最近7天的访客IP（按国家分组）
+const handleExportIPs = async () => {
+  try {
+    exportIPLoading.value = true;
+
+    // 获取导出URL
+    const exportUrl = exportVisitorIPsUrl();
+
+    // 创建一个隐藏的a标签来触发下载
+    const link = document.createElement("a");
+    link.href = exportUrl;
+    link.download = `visitor_ips_last_7_days_${new Date().getTime()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    ElMessage.success("访客IP导出已开始，请稍候...");
+  } catch (error) {
+    console.error("导出访客IP失败:", error);
+    ElMessage.error("导出访客IP失败");
+  } finally {
+    exportIPLoading.value = false;
   }
 };
 
