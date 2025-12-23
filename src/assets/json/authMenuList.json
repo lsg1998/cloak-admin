@@ -86,6 +86,20 @@
             "isAffix": false,
             "isKeepAlive": true
           }
+        },
+        {
+          "path": "/order/blacklist",
+          "name": "orderBlacklist",
+          "component": "/order/blacklist/index",
+          "meta": {
+            "icon": "CircleClose",
+            "title": "IP黑名单",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         }
       ]
     },

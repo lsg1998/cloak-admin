@@ -234,3 +234,79 @@ export const exportOrderIPsUrl = () => {
   const baseURL = import.meta.env.VITE_API_URL || "";
   return `${baseURL}/admin/orders/export-ips`;
 };
+
+/**
+ * 订单国家统计接口
+ */
+export interface OrderCountryStats {
+  stats: { country: string; count: number }[];
+  total: number;
+}
+
+export const getOrderCountryStatsApi = () => {
+  return http.get<OrderCountryStats>("/admin/orders/country-stats");
+};
+
+// ==================== IP黑名单管理 ====================
+
+/**
+ * IP黑名单信息
+ */
+export interface IPBlacklistItem {
+  id: number;
+  ip_address: string;
+  reason?: string;
+  order_id?: number;
+  created_at: string;
+  order_number?: string;
+  customer_name?: string;
+  phone?: string;
+}
+
+/**
+ * IP黑名单列表响应
+ */
+export interface IPBlacklistResponse {
+  list: IPBlacklistItem[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+/**
+ * 拉黑IP
+ */
+export const blacklistIPApi = (data: { ip_address: string; reason?: string; order_id?: number }) => {
+  return http.post("/admin/orders/blacklist-ip", data);
+};
+
+/**
+ * 取消拉黑IP
+ */
+export const unblacklistIPApi = (data: { ip_address: string }) => {
+  return http.post("/admin/orders/unblacklist-ip", data);
+};
+
+/**
+ * 检查IP是否在黑名单中
+ */
+export const checkIPBlacklistApi = (ip: string) => {
+  return http.get<{ ip_address: string; is_blacklisted: boolean; blacklist_info: IPBlacklistItem | null }>(
+    "/admin/orders/check-blacklist",
+    { ip }
+  );
+};
+
+/**
+ * 获取IP黑名单列表
+ */
+export const getIPBlacklistApi = (params: { page?: number; size?: number } = {}) => {
+  return http.get<IPBlacklistResponse>("/admin/orders/ip-blacklist", params);
+};
+
+/**
+ * 批量拉黑IP
+ */
+export const batchBlacklistIPsApi = (data: { ip_addresses: string[]; reason?: string }) => {
+  return http.post("/admin/orders/batch-blacklist-ips", data);
+};

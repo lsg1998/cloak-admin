@@ -133,11 +133,12 @@ export const visitorIpApi = {
 };
 
 /**
- * 导出最近7天的访客IP（按国家分组）
+ * 导出访客IP（按国家分组）
  * 直接下载文件，返回文件下载URL
+ * @param days 最近几天，默认7天
  */
-export const exportVisitorIPsUrl = () => {
+export const exportVisitorIPsUrl = (days: number = 7) => {
   // 获取API基础URL
   const baseURL = import.meta.env.VITE_API_URL || "";
-  return `${baseURL}/admin/statistics/visitor-ips/export`;
+  return `${baseURL}/admin/statistics/visitor-ips/export?days=${days}`;
 };

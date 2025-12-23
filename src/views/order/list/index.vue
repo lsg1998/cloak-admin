@@ -1,5 +1,30 @@
 <template>
   <div class="order-management">
+    <!-- 国家导航栏 -->
+    <div class="country-nav-bar">
+      <div class="country-nav-title">
+        <el-icon><Location /></el-icon>
+        <span>国家筛选</span>
+      </div>
+      <div class="country-nav-list">
+        <div class="country-nav-item" :class="{ active: searchForm.country === '' }" @click="handleCountryFilter('')">
+          <span class="country-name">全部</span>
+          <span class="country-count">{{ totalOrderCount }}</span>
+        </div>
+        <div
+          v-for="country in sortedCountryOptions.withOrders"
+          :key="country.code"
+          class="country-nav-item"
+          :class="{ active: searchForm.country === country.code }"
+          @click="handleCountryFilter(country.code)"
+        >
+          <span class="country-flag">{{ getCountryFlag(country.code) }}</span>
+          <span class="country-name">{{ country.name }}</span>
+          <span class="country-count">{{ country.count }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 搜索卡片 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline class="search-form">
@@ -260,6 +285,16 @@
                   >
                     {{ row.ip_address }}
                   </el-tag>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    link
+                    style="margin-left: 4px"
+                    @click="handleBlacklistIP(row)"
+                    title="拉黑此IP，该IP只能看到仿品页面"
+                  >
+                    <el-icon><CircleClose /></el-icon>
+                  </el-button>
                 </div>
                 <div class="sk-info" v-if="row.product_type">
                   <el-tag size="small" :type="getProductTypeColor(row.product_type)">
@@ -677,6 +712,14 @@
             </el-select>
           </el-form-item>
 
+          <!-- 盈派订单类型选择（放在前面） -->
+          <el-form-item v-if="exportConfig.logisticsCompany === 'yingpai'" label="订单类型">
+            <el-radio-group v-model="exportConfig.yingpaiOrderType" style="display: flex; gap: 12px">
+              <el-radio-button label="normal">普通订单</el-radio-button>
+              <el-radio-button label="forward">转寄订单</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
           <el-form-item label="导出筛选" v-if="!singleOrderExportMode">
             <div style="display: flex; flex-direction: column; gap: 8px">
               <el-checkbox v-model="exportConfig.onlyUnshipped">只导出未发货的订单</el-checkbox>
@@ -800,14 +843,41 @@
 
           <!-- 盈派专用配置 -->
           <template v-if="exportConfig.logisticsCompany === 'yingpai'">
+            <el-form-item v-if="exportConfig.yingpaiOrderType === 'forward'" label="退单单号" required>
+              <el-input
+                v-model="exportConfig.yingpaiReturnOrderNumber"
+                type="textarea"
+                :rows="5"
+                placeholder="请输入退单单号，每行一个（必填）&#10;例如：&#10;a1&#10;a2&#10;a3"
+                style="width: 300px"
+                clearable
+              />
+              <div class="form-tip">转寄订单需要填写退单单号，每行一个，将按顺序对应到每个订单</div>
+            </el-form-item>
+
+            <el-form-item v-if="exportConfig.yingpaiOrderType === 'forward'" label="单号1品名" required>
+              <el-input
+                v-model="exportConfig.yingpaiReturnOrderProductName"
+                placeholder="请输入单号1品名（必填）"
+                style="width: 300px"
+                clearable
+              />
+              <div class="form-tip">转寄订单的单号1品名（必填）</div>
+            </el-form-item>
+
+            <el-form-item v-if="exportConfig.yingpaiOrderType === 'forward'" label="仓库" required>
+              <el-input v-model="exportConfig.yingpaiWarehouse" placeholder="请输入仓库（必填）" style="width: 300px" clearable />
+              <div class="form-tip">转寄订单的仓库信息（必填）</div>
+            </el-form-item>
+
             <el-form-item label="快递物流商">
               <el-input v-model="exportConfig.yingpaiLogistics" placeholder="请输入快递物流商名称" style="width: 300px" />
               <div class="form-tip">快递物流商默认：欧洲小包特货</div>
             </el-form-item>
 
-            <el-form-item label="SKU">
+            <el-form-item v-if="exportConfig.yingpaiOrderType === 'normal'" label="SKU">
               <el-input v-model="exportConfig.yingpaiSku" placeholder="请输入SKU" style="width: 300px" />
-              <div class="form-tip">SKU默认：15000W</div>
+              <div class="form-tip">SKU默认：15000W（转寄订单不需要填写SKU）</div>
             </el-form-item>
           </template>
         </el-form>
@@ -819,12 +889,18 @@
                 单个订单导出模式
                 <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">：将按照跨速达（匈牙利发货）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">：将按照华熙（波兰COD）模板格式导出</span>
-                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">：将按照盈派批量上传模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
+                  <span v-if="exportConfig.yingpaiOrderType === 'forward'">：将按照盈派转寄订单模板格式导出</span>
+                  <span v-else>：将按照盈派批量上传模板格式导出</span>
+                </span>
               </p>
               <p v-else>
                 <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">将按照跨速达（匈牙利发货）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">将按照华熙（波兰COD）模板格式导出订单数据</span>
-                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">将按照盈派批量上传模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
+                  <span v-if="exportConfig.yingpaiOrderType === 'forward'">将按照盈派转寄订单模板格式导出订单数据</span>
+                  <span v-else>将按照盈派批量上传模板格式导出订单数据</span>
+                </span>
               </p>
               <ul>
                 <li v-if="singleOrderExportMode">📦 本次导出：1 条订单（订单号：{{ singleOrderToExport?.order_number }}）</li>
@@ -1059,7 +1135,9 @@ import {
   Promotion,
   Warning,
   User,
-  Iphone
+  Iphone,
+  Location,
+  CircleClose
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -1073,6 +1151,8 @@ import {
   sendShippedNotificationEmailApi,
   getIPInfoApi,
   exportOrderIPsUrl,
+  getOrderCountryStatsApi,
+  blacklistIPApi,
   type Order,
   type OrderListParams,
   OrderStatus,
@@ -1378,7 +1458,11 @@ const exportConfig = reactive({
   huaxiProductInfo: "焊枪套装",
   // 盈派专用配置
   yingpaiLogistics: "欧洲小包特货",
-  yingpaiSku: "15000W"
+  yingpaiSku: "15000W",
+  yingpaiOrderType: "normal", // 订单类型：normal(普通订单) 或 forward(转寄订单)
+  yingpaiReturnOrderNumber: "", // 退单单号（转寄订单必填）
+  yingpaiReturnOrderProductName: "", // 单号1品名（转寄订单可选）
+  yingpaiWarehouse: "" // 仓库（转寄订单可选）
 });
 
 // 从本地缓存加载导出配置
@@ -1412,6 +1496,11 @@ const loadExportConfigFromCache = () => {
       // 盈派配置
       if (config.yingpaiLogistics !== undefined) exportConfig.yingpaiLogistics = config.yingpaiLogistics;
       if (config.yingpaiSku !== undefined) exportConfig.yingpaiSku = config.yingpaiSku;
+      if (config.yingpaiOrderType !== undefined) exportConfig.yingpaiOrderType = config.yingpaiOrderType;
+      if (config.yingpaiReturnOrderNumber !== undefined) exportConfig.yingpaiReturnOrderNumber = config.yingpaiReturnOrderNumber;
+      if (config.yingpaiReturnOrderProductName !== undefined)
+        exportConfig.yingpaiReturnOrderProductName = config.yingpaiReturnOrderProductName;
+      if (config.yingpaiWarehouse !== undefined) exportConfig.yingpaiWarehouse = config.yingpaiWarehouse;
     }
   } catch (error) {
     console.error("加载导出配置失败:", error);
@@ -1443,7 +1532,14 @@ const saveExportConfigToCache = () => {
       huaxiWeight: exportConfig.huaxiWeight,
       huaxiCustomsName: exportConfig.huaxiCustomsName,
       huaxiChineseName: exportConfig.huaxiChineseName,
-      huaxiProductInfo: exportConfig.huaxiProductInfo
+      huaxiProductInfo: exportConfig.huaxiProductInfo,
+      // 盈派配置
+      yingpaiLogistics: exportConfig.yingpaiLogistics,
+      yingpaiSku: exportConfig.yingpaiSku,
+      yingpaiOrderType: exportConfig.yingpaiOrderType,
+      yingpaiReturnOrderNumber: exportConfig.yingpaiReturnOrderNumber,
+      yingpaiReturnOrderProductName: exportConfig.yingpaiReturnOrderProductName,
+      yingpaiWarehouse: exportConfig.yingpaiWarehouse
     };
 
     localStorage.setItem("hungaryExportConfig", JSON.stringify(configToSave));
@@ -1478,36 +1574,63 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<Order[]>([]);
 
-// 所有可选国家列表
+// 所有可选国家列表（与商品列表和斗篷规则保持一致）
 const allCountries = [
+  { code: "JA", name: "日本" }, // 语言代码
+  { code: "JP", name: "日本" }, // 国家代码（兼容）
+  { code: "ZH", name: "中国" },
+  { code: "EN", name: "英国" },
   { code: "SK", name: "斯洛伐克" },
-  { code: "CZ", name: "捷克" },
+  { code: "SI", name: "斯洛文尼亚" },
   { code: "PL", name: "波兰" },
+  { code: "PT", name: "葡萄牙" },
   { code: "HU", name: "匈牙利" },
-  { code: "DE", name: "德国" },
+  { code: "IT", name: "意大利" },
+  { code: "ES", name: "西班牙" },
+  { code: "CZ", name: "捷克" },
+  { code: "LT", name: "立陶宛" },
+  { code: "LV", name: "拉脱维亚" },
+  { code: "HR", name: "克罗地亚" },
   { code: "AT", name: "奥地利" },
-  { code: "RO", name: "罗马尼亚" },
-  { code: "JP", name: "日本" }
+  { code: "DE", name: "德国" },
+  { code: "RO", name: "罗马尼亚" } // 保留原有国家
 ];
 
-// 计算当前页面每个国家的订单数量
-const countryOrderCounts = computed(() => {
-  const counts: { [key: string]: number } = {};
+// 国家统计数据（从后端获取）
+const countryStats = ref<{ [key: string]: number }>({});
+const totalOrderCount = ref(0);
 
-  // 统计每个国家的订单数量
-  tableData.value.forEach(order => {
-    const countryCode = getCountryCode(order);
-    if (countryCode) {
-      counts[countryCode] = (counts[countryCode] || 0) + 1;
-    }
-  });
+// 加载国家统计数据
+const loadCountryStats = async () => {
+  try {
+    const { data } = await getOrderCountryStatsApi();
+    const stats: { [key: string]: number } = {};
 
-  return counts;
-});
+    // 更新总订单数
+    totalOrderCount.value = data.total || 0;
+
+    // 将后端返回的统计数据转换为对象
+    data.stats.forEach((item: { country: string; count: number }) => {
+      // 兼容语言代码和国家代码
+      const countryCode = item.country.toUpperCase();
+      stats[countryCode] = item.count;
+
+      // 特殊处理：JA 和 JP 都代表日本
+      if (countryCode === "JA" || countryCode === "JP") {
+        stats["JA"] = (stats["JA"] || 0) + item.count;
+        stats["JP"] = (stats["JP"] || 0) + item.count;
+      }
+    });
+
+    countryStats.value = stats;
+  } catch (error) {
+    console.error("获取订单国家统计失败:", error);
+  }
+};
 
 // 计算排序后的国家列表（有订单的在前面）
 const sortedCountryOptions = computed(() => {
-  const counts = countryOrderCounts.value;
+  const counts = countryStats.value;
 
   // 分为有订单和无订单两组
   const withOrders: { code: string; name: string; count: number }[] = [];
@@ -1530,6 +1653,38 @@ const sortedCountryOptions = computed(() => {
     withoutOrders
   };
 });
+
+// 国家导航快速筛选
+const handleCountryFilter = (countryCode: string) => {
+  searchForm.country = countryCode;
+  pagination.current = 1;
+  loadData();
+};
+
+// 获取国家旗帜 emoji
+const getCountryFlag = (code: string): string => {
+  const flags: { [key: string]: string } = {
+    SK: "🇸🇰",
+    CZ: "🇨🇿",
+    PL: "🇵🇱",
+    HU: "🇭🇺",
+    DE: "🇩🇪",
+    AT: "🇦🇹",
+    RO: "🇷🇴",
+    JP: "🇯🇵",
+    IT: "🇮🇹",
+    ES: "🇪🇸",
+    PT: "🇵🇹",
+    LT: "🇱🇹",
+    LV: "🇱🇻",
+    HR: "🇭🇷",
+    SI: "🇸🇮",
+    EN: "🇬🇧",
+    ZH: "🇨🇳",
+    JA: "🇯🇵"
+  };
+  return flags[code] || "🌍";
+};
 
 // 判断手机号是否重复（使用后端返回的标识，不管什么状态只要有重复就标记）
 const isPhoneDuplicate = (order: any) => {
@@ -1589,7 +1744,8 @@ const handleReset = () => {
     status: "",
     start_date: "",
     end_date: "",
-    product_id: ""
+    product_id: "",
+    country: "" // 重置国家筛选
   });
   dateRange.value = null;
   selectedProductName.value = "";
@@ -1633,6 +1789,33 @@ const handleViewIPInfo = async (ip: string) => {
   } finally {
     ipInfoLoading.value = false;
   }
+};
+
+// 拉黑IP
+const handleBlacklistIP = (row: Order) => {
+  if (!row.ip_address) {
+    ElMessage.warning("该订单没有IP地址");
+    return;
+  }
+
+  ElMessageBox.confirm(`确定要拉黑IP "${row.ip_address}" 吗？\n\n拉黑后，该IP地址的用户将只能访问到仿品页面。`, "拉黑IP确认", {
+    confirmButtonText: "确定拉黑",
+    cancelButtonText: "取消",
+    type: "warning",
+    confirmButtonClass: "el-button--danger"
+  }).then(async () => {
+    try {
+      await blacklistIPApi({
+        ip_address: row.ip_address!,
+        reason: `从订单 ${row.order_number} 拉黑`,
+        order_id: row.id
+      });
+      ElMessage.success(`IP ${row.ip_address} 已加入黑名单`);
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || error?.message || "拉黑IP失败";
+      ElMessage.error(errorMsg);
+    }
+  });
 };
 
 // 状态变更
@@ -2359,10 +2542,47 @@ const handleCancelExport = () => {
 
 // 根据物流公司选择导出
 const handleExportByCompany = async () => {
+  // 盈派转寄订单验证
+  if (exportConfig.logisticsCompany === "yingpai" && exportConfig.yingpaiOrderType === "forward") {
+    if (!exportConfig.yingpaiReturnOrderNumber || !exportConfig.yingpaiReturnOrderNumber.trim()) {
+      ElMessage.error("转寄订单需要填写退单单号");
+      return;
+    }
+
+    // 验证仓库（必填）
+    if (!exportConfig.yingpaiWarehouse || !exportConfig.yingpaiWarehouse.trim()) {
+      ElMessage.error("转寄订单需要填写仓库");
+      return;
+    }
+
+    // 验证单号1品名（必填）
+    if (!exportConfig.yingpaiReturnOrderProductName || !exportConfig.yingpaiReturnOrderProductName.trim()) {
+      ElMessage.error("转寄订单需要填写单号1品名");
+      return;
+    }
+
+    // 检测退单单号重复
+    const returnOrderNumbers = exportConfig.yingpaiReturnOrderNumber
+      .split("\n")
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    const duplicates = returnOrderNumbers.filter((item, index) => returnOrderNumbers.indexOf(item) !== index);
+
+    if (duplicates.length > 0) {
+      ElMessage.error(`退单单号有重复：${[...new Set(duplicates)].join(", ")}`);
+      return;
+    }
+  }
+
   if (exportConfig.logisticsCompany === "huaxi") {
     await handleHuaxiExport();
   } else if (exportConfig.logisticsCompany === "yingpai") {
-    await handleYingpaiExport();
+    if (exportConfig.yingpaiOrderType === "forward") {
+      await handleYingpaiForwardExport();
+    } else {
+      await handleYingpaiExport();
+    }
   } else {
     await handleKuasuodaExport();
   }
@@ -2790,6 +3010,290 @@ const handleExportConfirm = async () => {
     window.URL.revokeObjectURL(url);
 
     ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为跨速达模板`);
+
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件（不阻塞导出流程）
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      // 使用 setTimeout 确保异步执行，不影响导出流程
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    // 重置单个订单导出模式
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      // 恢复默认导出数量
+      exportConfig.exportLimit = 100;
+    }
+    // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      // 清空选中的订单
+      selectedOrders.value = [];
+    }
+  }
+};
+
+// 盈派转寄订单导出
+const handleYingpaiForwardExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      // 单个订单导出模式：直接使用保存的订单
+      orders = [singleOrderToExport.value];
+      console.log(`盈派转寄订单单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      // 批量导出模式：使用选中的订单
+      orders = [...batchExportOrders.value];
+      console.log(`盈派转寄订单批量导出模式: 共 ${orders.length} 个订单`);
+    } else {
+      // 普通批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
+      };
+
+      // 如果选择只导出未发货的订单
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 前端过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      // 按国家筛选（仅当列表页面没有国家筛选时才使用导出配置的国家筛选）
+      if (exportConfig.filterByCountry && !searchForm.country) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`盈派转寄订单导出：获取到 ${orders.length} 条订单数据`);
+
+    // 解析退单单号列表（按行分割，过滤空行）
+    const returnOrderNumbers = exportConfig.yingpaiReturnOrderNumber
+      ? exportConfig.yingpaiReturnOrderNumber
+          .split("\n")
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+      : [];
+
+    // 盈派转寄订单模板字段（根据实际Excel模板）
+    const yingpaiForwardTemplateFields = [
+      "快递单号",
+      "仓库",
+      "参考单号", // 必填
+      "快递物流商", // 必填
+      "代收货款", // 必填
+      "收件人姓名", // 必填
+      "收件人公司",
+      "收件人邮箱",
+      "收件人地址", // 必填
+      "收件人电话", // 必填
+      "收件人邮编", // 必填
+      "收件人手机", // 必填
+      "收件人省",
+      "收件人城市", // 必填
+      "收件人区", // 必填
+      "退件单号1",
+      "单号1品名",
+      "退件单号2",
+      "单号2品名",
+      "退件单号3",
+      "单号3品名",
+      "退件单号4",
+      "单号4品名",
+      "退件单号5",
+      "单号5品名",
+      "退件单号6",
+      "单号6品名",
+      "退件单号7",
+      "单号7品名",
+      "退件单号8",
+      "单号8品名",
+      "退件单号9",
+      "单号9品名",
+      "退件单号10",
+      "单号10品名",
+      "国家（二字代码）", // 必填
+      "面单标题",
+      "备注",
+      "电商平台",
+      "所属店铺",
+      "订单总金额",
+      "订单总金额币种",
+      "独立站URL",
+      "收件人门牌号码"
+    ];
+
+    // 准备Excel数据
+    const excelData: any[][] = [];
+    excelData.push(yingpaiForwardTemplateFields);
+
+    console.log(`开始处理 ${orders.length} 条订单，退单单号数量：${returnOrderNumbers.length}`);
+
+    orders.forEach((order, index) => {
+      console.log(`处理第 ${index + 1} 条订单：${order.order_number}`);
+      const row: any[] = [];
+
+      // 快递单号（请勿填写）- 留空
+      row.push("");
+
+      // 仓库 - 使用配置的仓库（转寄订单可选）
+      row.push(exportConfig.yingpaiWarehouse || "");
+
+      // 参考单号 - 使用系统订单号（必填）
+      row.push(order.order_number || "");
+
+      // 快递物流商 - 使用配置的值（必填）
+      row.push(exportConfig.yingpaiLogistics || "欧洲小包特货");
+
+      // 代收货款（必填）
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 收件人姓名（必填）
+      row.push(order.customer_name || "");
+
+      // 收件人公司（选填）
+      row.push("");
+
+      // 收件人邮箱（选填）
+      row.push(order.email || "");
+
+      // 收件人地址（必填）
+      row.push(order.address || "");
+
+      // 收件人电话（必填）
+      row.push(order.phone || "");
+
+      // 收件人邮编（必填）
+      row.push(order.postal_code || "");
+
+      // 收件人手机（必填）
+      row.push(order.phone || "");
+
+      // 收件人省（选填）
+      row.push(order.province || "");
+
+      // 收件人城市（必填）
+      row.push(order.city || "");
+
+      // 收件人区（必填）
+      row.push(order.district || "");
+
+      // 退件单号1 - 使用对应索引的退单单号（转寄订单必填）
+      const returnOrderNumber = returnOrderNumbers[index] || "";
+      row.push(returnOrderNumber);
+
+      // 单号1品名 - 使用配置的单号1品名（转寄订单可选）
+      row.push(exportConfig.yingpaiReturnOrderProductName || "");
+
+      // 退件单号2-10（选填，留空）
+      for (let i = 2; i <= 10; i++) {
+        row.push(""); // 退件单号
+        row.push(""); // 单号品名
+      }
+
+      // 国家（二字代码）（必填）
+      const countryCode = getCountryCode(order);
+      row.push(countryCode);
+
+      // 面单标题（选填）
+      row.push("");
+
+      // 备注（选填）
+      row.push(order.comments || "");
+
+      // 电商平台（选填）
+      row.push("");
+
+      // 所属店铺（选填）
+      row.push("");
+
+      // 订单总金额（选填）
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 订单总金额币种（选填）
+      row.push(order.currency || "EUR");
+
+      // 独立站URL（选填）
+      row.push("");
+
+      // 收件人门牌号码（选填）
+      row.push("");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = yingpaiForwardTemplateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "盈派转寄订单");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `盈派转寄订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为盈派转寄订单模板`);
 
     // 保存配置到缓存
     saveExportConfigToCache();
@@ -3545,6 +4049,7 @@ const handleProductCurrentChange = (current: number) => {
 // 初始化
 onMounted(() => {
   loadData();
+  loadCountryStats(); // 加载国家统计数据
   loadExportConfigFromCache(); // 加载导出配置缓存
 });
 </script>
@@ -3554,6 +4059,109 @@ onMounted(() => {
   min-height: 100vh;
   padding: 20px;
   background: #f5f7fa;
+}
+
+/* 国家导航栏样式 */
+.country-nav-bar {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e4e7ed;
+}
+
+.country-nav-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.country-nav-title .el-icon {
+  font-size: 16px;
+}
+
+.country-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.country-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f5f7fa;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e4e7ed;
+}
+
+.country-nav-item:hover {
+  background: #ecf5ff;
+  border-color: #409eff;
+  transform: translateY(-2px);
+}
+
+.country-nav-item.active {
+  background: linear-gradient(135deg, #67c23a 0%, #52b788 100%);
+  border-color: #67c23a;
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+}
+
+.country-nav-item.active .country-name {
+  color: #fff;
+  font-weight: 600;
+}
+
+.country-nav-item.active .country-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.country-nav-item.empty {
+  opacity: 0.6;
+}
+
+.country-nav-item.empty:hover {
+  opacity: 0.8;
+}
+
+.country-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.country-nav-item .country-name {
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.country-nav-item .country-count {
+  background: #e4e7ed;
+  color: #606266;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.country-nav-divider {
+  width: 1px;
+  height: 24px;
+  background: #dcdfe6;
+  margin: 0 4px;
 }
 
 /* 搜索卡片 */

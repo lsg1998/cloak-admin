@@ -256,6 +256,7 @@
               </div>
               <div style="margin-bottom: 4px">
                 <el-tag v-if="row.template === 'shopline'" type="success" size="small">Shopline</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-pro'" type="primary" size="small">Shopline-Pro</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -554,6 +555,12 @@
                     <span>现代模板 - 分离式结账设计</span>
                   </div>
                 </el-option>
+                <el-option label="现代一站式 (Shopline-Pro)" value="shopline-pro">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="primary" size="small">Shopline-Pro</el-tag>
+                    <span>现代一站式 - 单页完整下单设计</span>
+                  </div>
+                </el-option>
                 <el-option label="标准模板 (Standard)" value="standard">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag type="warning" size="small">Standard</el-tag>
@@ -566,7 +573,9 @@
                 <br />
                 <strong>Shopline:</strong> 现代化设计，商品展示和结账分离，纯黑白简洁风格
                 <br />
-                <strong>Standard:</strong> 🔥 新版标准模板，模块化架构，高性能，易通过Google审核
+                <strong>Shopline-Pro:</strong> 🔥 现代一站式设计，与Shopline相同风格但表单在同页底部
+                <br />
+                <strong>Standard:</strong> 新版标准模板，模块化架构，高性能，易通过Google审核
               </div>
             </el-form-item>
           </el-col>
@@ -1521,16 +1530,26 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<Product[]>([]);
 
-// 所有可选国家列表
+// 所有可选国家列表（与斗篷规则保持一致）
 const allCountries = [
+  { code: "JA", name: "日本" }, // 语言代码
+  { code: "JP", name: "日本" }, // 国家代码（兼容）
+  { code: "ZH", name: "中国" },
+  { code: "EN", name: "英国" },
   { code: "SK", name: "斯洛伐克" },
-  { code: "CZ", name: "捷克" },
+  { code: "SI", name: "斯洛文尼亚" },
   { code: "PL", name: "波兰" },
+  { code: "PT", name: "葡萄牙" },
   { code: "HU", name: "匈牙利" },
-  { code: "DE", name: "德国" },
+  { code: "IT", name: "意大利" },
+  { code: "ES", name: "西班牙" },
+  { code: "CZ", name: "捷克" },
+  { code: "LT", name: "立陶宛" },
+  { code: "LV", name: "拉脱维亚" },
+  { code: "HR", name: "克罗地亚" },
   { code: "AT", name: "奥地利" },
-  { code: "RO", name: "罗马尼亚" },
-  { code: "JP", name: "日本" }
+  { code: "DE", name: "德国" },
+  { code: "RO", name: "罗马尼亚" } // 保留原有国家
 ];
 
 // 后端国家统计数据

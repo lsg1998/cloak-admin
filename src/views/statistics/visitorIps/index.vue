@@ -189,9 +189,9 @@
       <div class="table-header">
         <div class="table-title">访客IP列表</div>
         <div class="table-actions">
-          <el-button type="primary" @click="handleExportIPs" :loading="exportIPLoading">
+          <el-button type="primary" @click="showExportDialog" :loading="exportIPLoading">
             <el-icon><Download /></el-icon>
-            导出IP(最近7天)
+            导出IP
           </el-button>
           <el-button @click="loadStatistics">
             <el-icon><Refresh /></el-icon>
@@ -794,6 +794,27 @@
         <el-empty v-else description="暂无轨迹数据" />
       </div>
     </el-dialog>
+
+    <!-- 导出IP对话框 -->
+    <el-dialog v-model="exportDialogVisible" title="导出访客IP" width="400px">
+      <el-form label-width="100px">
+        <el-form-item label="时间范围">
+          <el-select v-model="exportDays" placeholder="请选择天数" style="width: 100%">
+            <el-option label="最近1天" :value="1" />
+            <el-option label="最近3天" :value="3" />
+            <el-option label="最近7天" :value="7" />
+            <el-option label="最近15天" :value="15" />
+            <el-option label="最近30天" :value="30" />
+            <el-option label="最近60天" :value="60" />
+            <el-option label="最近90天" :value="90" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="exportDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleExportIPs" :loading="exportIPLoading">确定导出</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -824,6 +845,8 @@ const loading = ref(false);
 // const syncLoading = ref(false); // 暂时不用
 const clearCacheLoading = ref(false);
 const exportIPLoading = ref(false);
+const exportDialogVisible = ref(false);
+const exportDays = ref(7); // 默认7天
 const detailDialogVisible = ref(false);
 const currentVisitorIp = ref<VisitorIp | null>(null);
 
@@ -1310,23 +1333,29 @@ const handleClearAllCache = async () => {
   }
 };
 
-// 导出最近7天的访客IP（按国家分组）
+// 显示导出对话框
+const showExportDialog = () => {
+  exportDialogVisible.value = true;
+};
+
+// 导出访客IP（按国家分组）
 const handleExportIPs = async () => {
   try {
     exportIPLoading.value = true;
 
-    // 获取导出URL
-    const exportUrl = exportVisitorIPsUrl();
+    // 获取导出URL（带天数参数）
+    const exportUrl = exportVisitorIPsUrl(exportDays.value);
 
     // 创建一个隐藏的a标签来触发下载
     const link = document.createElement("a");
     link.href = exportUrl;
-    link.download = `visitor_ips_last_7_days_${new Date().getTime()}.txt`;
+    link.download = `visitor_ips_last_${exportDays.value}_days_${new Date().getTime()}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    ElMessage.success("访客IP导出已开始，请稍候...");
+    ElMessage.success(`访客IP导出已开始（最近${exportDays.value}天），请稍候...`);
+    exportDialogVisible.value = false;
   } catch (error) {
     console.error("导出访客IP失败:", error);
     ElMessage.error("导出访客IP失败");
