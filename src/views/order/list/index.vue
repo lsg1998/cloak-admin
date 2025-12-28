@@ -395,7 +395,8 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="kuasuoda">📦 跨速达</el-dropdown-item>
+                    <el-dropdown-item command="kuasuoda">📦 跨速达(匈牙利)</el-dropdown-item>
+                    <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                   </el-dropdown-menu>
@@ -423,7 +424,8 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="kuasuoda">📦 跨速达</el-dropdown-item>
+                    <el-dropdown-item command="kuasuoda">📦 跨速达(匈牙利)</el-dropdown-item>
+                    <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                   </el-dropdown-menu>
@@ -500,8 +502,8 @@
         </el-descriptions>
 
         <!-- 商品信息 -->
-        <el-descriptions title="商品信息" :column="1" border style="margin-top: 20px">
-          <el-descriptions-item label="商品">
+        <el-descriptions title="商品信息" :column="2" border style="margin-top: 20px">
+          <el-descriptions-item label="商品" :span="2">
             <div class="product-detail-info">
               <el-avatar :size="60" v-if="currentOrder.product_images && currentOrder.product_images[0]">
                 <img
@@ -519,6 +521,18 @@
                 <div class="product-quantity">数量: {{ currentOrder.quantity }}</div>
               </div>
             </div>
+          </el-descriptions-item>
+          <el-descriptions-item label="商品国家">
+            <el-tag v-if="currentOrder.product_country" type="success" size="small">
+              {{ getCountryName(currentOrder.product_country) }}
+            </el-tag>
+            <span v-else class="no-data">--</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="商品模版">
+            <el-tag v-if="currentOrder.product_template" type="primary" size="small">
+              {{ currentOrder.product_template }}
+            </el-tag>
+            <span v-else class="no-data">--</span>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -697,7 +711,9 @@
           ? '导出华熙订单'
           : exportConfig.logisticsCompany === 'yingpai'
             ? '导出盈派订单'
-            : '导出跨速达订单'
+            : exportConfig.logisticsCompany === 'kuasuoda_spain'
+              ? '导出跨速达订单（西班牙）'
+              : '导出跨速达订单（匈牙利）'
       "
       width="600px"
       :close-on-click-modal="false"
@@ -707,6 +723,7 @@
           <el-form-item label="物流公司">
             <el-select v-model="exportConfig.logisticsCompany" placeholder="请选择物流公司" style="width: 300px">
               <el-option label="跨速达（匈牙利发货）" value="kuasuoda" />
+              <el-option label="跨速达（西班牙发货）" value="kuasuoda_spain" />
               <el-option label="华熙（波兰COD）" value="huaxi" />
               <el-option label="盈派" value="yingpai" />
             </el-select>
@@ -780,7 +797,7 @@
           </el-form-item>
 
           <!-- 跨速达专用配置 -->
-          <template v-if="exportConfig.logisticsCompany === 'kuasuoda'">
+          <template v-if="exportConfig.logisticsCompany === 'kuasuoda' || exportConfig.logisticsCompany === 'kuasuoda_spain'">
             <el-form-item label="货物类型">
               <el-select v-model="exportConfig.kuasuodaCargoType" placeholder="请选择货物类型" style="width: 300px">
                 <el-option label="P" value="P" />
@@ -888,6 +905,9 @@
               <p v-if="singleOrderExportMode">
                 单个订单导出模式
                 <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">：将按照跨速达（匈牙利发货）模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'kuasuoda_spain'">
+                  ：将按照跨速达（西班牙发货）模板格式导出，仅PT/ES订单
+                </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">：将按照华熙（波兰COD）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">：将按照盈派转寄订单模板格式导出</span>
@@ -896,6 +916,9 @@
               </p>
               <p v-else>
                 <span v-if="exportConfig.logisticsCompany === 'kuasuoda'">将按照跨速达（匈牙利发货）模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'kuasuoda_spain'">
+                  将按照跨速达（西班牙发货）模板格式导出订单数据，仅PT/ES订单
+                </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">将按照华熙（波兰COD）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">将按照盈派转寄订单模板格式导出订单数据</span>
@@ -1256,6 +1279,13 @@ const countryCodeMap: { [key: string]: string } = {
   CY: "塞浦路斯",
   JA: "日本",
   JP: "日本"
+};
+
+// 根据国家代码获取国家名称
+const getCountryName = (code: string | undefined | null): string => {
+  if (!code) return "";
+  const upperCode = code.toUpperCase();
+  return countryCodeMap[upperCode] || code;
 };
 
 // 华熙导出专用国家映射（捷克显示为"捷克共和国"）
@@ -2583,6 +2613,8 @@ const handleExportByCompany = async () => {
     } else {
       await handleYingpaiExport();
     }
+  } else if (exportConfig.logisticsCompany === "kuasuoda_spain") {
+    await handleKuasuodaSpainExport();
   } else {
     await handleKuasuodaExport();
   }
@@ -2706,10 +2738,310 @@ const handleKuasuodaExport = async () => {
   await handleExportConfirm();
 };
 
+// 跨速达（西班牙发货）模板导出
+const handleKuasuodaSpainExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      orders = [singleOrderToExport.value];
+      console.log(`西班牙模板单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      orders = [...batchExportOrders.value];
+      console.log(`西班牙模板批量导出模式: 共 ${orders.length} 个订单`);
+    } else {
+      // 普通批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
+      };
+
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      console.log("西班牙模板获取订单数据参数:", params);
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    // 西班牙模板专用：只导出葡萄牙(PT)和西班牙(ES)的订单
+    const originalCount = orders.length;
+    orders = orders.filter(order => {
+      const countryCode = getCountryCode(order);
+      return countryCode === "PT" || countryCode === "ES";
+    });
+    console.log(`西班牙模板国家筛选：原 ${originalCount} 条，筛选后 ${orders.length} 条（仅PT和ES）`);
+
+    if (orders.length === 0) {
+      ElMessage.warning("没有找到葡萄牙或西班牙的订单数据");
+      return;
+    }
+
+    // 去重：根据手机号去重
+    const uniqueOrders = new Map<string, Order>();
+    orders.forEach(order => {
+      const phone = order.phone || "";
+      if (!uniqueOrders.has(phone)) {
+        uniqueOrders.set(phone, order);
+      } else {
+        const existingOrder = uniqueOrders.get(phone)!;
+        if (order.order_number < existingOrder.order_number) {
+          uniqueOrders.set(phone, order);
+        }
+      }
+    });
+    orders = Array.from(uniqueOrders.values());
+
+    console.log(`西班牙模板去重后订单数量: ${orders.length} 条，将要导出`);
+
+    // 跨速达模板字段（与匈牙利相同）
+    const templateFields = [
+      "仓库编码",
+      "客户编码",
+      "客户单号",
+      "物流编码",
+      "物流网点",
+      "物流单号",
+      "物流单号2",
+      "运输方式",
+      "国家/地区",
+      "收件人姓名",
+      "邮箱",
+      "州,省",
+      "城市",
+      "联系地址",
+      "地址备注1",
+      "地址备注2",
+      "收件人电话",
+      "收件人邮编",
+      "代收货款币种",
+      "代收款金额",
+      "订单备注",
+      "配货信息",
+      "货物类型",
+      "规格信息",
+      "申报品数量",
+      "SKU",
+      "配货名称",
+      "申报币种",
+      "申报金额",
+      "税号类型"
+    ];
+
+    const excelData: any[][] = [];
+    excelData.push(templateFields);
+
+    let emptyEmailCount = 0;
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      // 仓库编码 - 西班牙模板使用 ES06
+      row.push("ES06");
+
+      // 客户编码 - 固定值
+      row.push("773");
+
+      // 客户单号 - 使用系统订单号
+      row.push(order.order_number || "");
+
+      // 物流编码 - 空
+      row.push("");
+
+      // 物流网点 - 空
+      row.push("");
+
+      // 物流单号 - 空
+      row.push("");
+
+      // 物流单号2 - 空
+      row.push("");
+
+      // 运输方式 - 西班牙模板固定使用 "欧洲备货-11"
+      row.push("欧洲备货-11");
+
+      // 国家/地区 - 自动填充
+      const countryCode = getCountryCode(order);
+      const countryName = countryCodeMap[countryCode] || "";
+      row.push(countryName);
+
+      // 收件人姓名
+      row.push(order.customer_name || "");
+
+      // 邮箱 - 如果为空，自动填充
+      let email = order.email || "";
+      if (!email || email.trim() === "") {
+        emptyEmailCount++;
+        email = `test${emptyEmailCount}@gmail.com`;
+      }
+      row.push(email);
+
+      // 州,省
+      row.push(order.province || "");
+
+      // 城市
+      row.push(order.city || "");
+
+      // 处理联系地址
+      let processedAddress = order.address || "";
+      if (order.city && order.address) {
+        if (order.address.startsWith(order.city)) {
+          processedAddress = order.address.substring(order.city.length).trim();
+          if (processedAddress) {
+            if (processedAddress.startsWith(",")) {
+              processedAddress = processedAddress.substring(1).trim();
+            }
+          } else {
+            processedAddress = order.address;
+          }
+        }
+      }
+
+      // 联系地址
+      row.push(processedAddress);
+
+      // 地址备注1
+      row.push(order.address || "");
+
+      // 地址备注2
+      row.push("");
+
+      // 收件人电话
+      row.push(order.phone || "");
+
+      // 收件人邮编
+      row.push(order.postal_code || "");
+
+      // 代收货款币种
+      row.push(order.currency || "EUR");
+
+      // 代收款金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 订单备注
+      row.push("");
+
+      // 配货信息
+      row.push(exportConfig.kuasuodaProductInfo || "");
+
+      // 货物类型
+      row.push(exportConfig.kuasuodaCargoType);
+
+      // 规格信息
+      row.push(exportConfig.specification);
+
+      // 申报品数量
+      row.push(order.quantity || 1);
+
+      // SKU
+      row.push(exportConfig.sku);
+
+      // 配货名称
+      row.push(exportConfig.kuasuodaProductName || "");
+
+      // 申报币种
+      row.push(order.currency || "EUR");
+
+      // 申报金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 税号类型
+      row.push("");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = templateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "西班牙发货订单");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `西班牙发货订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据（仅葡萄牙和西班牙），格式为跨速达西班牙模板`);
+
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("西班牙模板导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      exportConfig.exportLimit = 100;
+    }
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
+    }
+  }
+};
+
 // 导出确认 - 匈牙利发货模板格式
 const handleExportConfirm = async () => {
   // 跨速达导出前验证配货信息和配货名称
-  if (exportConfig.logisticsCompany === "kuasuoda") {
+  if (exportConfig.logisticsCompany === "kuasuoda" || exportConfig.logisticsCompany === "kuasuoda_spain") {
     if (!exportConfig.kuasuodaProductInfo || !exportConfig.kuasuodaProductInfo.trim()) {
       ElMessage.error("请填写配货信息");
       return;

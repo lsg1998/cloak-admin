@@ -257,6 +257,7 @@
               <div style="margin-bottom: 4px">
                 <el-tag v-if="row.template === 'shopline'" type="success" size="small">Shopline</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-pro'" type="primary" size="small">Shopline-Pro</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-watch'" type="danger" size="small">Watch</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -561,6 +562,12 @@
                     <span>现代一站式 - 单页完整下单设计</span>
                   </div>
                 </el-option>
+                <el-option label="奢华手表 (Shopline-Watch)" value="shopline-watch">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="danger" size="small">Watch</el-tag>
+                    <span>奢华手表 - 高端手表专属设计</span>
+                  </div>
+                </el-option>
                 <el-option label="标准模板 (Standard)" value="standard">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag type="warning" size="small">Standard</el-tag>
@@ -574,6 +581,8 @@
                 <strong>Shopline:</strong> 现代化设计，商品展示和结账分离，纯黑白简洁风格
                 <br />
                 <strong>Shopline-Pro:</strong> 🔥 现代一站式设计，与Shopline相同风格但表单在同页底部
+                <br />
+                <strong>Shopline-Watch:</strong> ⌚ 高端手表专属模板，深蓝金色配色，奢华感设计
                 <br />
                 <strong>Standard:</strong> 新版标准模板，模块化架构，高性能，易通过Google审核
               </div>

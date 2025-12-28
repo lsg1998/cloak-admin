@@ -83,6 +83,8 @@ export interface Order {
   product_price?: number;
   product_images?: string[];
   product_description?: string;
+  product_country?: string; // 商品国家
+  product_template?: string; // 商品模版
 }
 
 // 订单列表查询参数
