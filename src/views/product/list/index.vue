@@ -258,6 +258,8 @@
                 <el-tag v-if="row.template === 'shopline'" type="success" size="small">Shopline</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-pro'" type="primary" size="small">Shopline-Pro</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-watch'" type="danger" size="small">Watch</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-tool'" type="warning" size="small">Tool</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -566,6 +568,18 @@
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag type="danger" size="small">Watch</el-tag>
                     <span>奢华手表 - 高端手表专属设计</span>
+                  </div>
+                </el-option>
+                <el-option label="园艺工具 (Shopline-Tool)" value="shopline-tool">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #f37021; border-color: #f37021; color: white" size="small">Tool</el-tag>
+                    <span>园艺工具 - STIHL电锯等工具专属设计</span>
+                  </div>
+                </el-option>
+                <el-option label="保健品 (Shopline-Health)" value="shopline-health">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="success" size="small">Health</el-tag>
+                    <span>保健品 - 健康产品专属设计，蓝绿色调</span>
                   </div>
                 </el-option>
                 <el-option label="标准模板 (Standard)" value="standard">
