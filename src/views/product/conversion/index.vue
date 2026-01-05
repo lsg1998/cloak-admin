@@ -131,6 +131,12 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="国家" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.country" type="info" size="small">{{ row.country }}</el-tag>
+            <span v-else class="no-country">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="访问人数" width="120" align="center">
           <template #default="{ row }">
             <span class="visitor-count">{{ formatNumber(row.visitor_count) }}</span>
@@ -396,5 +402,9 @@ onMounted(() => {
   font-weight: 600;
   color: #303133;
   min-width: 50px;
+}
+
+.no-country {
+  color: #c0c4cc;
 }
 </style>

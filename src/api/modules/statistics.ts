@@ -180,6 +180,7 @@ export interface ConversionStatistics {
     product_id: string;
     product_title: string;
     product_image: string | null;
+    country: string | null; // 国家代码
     visitor_count: number;
     order_count: number;
     total_orders: number;

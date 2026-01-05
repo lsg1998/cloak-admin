@@ -131,7 +131,7 @@ const statsCards = reactive([
   {
     key: "amount",
     label: "总销售额",
-    value: "¥0",
+    value: "€0",
     icon: Money,
     color: "#67C23A"
   },
@@ -167,7 +167,7 @@ const getStatusText = (status: string) => {
 // 更新统计卡片数据
 const updateStatsCards = (data: OrderStatistics) => {
   statsCards[0].value = data.total_orders.toLocaleString();
-  statsCards[1].value = `¥${data.total_amount.toLocaleString()}`;
+  statsCards[1].value = `€${data.total_amount.toLocaleString()}`;
   statsCards[2].value = data.pending_orders.toLocaleString();
   statsCards[3].value = data.completed_orders.toLocaleString();
 };

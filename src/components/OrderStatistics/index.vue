@@ -131,7 +131,7 @@ const statsCards = reactive([
   {
     key: "amount",
     label: "总销售额",
-    value: "¥0",
+    value: "€0",
     icon: Money,
     color: "#67C23A"
   },
