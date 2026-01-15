@@ -399,6 +399,7 @@
                     <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
+                    <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -428,6 +429,7 @@
                     <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
+                    <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -711,9 +713,11 @@
           ? '导出华熙订单'
           : exportConfig.logisticsCompany === 'yingpai'
             ? '导出盈派订单'
-            : exportConfig.logisticsCompany === 'kuasuoda_spain'
-              ? '导出跨速达订单（西班牙）'
-              : '导出跨速达订单（匈牙利）'
+            : exportConfig.logisticsCompany === 'shenghong'
+              ? '导出森鸿订单（奥地利）'
+              : exportConfig.logisticsCompany === 'kuasuoda_spain'
+                ? '导出跨速达订单（西班牙）'
+                : '导出跨速达订单（匈牙利）'
       "
       width="600px"
       :close-on-click-modal="false"
@@ -726,6 +730,7 @@
               <el-option label="跨速达（西班牙发货）" value="kuasuoda_spain" />
               <el-option label="华熙（波兰COD）" value="huaxi" />
               <el-option label="盈派" value="yingpai" />
+              <el-option label="森鸿（奥地利WMS）" value="shenghong" />
             </el-select>
           </el-form-item>
 
@@ -897,6 +902,60 @@
               <div class="form-tip">SKU默认：15000W（转寄订单不需要填写SKU）</div>
             </el-form-item>
           </template>
+
+          <!-- 森鸿专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'shenghong'">
+            <el-form-item label="中文品名">
+              <el-input
+                v-model="exportConfig.shenghongChineseName"
+                placeholder="请输入中文品名（用于清关）"
+                style="width: 300px"
+              />
+              <div class="form-tip">中文品名，用于清关，尽量简短</div>
+            </el-form-item>
+
+            <el-form-item label="英文品名">
+              <el-input
+                v-model="exportConfig.shenghongEnglishName"
+                placeholder="请输入英文品名（用于清关）"
+                style="width: 300px"
+              />
+              <div class="form-tip">英文品名，用于清关，尽量简短</div>
+            </el-form-item>
+
+            <el-form-item label="货物类型">
+              <el-select v-model="exportConfig.shenghongCargoType" placeholder="请选择货物类型" style="width: 300px">
+                <el-option label="GC (General Cargo普货)" value="GC" />
+                <el-option label="SC (Special Cargo特货)" value="SC" />
+                <el-option label="IC (Inspection Cargo商检货)" value="IC" />
+              </el-select>
+              <div class="form-tip">货物类型：普货/特货/商检货</div>
+            </el-form-item>
+
+            <el-form-item label="运费付款方式">
+              <el-select v-model="exportConfig.shenghongPaymentMethod" placeholder="请选择运费付款方式" style="width: 300px">
+                <el-option label="PP (月结)" value="PP" />
+                <el-option label="CA (票结)" value="CA" />
+                <el-option label="CC (到付)" value="CC" />
+              </el-select>
+              <div class="form-tip">运费付款方式</div>
+            </el-form-item>
+
+            <el-form-item label="预报重量(KG)">
+              <el-input v-model="exportConfig.shenghongWeight" placeholder="请输入重量（默认KG）" style="width: 300px" />
+              <div class="form-tip">包裹预报重量，单位KG</div>
+            </el-form-item>
+
+            <el-form-item label="客户SKU">
+              <el-input v-model="exportConfig.shenghongSku" placeholder="请输入客户SKU" style="width: 300px" />
+              <div class="form-tip">客户自定义SKU编码</div>
+            </el-form-item>
+
+            <el-form-item label="发货人税号">
+              <el-input v-model="exportConfig.shenghongTaxNumber" placeholder="请输入发货人税号" style="width: 300px" />
+              <div class="form-tip">发货人税号号码（可选）</div>
+            </el-form-item>
+          </template>
         </el-form>
 
         <el-alert title="导出说明" type="info" show-icon :closable="false" style="margin-top: 20px">
@@ -909,6 +968,7 @@
                   ：将按照跨速达（西班牙发货）模板格式导出，仅PT/ES订单
                 </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">：将按照华熙（波兰COD）模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">：将按照森鸿（奥地利WMS）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">：将按照盈派转寄订单模板格式导出</span>
                   <span v-else>：将按照盈派批量上传模板格式导出</span>
@@ -920,6 +980,7 @@
                   将按照跨速达（西班牙发货）模板格式导出订单数据，仅PT/ES订单
                 </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">将按照华熙（波兰COD）模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">将按照森鸿（奥地利WMS）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">将按照盈派转寄订单模板格式导出订单数据</span>
                   <span v-else>将按照盈派批量上传模板格式导出订单数据</span>
@@ -1492,7 +1553,15 @@ const exportConfig = reactive({
   yingpaiOrderType: "normal", // 订单类型：normal(普通订单) 或 forward(转寄订单)
   yingpaiReturnOrderNumber: "", // 退单单号（转寄订单必填）
   yingpaiReturnOrderProductName: "", // 单号1品名（转寄订单可选）
-  yingpaiWarehouse: "" // 仓库（转寄订单可选）
+  yingpaiWarehouse: "", // 仓库（转寄订单可选）
+  // 森鸿专用配置
+  shenghongChineseName: "", // 中文品名
+  shenghongEnglishName: "", // 英文品名
+  shenghongCargoType: "GC", // 货物类型：GC/SC/IC
+  shenghongPaymentMethod: "PP", // 运费付款方式：PP/CA/CC
+  shenghongWeight: "0.5", // 预报重量(KG)
+  shenghongSku: "", // 客户SKU
+  shenghongTaxNumber: "" // 发货人税号
 });
 
 // 从本地缓存加载导出配置
@@ -1531,6 +1600,14 @@ const loadExportConfigFromCache = () => {
       if (config.yingpaiReturnOrderProductName !== undefined)
         exportConfig.yingpaiReturnOrderProductName = config.yingpaiReturnOrderProductName;
       if (config.yingpaiWarehouse !== undefined) exportConfig.yingpaiWarehouse = config.yingpaiWarehouse;
+      // 森鸿配置
+      if (config.shenghongChineseName !== undefined) exportConfig.shenghongChineseName = config.shenghongChineseName;
+      if (config.shenghongEnglishName !== undefined) exportConfig.shenghongEnglishName = config.shenghongEnglishName;
+      if (config.shenghongCargoType !== undefined) exportConfig.shenghongCargoType = config.shenghongCargoType;
+      if (config.shenghongPaymentMethod !== undefined) exportConfig.shenghongPaymentMethod = config.shenghongPaymentMethod;
+      if (config.shenghongWeight !== undefined) exportConfig.shenghongWeight = config.shenghongWeight;
+      if (config.shenghongSku !== undefined) exportConfig.shenghongSku = config.shenghongSku;
+      if (config.shenghongTaxNumber !== undefined) exportConfig.shenghongTaxNumber = config.shenghongTaxNumber;
     }
   } catch (error) {
     console.error("加载导出配置失败:", error);
@@ -1569,7 +1646,15 @@ const saveExportConfigToCache = () => {
       yingpaiOrderType: exportConfig.yingpaiOrderType,
       yingpaiReturnOrderNumber: exportConfig.yingpaiReturnOrderNumber,
       yingpaiReturnOrderProductName: exportConfig.yingpaiReturnOrderProductName,
-      yingpaiWarehouse: exportConfig.yingpaiWarehouse
+      yingpaiWarehouse: exportConfig.yingpaiWarehouse,
+      // 森鸿配置
+      shenghongChineseName: exportConfig.shenghongChineseName,
+      shenghongEnglishName: exportConfig.shenghongEnglishName,
+      shenghongCargoType: exportConfig.shenghongCargoType,
+      shenghongPaymentMethod: exportConfig.shenghongPaymentMethod,
+      shenghongWeight: exportConfig.shenghongWeight,
+      shenghongSku: exportConfig.shenghongSku,
+      shenghongTaxNumber: exportConfig.shenghongTaxNumber
     };
 
     localStorage.setItem("hungaryExportConfig", JSON.stringify(configToSave));
@@ -2613,6 +2698,8 @@ const handleExportByCompany = async () => {
     } else {
       await handleYingpaiExport();
     }
+  } else if (exportConfig.logisticsCompany === "shenghong") {
+    await handleShenghongExport();
   } else if (exportConfig.logisticsCompany === "kuasuoda_spain") {
     await handleKuasuodaSpainExport();
   } else {
@@ -4188,6 +4275,266 @@ const handleYingpaiExport = async () => {
     window.URL.revokeObjectURL(url);
 
     ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为盈派模板`);
+
+    // 保存配置到缓存
+    saveExportConfigToCache();
+
+    // 异步处理订单状态更新和发送邮件（不阻塞导出流程）
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      // 使用 setTimeout 确保异步执行，不影响导出流程
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    // 重置单个订单导出模式
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      exportConfig.exportLimit = 100;
+    }
+    // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
+    }
+  }
+};
+
+// 森鸿导出 - 奥地利WMS出库订单模板格式
+const handleShenghongExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      // 单个订单导出模式：直接使用保存的订单
+      orders = [singleOrderToExport.value];
+      console.log(`森鸿单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      // 批量导出模式：使用选中的订单
+      orders = [...batchExportOrders.value];
+      console.log(`森鸿批量导出模式: 共 ${orders.length} 个订单`);
+    } else {
+      // 普通批量导出模式：查询订单数据
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
+      };
+
+      // 如果选择只导出未发货的订单
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      // 前端过滤未发货订单
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      // 按国家筛选（仅当列表页面没有国家筛选时才使用导出配置的国家筛选）
+      if (exportConfig.filterByCountry && !searchForm.country) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`森鸿导出：获取到 ${orders.length} 条订单数据`);
+
+    // 森鸿WMS模板字段（实际的28个字段）
+    const shenghongTemplateFields = [
+      "订单参考号()",
+      "产品汇总数量()",
+      "中文品名(中文品名，用于清关，尽量简短)",
+      "英文品名(英文品名，用于清关，尽量简短)",
+      "货物描述(更多产品明细，可包含SKU、用途或产品特别注意事项等等)",
+      "申报金额()",
+      "申报币别(三字母币种)",
+      "收件人名称()",
+      "收件电话()",
+      "收件省()",
+      "收件城市()",
+      "收件区县()",
+      "收件详细地址()",
+      "收件邮编()",
+      "备注(订单信息备注显示在物流面单上（对接渠道），但不显示在拣货单上)",
+      "货物类型(填写二字母 GC (General Cargo普货) / SC (Special Cargo特货)/ IC (Inspection Cargo商检货))",
+      "运费付款方式(填写二字母   PP(月结)/CA(票结)/CC(到付))",
+      "包裹件数(系统默认为1)",
+      "拣货单备注(拣货单上产品的备注信息)",
+      "目的地二字码(国家二字代码,比如 英国填：GB)",
+      "产品海关编码()",
+      "代收款金额()",
+      "代收款币种()",
+      "收件人邮箱()",
+      "发货人税号号码()",
+      "收件人门牌号(一般由数字构成，5位字符内)",
+      "预报重量(重量默认KG)",
+      "客户SKU()"
+    ];
+
+    // 准备Excel数据
+    const excelData: any[][] = [];
+    excelData.push(shenghongTemplateFields);
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      // 1. 订单参考号
+      row.push(order.order_number || "");
+
+      // 2. 产品汇总数量
+      row.push(order.quantity || 1);
+
+      // 3. 中文品名（用于清关）
+      row.push(exportConfig.shenghongChineseName || "");
+
+      // 4. 英文品名（用于清关）
+      row.push(exportConfig.shenghongEnglishName || "");
+
+      // 5. 货物描述（产品明细）
+      const productDesc = [
+        exportConfig.shenghongSku ? `SKU: ${exportConfig.shenghongSku}` : "",
+        order.comments ? `备注: ${order.comments}` : ""
+      ]
+        .filter(s => s)
+        .join("; ");
+      row.push(productDesc || "商品");
+
+      // 6. 申报金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 7. 申报币别（三字母币种）
+      row.push(order.currency || "EUR");
+
+      // 8. 收件人名称
+      row.push(order.customer_name || "");
+
+      // 9. 收件电话
+      row.push(order.phone || "");
+
+      // 10. 收件省
+      row.push(order.province || "");
+
+      // 11. 收件城市
+      row.push(order.city || "");
+
+      // 12. 收件区县
+      row.push(order.district || "");
+
+      // 13. 收件详细地址
+      row.push(order.address || "");
+
+      // 14. 收件邮编
+      row.push(order.postal_code || "");
+
+      // 15. 备注（显示在物流面单上）
+      row.push(order.comments || "");
+
+      // 16. 货物类型（GC/SC/IC）
+      row.push(exportConfig.shenghongCargoType || "GC");
+
+      // 17. 运费付款方式（PP/CA/CC）
+      row.push(exportConfig.shenghongPaymentMethod || "PP");
+
+      // 18. 包裹件数（默认1）
+      row.push(1);
+
+      // 19. 拣货单备注
+      row.push("");
+
+      // 20. 目的地二字码（国家代码）
+      const countryCode = getCountryCode(order);
+      row.push(countryCode);
+
+      // 21. 产品海关编码
+      row.push("");
+
+      // 22. 代收款金额
+      row.push(order.total_amount || order.product_price * order.quantity || 0);
+
+      // 23. 代收款币种
+      row.push(order.currency || "EUR");
+
+      // 24. 收件人邮箱
+      row.push(order.email || "");
+
+      // 25. 发货人税号号码
+      row.push(exportConfig.shenghongTaxNumber || "");
+
+      // 26. 收件人门牌号
+      row.push("");
+
+      // 27. 预报重量（KG）
+      row.push(exportConfig.shenghongWeight || "0.5");
+
+      // 28. 客户SKU
+      row.push(exportConfig.shenghongSku || "");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // 设置列宽
+    const colWidths = shenghongTemplateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, "森鸿出库订单");
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `森鸿出库订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为森鸿WMS模板`);
 
     // 保存配置到缓存
     saveExportConfigToCache();
