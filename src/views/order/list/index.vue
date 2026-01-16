@@ -4466,8 +4466,8 @@ const handleShenghongExport = async () => {
       // 16. 货物类型（GC/SC/IC）
       row.push(exportConfig.shenghongCargoType || "GC");
 
-      // 17. 运费付款方式（PP/CA/CC）
-      row.push(exportConfig.shenghongPaymentMethod || "PP");
+      // 17. 运费付款方式（PP/CA/CC，小写）
+      row.push((exportConfig.shenghongPaymentMethod || "PP").toLowerCase());
 
       // 18. 包裹件数（默认1）
       row.push(1);
@@ -4500,8 +4500,8 @@ const handleShenghongExport = async () => {
       // 27. 预报重量（KG）
       row.push(exportConfig.shenghongWeight || "0.5");
 
-      // 28. 客户SKU
-      row.push(exportConfig.shenghongSku || "");
+      // 28. 客户SKU（格式：SKU:1，数量固定为1）
+      row.push(exportConfig.shenghongSku ? `${exportConfig.shenghongSku}:1` : "");
 
       excelData.push(row);
     });
