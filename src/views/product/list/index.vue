@@ -3520,7 +3520,7 @@ const handleSaveRecommendations = async () => {
     recommendDialogVisible.value = false;
 
     // 刷新列表
-    await loadProducts();
+    await loadData();
   } catch (error) {
     console.error("保存推荐失败:", error);
     ElMessage.error("保存推荐失败");

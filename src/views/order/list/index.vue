@@ -248,12 +248,7 @@
               </div>
               <div class="payment-method-info">
                 <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
-                <el-tag
-                  v-if="row.product_template"
-                  size="small"
-                  type="primary"
-                  style="margin-left: 4px"
-                >
+                <el-tag v-if="row.product_template" size="small" type="primary" style="margin-left: 4px">
                   {{ row.product_template }}
                 </el-tag>
               </div>
