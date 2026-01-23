@@ -1,1 +1,0 @@
-import{a5 as s}from"./index-BaFTl8Yv.js";const a=t=>s.get("/admin/statistics/users",t),e=t=>s.get("/admin/statistics/traffic",t),c=t=>s.get("/admin/statistics/traffic/analysis",t),n=t=>s.get("/admin/statistics/device",t),r=t=>s.get("/admin/statistics/conversion",t);export{r as a,n as b,c,a as d,e as g};
