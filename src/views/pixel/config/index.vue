@@ -18,7 +18,7 @@
         </div>
       </template>
 
-      <el-table :data="googleAdsAccounts" stripe border style="width: 100%">
+      <el-table :data="displayedGoogleAdsAccounts" stripe border style="width: 100%">
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column prop="name" label="账户名称" min-width="150">
           <template #default="{ row }">
@@ -55,12 +55,12 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" align="center" fixed="right">
-          <template #default="{ row, $index }">
-            <el-button type="primary" size="small" link @click="handleEditAccount(row, $index)">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" link @click="handleEditAccount(row)">
               <el-icon><Edit /></el-icon>
               编辑
             </el-button>
-            <el-button type="danger" size="small" link @click="handleDeleteAccount($index)">
+            <el-button type="danger" size="small" link @click="handleDeleteAccount(row)">
               <el-icon><Delete /></el-icon>
               删除
             </el-button>
@@ -68,7 +68,7 @@
         </el-table-column>
       </el-table>
 
-      <el-empty v-if="googleAdsAccounts.length === 0" description="暂无 Google Ads 账户，点击右上角添加" />
+      <el-empty v-if="displayedGoogleAdsAccounts.length === 0" description="暂无 Google Ads 账户，点击右上角添加" />
     </el-card>
 
     <!-- Facebook & TikTok 像素 -->
@@ -422,6 +422,15 @@ const googleAdsAccounts = ref<
   Array<{ name: string; conversion_id: string; conversion_label: string; enabled: boolean; product_ids: string[] }>
 >([]);
 
+// 显示的账户列表（倒序并限制最新50条）
+const displayedGoogleAdsAccounts = computed(() => {
+  const accounts = [...googleAdsAccounts.value];
+  // 倒序显示（最新添加的在最前面）
+  accounts.reverse();
+  // 只显示最新的50条
+  return accounts.slice(0, 50);
+});
+
 // 账户表单
 const accountForm = reactive({
   name: "",
@@ -586,9 +595,13 @@ const handleAddAccount = () => {
 };
 
 // 编辑账户
-const handleEditAccount = (row: any, index: number) => {
+const handleEditAccount = (row: any) => {
   accountDialogTitle.value = "编辑 Google Ads 账户";
-  editingIndex.value = index;
+  // 在原始数组中查找真实索引（因为显示的是倒序数组）
+  const realIndex = googleAdsAccounts.value.findIndex(
+    account => account.conversion_id === row.conversion_id && account.conversion_label === row.conversion_label
+  );
+  editingIndex.value = realIndex;
   Object.assign(accountForm, {
     ...row,
     product_ids: row.product_ids || [],
@@ -642,7 +655,7 @@ const handleSaveAccount = async () => {
 };
 
 // 删除账户
-const handleDeleteAccount = async (index: number) => {
+const handleDeleteAccount = async (row: any) => {
   try {
     await ElMessageBox.confirm("确定要删除这个 Google Ads 账户吗？", "提示", {
       confirmButtonText: "确定",
@@ -650,7 +663,17 @@ const handleDeleteAccount = async (index: number) => {
       type: "warning"
     });
 
-    googleAdsAccounts.value.splice(index, 1);
+    // 在原始数组中查找真实索引（因为显示的是倒序数组）
+    const realIndex = googleAdsAccounts.value.findIndex(
+      account => account.conversion_id === row.conversion_id && account.conversion_label === row.conversion_label
+    );
+
+    if (realIndex === -1) {
+      ElMessage.error("找不到要删除的账户");
+      return;
+    }
+
+    googleAdsAccounts.value.splice(realIndex, 1);
 
     // 立即保存到后端
     await updateGlobalPixelConfigApi({

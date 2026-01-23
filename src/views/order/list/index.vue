@@ -4639,22 +4639,14 @@ const loadData = async () => {
       status: (searchForm.status as OrderStatus) || undefined,
       start_date: searchForm.start_date || undefined,
       end_date: searchForm.end_date || undefined,
-      product_id: searchForm.product_id || undefined
+      product_id: searchForm.product_id || undefined,
+      country: searchForm.country || undefined
     };
 
     const { data } = await getOrderListApi(params);
 
-    // 如果有国家筛选，在前端过滤数据
-    let filteredList = data.list;
-    if (searchForm.country) {
-      filteredList = data.list.filter(order => {
-        const countryCode = getCountryCode(order);
-        return countryCode === searchForm.country;
-      });
-    }
-
-    tableData.value = filteredList;
-    pagination.total = searchForm.country ? filteredList.length : data.total;
+    tableData.value = data.list;
+    pagination.total = data.total;
   } catch (error) {
     ElMessage.error("获取订单列表失败");
   } finally {

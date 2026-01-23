@@ -98,6 +98,7 @@ export interface OrderListParams {
   status?: OrderStatus;
   start_date?: string;
   end_date?: string;
+  country?: string;
 }
 
 // 订单列表响应数据

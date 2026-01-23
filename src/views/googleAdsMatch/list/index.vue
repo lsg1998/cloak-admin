@@ -439,7 +439,7 @@ const formRules = {
 // 分页数据
 const pagination = reactive({
   current: 1,
-  size: 20,
+  size: 50, // 默认显示50条
   total: 0
 });
 
