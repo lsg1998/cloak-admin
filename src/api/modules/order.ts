@@ -312,3 +312,25 @@ export const getIPBlacklistApi = (params: { page?: number; size?: number } = {})
 export const batchBlacklistIPsApi = (data: { ip_addresses: string[]; reason?: string }) => {
   return http.post("/admin/orders/batch-blacklist-ips", data);
 };
+
+/**
+ * 导出Google Customer Match受众CSV
+ * 直接下载文件
+ */
+export const exportCustomerMatchUrl = (params?: {
+  start_date?: string;
+  end_date?: string;
+  country?: string;
+  status?: string;
+}) => {
+  const baseURL = import.meta.env.VITE_API_URL || "";
+  const queryParams = new URLSearchParams();
+
+  if (params?.start_date) queryParams.append("start_date", params.start_date);
+  if (params?.end_date) queryParams.append("end_date", params.end_date);
+  if (params?.country) queryParams.append("country", params.country);
+  if (params?.status) queryParams.append("status", params.status);
+
+  const queryString = queryParams.toString();
+  return `${baseURL}/admin/orders/export-customer-match${queryString ? "?" + queryString : ""}`;
+};

@@ -143,6 +143,10 @@
               <el-icon><Download /></el-icon>
               导出IP
             </el-button>
+            <el-button size="small" type="success" @click="handleExportCustomerMatch" :loading="exportCustomerMatchLoading">
+              <el-icon><Download /></el-icon>
+              导出Google受众
+            </el-button>
             <el-button size="small" @click="loadData">
               <el-icon><Refresh /></el-icon>
               刷新
@@ -1235,6 +1239,7 @@ import {
   sendShippedNotificationEmailApi,
   getIPInfoApi,
   exportOrderIPsUrl,
+  exportCustomerMatchUrl,
   getOrderCountryStatsApi,
   blacklistIPApi,
   type Order,
@@ -1258,6 +1263,7 @@ import { getProductListApi, type Product } from "@/api/modules/product";
 const loading = ref(false);
 const exportLoading = ref(false);
 const exportIPLoading = ref(false);
+const exportCustomerMatchLoading = ref(false);
 const detailDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
@@ -2639,6 +2645,42 @@ const handleExportIPs = async () => {
     ElMessage.error("导出IP失败");
   } finally {
     exportIPLoading.value = false;
+  }
+};
+
+// 导出Google Customer Match受众
+const handleExportCustomerMatch = async () => {
+  try {
+    exportCustomerMatchLoading.value = true;
+
+    // 构建导出参数（使用当前搜索条件）
+    const exportParams: any = {};
+
+    if (searchForm.start_date) exportParams.start_date = searchForm.start_date;
+    if (searchForm.end_date) exportParams.end_date = searchForm.end_date;
+    if (searchForm.country) exportParams.country = searchForm.country;
+    if (searchForm.status) exportParams.status = searchForm.status;
+
+    // 获取导出URL
+    const exportUrl = exportCustomerMatchUrl(exportParams);
+
+    // 创建一个隐藏的a标签来触发下载
+    const link = document.createElement("a");
+    link.href = exportUrl;
+    link.download = `customer_match_${new Date().getTime()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    ElMessage.success({
+      message: "Google受众数据导出成功！CSV文件可直接上传到Google Ads Customer Match",
+      duration: 3000
+    });
+  } catch (error) {
+    console.error("导出Google受众失败:", error);
+    ElMessage.error("导出Google受众失败");
+  } finally {
+    exportCustomerMatchLoading.value = false;
   }
 };
 

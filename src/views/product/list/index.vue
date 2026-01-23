@@ -582,6 +582,18 @@
                     <span>保健品 - 健康产品专属设计，蓝绿色调</span>
                   </div>
                 </el-option>
+                <el-option label="野生动物相机 (Shopline-Wildlife)" value="shopline-wildlife">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #2d5016; border-color: #2d5016; color: white" size="small">Wildlife</el-tag>
+                    <span>野生动物相机 - 户外监控相机专属设计，森林绿配色</span>
+                  </div>
+                </el-option>
+                <el-option label="血糖仪 (Blood-Glucose-Meter)" value="blood-glucose-meter">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #0066cc; border-color: #0066cc; color: white" size="small">Medical</el-tag>
+                    <span>血糖仪 - 医疗级产品专属设计，医疗蓝配色</span>
+                  </div>
+                </el-option>
                 <el-option label="标准模板 (Standard)" value="standard">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag type="warning" size="small">Standard</el-tag>
@@ -597,6 +609,11 @@
                 <strong>Shopline-Pro:</strong> 🔥 现代一站式设计，与Shopline相同风格但表单在同页底部
                 <br />
                 <strong>Shopline-Watch:</strong> ⌚ 高端手表专属模板，深蓝金色配色，奢华感设计
+                <br />
+                <strong>Shopline-Wildlife:</strong> 📸 野生动物相机专属模板，森林绿配色，户外专业感设计
+                <br />
+                <strong>Blood-Glucose-Meter:</strong> 🩺
+                血糖仪专属模板，医疗蓝配色，包含专业特性、使用说明、套装内容、安全提示等医疗产品必备模块
                 <br />
                 <strong>Standard:</strong> 新版标准模板，模块化架构，高性能，易通过Google审核
               </div>
