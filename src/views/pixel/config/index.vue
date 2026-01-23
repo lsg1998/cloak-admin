@@ -772,7 +772,6 @@ const handleSave = async () => {
       custom_pixels: JSON.stringify(customPixels.value)
     });
     ElMessage.success("配置保存成功，所有商品页面已生效");
-    await loadConfig();
   } catch (error) {
     ElMessage.error("保存配置失败");
     console.error(error);
