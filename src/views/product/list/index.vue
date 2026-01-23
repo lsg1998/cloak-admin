@@ -344,6 +344,16 @@
                   <el-icon><Plus /></el-icon>
                   仿品
                 </el-button>
+                <el-button size="small" type="warning" link @click="handleSetRecommendations(row)">
+                  <el-icon><Star /></el-icon>
+                  推荐
+                  <el-badge
+                    v-if="row.recommendation_count && row.recommendation_count > 0"
+                    :value="row.recommendation_count"
+                    type="warning"
+                    class="item"
+                  />
+                </el-button>
                 <el-button size="small" type="danger" link @click="handleDelete(row)">
                   <el-icon><Delete /></el-icon>
                   删除
@@ -1434,6 +1444,161 @@
       </template>
     </el-dialog>
 
+    <!-- 推荐产品对话框 -->
+    <el-dialog
+      v-model="recommendDialogVisible"
+      title="设置推荐产品"
+      width="1000px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div class="recommend-product-selection">
+        <!-- 当前产品信息 -->
+        <el-card class="current-product-card" shadow="never">
+          <template #header>
+            <span style="font-weight: 600; color: #409eff">当前产品</span>
+          </template>
+          <div v-if="currentRecommendProduct" class="product-summary">
+            <el-avatar :size="60" v-if="currentRecommendProduct.image_urls && currentRecommendProduct.image_urls[0]">
+              <img
+                :src="currentRecommendProduct.image_urls[0]"
+                :alt="currentRecommendProduct.title"
+                style="width: 100%; height: 100%; object-fit: cover"
+              />
+            </el-avatar>
+            <el-avatar :size="60" v-else>
+              <el-icon><Box /></el-icon>
+            </el-avatar>
+            <div class="product-info">
+              <div class="product-title">{{ currentRecommendProduct.title }}</div>
+              <div class="product-price">¥{{ currentRecommendProduct.sell_price }}</div>
+              <el-tag type="primary" size="small">国家: {{ currentRecommendProduct.country }}</el-tag>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 已选推荐产品 -->
+        <el-card class="selected-recommendations-card" shadow="never">
+          <template #header>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <span style="font-weight: 600">
+                <el-icon><Star /></el-icon>
+                已选推荐产品 ({{ selectedRecommendations.length }}/10)
+              </span>
+              <el-tag v-if="selectedRecommendations.length >= 10" type="warning" size="small"> 已达上限 </el-tag>
+            </div>
+          </template>
+
+          <div v-if="selectedRecommendations.length > 0" class="selected-list">
+            <div
+              v-for="(item, index) in selectedRecommendations"
+              :key="item.id"
+              class="selected-item"
+              :draggable="true"
+              @dragstart="handleRecommendDragStart($event, index)"
+              @dragover.prevent
+              @drop="handleRecommendDrop($event, index)"
+            >
+              <div class="sort-handle">
+                <el-icon><Sort /></el-icon>
+              </div>
+              <el-avatar :size="40" v-if="item.image_urls && item.image_urls[0]">
+                <img :src="item.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
+              </el-avatar>
+              <el-avatar :size="40" v-else>
+                <el-icon><Box /></el-icon>
+              </el-avatar>
+              <div class="item-info">
+                <div class="item-title">{{ item.title }}</div>
+                <div class="item-price">¥{{ item.sell_price }}</div>
+              </div>
+              <div class="item-order">{{ index + 1 }}</div>
+              <el-button type="danger" size="small" text @click="removeRecommendation(index)">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <el-empty v-else description="暂未选择推荐产品" :image-size="80" />
+        </el-card>
+
+        <!-- 可选产品列表 -->
+        <el-card class="available-recommendations-card" shadow="never">
+          <template #header>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <span style="font-weight: 600">选择推荐产品（仅显示相同国家）</span>
+            </div>
+          </template>
+
+          <!-- 搜索框 -->
+          <div class="search-section">
+            <el-input
+              v-model="recommendSearchKeyword"
+              placeholder="搜索产品..."
+              clearable
+              @input="searchRecommendProducts"
+              style="width: 300px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
+
+          <!-- 产品列表 -->
+          <div v-loading="recommendProductsLoading" class="recommend-products-list">
+            <div
+              v-for="product in availableRecommendProducts"
+              :key="product.id"
+              :class="['recommend-product-card', { selected: isProductSelected(product.id) }]"
+              @click="toggleProductSelection(product)"
+            >
+              <el-checkbox
+                :model-value="isProductSelected(product.id)"
+                :disabled="!isProductSelected(product.id) && selectedRecommendations.length >= 10"
+                @click.stop
+              />
+              <el-avatar :size="40" v-if="product.image_urls && product.image_urls[0]">
+                <img :src="product.image_urls[0]" style="width: 100%; height: 100%; object-fit: cover" />
+              </el-avatar>
+              <el-avatar :size="40" v-else>
+                <el-icon><Box /></el-icon>
+              </el-avatar>
+              <div class="card-content">
+                <div class="card-title">{{ product.title }}</div>
+                <div class="card-price">¥{{ product.sell_price }}</div>
+              </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="!recommendProductsLoading && availableRecommendProducts.length === 0" class="empty-state">
+              <el-empty description="暂无可推荐的产品" />
+            </div>
+          </div>
+
+          <!-- 分页 -->
+          <div v-if="availableRecommendProducts.length > 0" class="recommend-pagination">
+            <el-pagination
+              v-model:current-page="recommendPagination.current"
+              v-model:page-size="recommendPagination.size"
+              :page-sizes="[12, 24, 48]"
+              :total="recommendPagination.total"
+              layout="total, sizes, prev, pager, next"
+              @size-change="handleRecommendSizeChange"
+              @current-change="handleRecommendCurrentChange"
+              small
+            />
+          </div>
+        </el-card>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="recommendDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveRecommendations"> 保存推荐 </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 域名选择对话框 -->
     <el-dialog v-model="viewDialogVisible" title="选择查看域名" width="500px" :close-on-click-modal="false">
       <div v-if="currentViewProduct" class="domain-select-dialog">
@@ -1500,7 +1665,8 @@ import {
   Sort,
   Close,
   DocumentCopy,
-  Location
+  Location,
+  Star
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -1512,8 +1678,13 @@ import {
   updateProductFakeLinkApi,
   updateProductCloakRuleApi,
   getProductCountryStatsApi,
+  getProductRecommendationsApi,
+  saveProductRecommendationsApi,
+  getAvailableRecommendationsApi,
   type Product,
-  type ProductListParams
+  type ProductListParams,
+  type RecommendedProduct,
+  type AvailableProduct
 } from "@/api/modules/product";
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
@@ -1737,6 +1908,22 @@ const fakeSearchKeyword = ref("");
 
 // 仿品列表分页
 const fakePagination = reactive({
+  current: 1,
+  size: 12,
+  total: 0
+});
+
+// 推荐产品对话框相关
+const recommendDialogVisible = ref(false);
+const currentRecommendProduct = ref<Product | null>(null);
+const selectedRecommendations = ref<RecommendedProduct[]>([]);
+const availableRecommendProducts = ref<AvailableProduct[]>([]);
+const recommendProductsLoading = ref(false);
+const recommendSearchKeyword = ref("");
+const draggedRecommendIndex = ref(-1);
+
+// 推荐产品列表分页
+const recommendPagination = reactive({
   current: 1,
   size: 12,
   total: 0
@@ -3187,6 +3374,159 @@ const handleCreateNewFake = () => {
   ElMessage.success(`已基于正品"${currentOriginalProduct.value.title}"创建仿品，请修改相关信息后保存`);
 };
 
+// ==================== 产品推荐相关方法 ====================
+
+// 打开推荐设置对话框
+const handleSetRecommendations = async (product: Product) => {
+  currentRecommendProduct.value = product;
+  selectedRecommendations.value = [];
+  availableRecommendProducts.value = [];
+  recommendSearchKeyword.value = "";
+  recommendPagination.current = 1;
+  recommendDialogVisible.value = true;
+
+  // 加载已推荐的产品
+  await loadRecommendations();
+  // 加载可选产品
+  await loadAvailableRecommendProducts();
+};
+
+// 加载已推荐的产品列表
+const loadRecommendations = async () => {
+  if (!currentRecommendProduct.value) return;
+
+  try {
+    const { data } = await getProductRecommendationsApi(currentRecommendProduct.value.id);
+    selectedRecommendations.value = data;
+  } catch (error) {
+    console.error("加载推荐列表失败:", error);
+    ElMessage.error("加载推荐列表失败");
+  }
+};
+
+// 加载可推荐的产品列表
+const loadAvailableRecommendProducts = async () => {
+  if (!currentRecommendProduct.value) return;
+
+  recommendProductsLoading.value = true;
+  try {
+    const params = {
+      page: recommendPagination.current,
+      size: recommendPagination.size,
+      title: recommendSearchKeyword.value || undefined
+    };
+
+    const { data } = await getAvailableRecommendationsApi(currentRecommendProduct.value.id, params);
+    availableRecommendProducts.value = data.list;
+    recommendPagination.total = data.total;
+  } catch (error) {
+    console.error("加载可推荐产品失败:", error);
+    ElMessage.error("加载可推荐产品列表失败");
+  } finally {
+    recommendProductsLoading.value = false;
+  }
+};
+
+// 搜索推荐产品
+const searchRecommendProducts = () => {
+  recommendPagination.current = 1;
+  loadAvailableRecommendProducts();
+};
+
+// 推荐产品分页大小改变
+const handleRecommendSizeChange = (size: number) => {
+  recommendPagination.size = size;
+  loadAvailableRecommendProducts();
+};
+
+// 推荐产品当前页改变
+const handleRecommendCurrentChange = (current: number) => {
+  recommendPagination.current = current;
+  loadAvailableRecommendProducts();
+};
+
+// 判断产品是否已选中
+const isProductSelected = (productId: string): boolean => {
+  return selectedRecommendations.value.some(item => item.id === productId);
+};
+
+// 切换产品选择状态
+const toggleProductSelection = (product: AvailableProduct) => {
+  const index = selectedRecommendations.value.findIndex(item => item.id === product.id);
+
+  if (index > -1) {
+    // 已选中，取消选择
+    selectedRecommendations.value.splice(index, 1);
+  } else {
+    // 未选中，添加选择（检查是否超过10个）
+    if (selectedRecommendations.value.length >= 10) {
+      ElMessage.warning("最多只能推荐10个产品");
+      return;
+    }
+
+    // 添加到已选列表
+    selectedRecommendations.value.push({
+      id: product.id,
+      title: product.title,
+      sell_price: product.sell_price,
+      origin_price: product.origin_price,
+      image_url: product.image_urls[0] || "",
+      image_urls: product.image_urls,
+      country: product.country,
+      sort_order: selectedRecommendations.value.length
+    });
+  }
+};
+
+// 移除推荐产品
+const removeRecommendation = (index: number) => {
+  selectedRecommendations.value.splice(index, 1);
+};
+
+// 拖拽开始
+const handleRecommendDragStart = (event: DragEvent, index: number) => {
+  draggedRecommendIndex.value = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+  }
+};
+
+// 拖拽放下
+const handleRecommendDrop = (event: DragEvent, dropIndex: number) => {
+  event.preventDefault();
+
+  if (draggedRecommendIndex.value === -1 || draggedRecommendIndex.value === dropIndex) {
+    return;
+  }
+
+  // 移动元素
+  const draggedItem = selectedRecommendations.value[draggedRecommendIndex.value];
+  selectedRecommendations.value.splice(draggedRecommendIndex.value, 1);
+  selectedRecommendations.value.splice(dropIndex, 0, draggedItem);
+
+  draggedRecommendIndex.value = -1;
+};
+
+// 保存推荐关系
+const handleSaveRecommendations = async () => {
+  if (!currentRecommendProduct.value) return;
+
+  try {
+    const recommendedIds = selectedRecommendations.value.map(item => item.id);
+
+    await saveProductRecommendationsApi(currentRecommendProduct.value.id, recommendedIds);
+
+    ElMessage.success("推荐产品保存成功");
+    recommendDialogVisible.value = false;
+
+    // 刷新列表
+    await loadProducts();
+  } catch (error) {
+    console.error("保存推荐失败:", error);
+    ElMessage.error("保存推荐失败");
+  }
+};
+
 // 斗篷规则相关方法
 const loadCloakRules = async () => {
   // 防止重复加载
@@ -3883,6 +4223,143 @@ onMounted(() => {
   min-height: 200px;
 }
 .fake-pagination {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+/* 推荐产品对话框样式 */
+.recommend-product-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.selected-recommendations-card,
+.available-recommendations-card {
+  border: 1px solid #e9ecef;
+}
+
+.selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px;
+  min-height: 100px;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: #f9f9f9;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: move;
+  transition: all 0.3s;
+}
+
+.selected-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.selected-item .sort-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+  color: #909399;
+  cursor: grab;
+}
+
+.selected-item .sort-handle:active {
+  cursor: grabbing;
+}
+
+.selected-item .item-info {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.selected-item .item-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #303133;
+}
+
+.selected-item .item-price {
+  font-size: 12px;
+  color: #67c23a;
+}
+
+.selected-item .item-order {
+  margin: 0 12px;
+  padding: 4px 12px;
+  background: #409eff;
+  color: white;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.recommend-products-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding: 8px;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.recommend-product-card {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+}
+
+.recommend-product-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.recommend-product-card.selected {
+  border-color: #409eff;
+  background: #ecf5ff;
+}
+
+.recommend-product-card .el-checkbox {
+  margin-right: 12px;
+}
+
+.recommend-product-card .card-content .card-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-product-card .card-content .card-price {
+  font-size: 12px;
+  color: #67c23a;
+  font-weight: 600;
+}
+
+.recommend-pagination {
   display: flex;
   justify-content: center;
   padding-top: 16px;

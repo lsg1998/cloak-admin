@@ -22,6 +22,7 @@ export interface Product {
   cloak_rule_mode?: string;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;
+  recommendation_count?: number; // 推荐产品数量
   created_at: string;
   updated_at: string;
 }
@@ -204,4 +205,67 @@ export interface CountryStats {
 
 export const getProductCountryStatsApi = () => {
   return http.get<CountryStats>("/admin/products/country-stats");
+};
+
+// ==================== 产品推荐相关接口 ====================
+
+// 推荐产品信息
+export interface RecommendedProduct {
+  id: string;
+  title: string;
+  sell_price: number;
+  origin_price?: number;
+  image_url: string;
+  image_urls: string[];
+  country: string;
+  sort_order: number;
+}
+
+// 获取产品的推荐列表
+export const getProductRecommendationsApi = (productId: string) => {
+  return http.get<RecommendedProduct[]>(`/admin/products/${productId}/recommendations`);
+};
+
+// 保存产品的推荐关系
+export const saveProductRecommendationsApi = (productId: string, recommendedIds: string[]) => {
+  return http.post(`/admin/products/${productId}/recommendations`, {
+    recommended_product_ids: recommendedIds
+  });
+};
+
+// 获取可推荐的产品列表（相同国家）
+export interface AvailableRecommendationsParams {
+  page?: number;
+  size?: number;
+  title?: string; // 搜索关键词
+}
+
+export interface AvailableProduct {
+  id: string;
+  title: string;
+  sell_price: number;
+  origin_price?: number;
+  image_urls: string[];
+  country: string;
+  is_recommended: boolean;
+}
+
+export interface AvailableRecommendationsResponse {
+  list: AvailableProduct[];
+  total: number;
+  country: string; // 当前产品的国家
+}
+
+export const getAvailableRecommendationsApi = (productId: string, params: AvailableRecommendationsParams) => {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.append("page", params.page.toString());
+  if (params.size) searchParams.append("size", params.size.toString());
+  if (params.title) searchParams.append("title", params.title);
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/admin/products/${productId}/available-recommendations?${queryString}`
+    : `/admin/products/${productId}/available-recommendations`;
+
+  return http.get<AvailableRecommendationsResponse>(url);
 };

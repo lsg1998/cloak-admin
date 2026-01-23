@@ -181,7 +181,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="客户信息" width="180">
+        <el-table-column label="客户信息" width="200">
           <template #default="{ row }">
             <div class="customer-info">
               <div class="customer-name">{{ row.customer_name }}</div>
@@ -203,6 +203,15 @@
                     邮箱有误
                   </el-tag>
                 </el-tooltip>
+              </div>
+              <div v-if="row.gender || row.age" class="customer-extra">
+                <span v-if="row.gender" class="gender-tag">
+                  {{ formatGender(row.gender) }}
+                </span>
+                <span v-if="row.age" class="age-tag"> {{ row.age }}岁 </span>
+              </div>
+              <div v-if="!row.gender && !row.age" class="customer-extra">
+                <span class="not-filled">未完善</span>
               </div>
             </div>
           </template>
@@ -240,12 +249,12 @@
               <div class="payment-method-info">
                 <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
                 <el-tag
-                  v-if="row.product_type"
+                  v-if="row.product_template"
                   size="small"
-                  :type="getProductTypeColor(row.product_type)"
+                  type="primary"
                   style="margin-left: 4px"
                 >
-                  {{ getProductTypeLabel(row.product_type) }}
+                  {{ row.product_template }}
                 </el-tag>
               </div>
               <div class="status-info">
@@ -300,9 +309,9 @@
                     <el-icon><CircleClose /></el-icon>
                   </el-button>
                 </div>
-                <div class="sk-info" v-if="row.product_type">
-                  <el-tag size="small" :type="getProductTypeColor(row.product_type)">
-                    {{ getProductTypeLabel(row.product_type) }}
+                <div class="sk-info" v-if="row.product_template">
+                  <el-tag size="small" type="primary">
+                    {{ row.product_template }}
                   </el-tag>
                 </div>
                 <!-- 显示订单国家 -->
@@ -483,6 +492,12 @@
         <el-descriptions title="客户信息" :column="2" border style="margin-top: 20px">
           <el-descriptions-item label="客户姓名">{{ currentOrder.customer_name }}</el-descriptions-item>
           <el-descriptions-item label="联系电话">{{ currentOrder.phone }}</el-descriptions-item>
+          <el-descriptions-item label="性别">
+            {{ currentOrder.gender ? formatGender(currentOrder.gender) : "未填写" }}
+          </el-descriptions-item>
+          <el-descriptions-item label="年龄">
+            {{ currentOrder.age ? currentOrder.age + "岁" : "未填写" }}
+          </el-descriptions-item>
           <el-descriptions-item label="邮箱地址" :span="2">{{ currentOrder.email || "未填写" }}</el-descriptions-item>
           <el-descriptions-item label="收货地址" :span="2">
             <div class="address-detail">
@@ -614,8 +629,52 @@
     </el-dialog>
 
     <!-- IP详情对话框 -->
-    <el-dialog v-model="ipInfoDialogVisible" title="IP详细信息" width="700px" :close-on-click-modal="false" destroy-on-close>
+    <el-dialog v-model="ipInfoDialogVisible" title="IP详细信息" width="800px" :close-on-click-modal="false" destroy-on-close>
       <div v-loading="ipInfoLoading" class="ip-info-content">
+        <!-- 推荐追踪信息 -->
+        <el-alert
+          v-if="currentRecommendData && Object.keys(currentRecommendData).length > 0"
+          type="success"
+          :closable="false"
+          style="margin-bottom: 16px"
+        >
+          <template #title>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <el-icon><Star /></el-icon>
+              <span>推荐产品追踪</span>
+            </div>
+          </template>
+          <div style="margin-top: 12px">
+            <div
+              v-for="(trackData, productId) in currentRecommendData"
+              :key="productId"
+              style="margin-bottom: 12px; padding: 12px; background: #f0f9ff; border-radius: 6px"
+            >
+              <div style="font-weight: 600; margin-bottom: 8px; color: #333">产品ID: {{ productId }}</div>
+              <div style="display: flex; gap: 16px; font-size: 13px">
+                <div>
+                  <el-tag type="success" size="small">展示</el-tag>
+                  <span style="margin-left: 4px">{{ trackData.show ? "是" : "否" }}</span>
+                  <span v-if="trackData.show_time" style="margin-left: 4px; color: #999">
+                    ({{ formatTimestamp(trackData.show_time) }})
+                  </span>
+                </div>
+                <div v-if="trackData.clicks && trackData.clicks.length > 0">
+                  <el-tag type="warning" size="small">点击</el-tag>
+                  <span style="margin-left: 4px">{{ trackData.clicks.length }} 个推荐</span>
+                  <div style="margin-top: 4px; color: #666">
+                    <span v-for="(clickId, idx) in trackData.clicks" :key="idx" style="margin-right: 8px"> → {{ clickId }} </span>
+                  </div>
+                </div>
+                <div v-else>
+                  <el-tag type="info" size="small">点击</el-tag>
+                  <span style="margin-left: 4px">未点击</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-alert>
+
         <el-descriptions v-if="currentIPInfo" :column="2" border>
           <el-descriptions-item label="IP地址" :span="2">
             <el-tag type="primary">{{ currentIPInfo.ip }}</el-tag>
@@ -1225,7 +1284,8 @@ import {
   User,
   Iphone,
   Location,
-  CircleClose
+  CircleClose,
+  Star
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -1258,6 +1318,7 @@ import {
   type CustomSmsParams
 } from "@/api/modules/sms";
 import { getProductListApi, type Product } from "@/api/modules/product";
+import http from "@/api";
 
 // 响应式数据
 const loading = ref(false);
@@ -1272,6 +1333,7 @@ const currentOrder = ref<Order | null>(null);
 const ipInfoDialogVisible = ref(false);
 const ipInfoLoading = ref(false);
 const currentIPInfo = ref<any>(null);
+const currentRecommendData = ref<any>(null);
 
 // 单个订单导出相关
 const singleOrderExportMode = ref(false);
@@ -1749,6 +1811,16 @@ const loadCountryStats = async () => {
   }
 };
 
+// 格式化性别显示
+const formatGender = (gender: string): string => {
+  const genderMap: Record<string, string> = {
+    male: "👨 男",
+    female: "👩 女",
+    other: "⚧ 其他"
+  };
+  return genderMap[gender] || gender;
+};
+
 // 计算排序后的国家列表（有订单的在前面）
 const sortedCountryOptions = computed(() => {
   const counts = countryStats.value;
@@ -1901,9 +1973,21 @@ const handleViewIPInfo = async (ip: string) => {
     ipInfoLoading.value = true;
     ipInfoDialogVisible.value = true;
     currentIPInfo.value = null;
+    currentRecommendData.value = null;
 
+    // 获取IP信息
     const { data } = await getIPInfoApi(ip);
     currentIPInfo.value = data;
+
+    // 获取推荐追踪数据
+    try {
+      const recommendRes = await http.get(`/api/recommend/visitor-data?ip=${encodeURIComponent(ip)}`);
+      if (recommendRes.data && recommendRes.code === 200) {
+        currentRecommendData.value = recommendRes.data;
+      }
+    } catch (err) {
+      console.log("获取推荐数据失败:", err);
+    }
   } catch (error) {
     ElMessage.error("获取IP信息失败");
     ipInfoDialogVisible.value = false;
@@ -4668,6 +4752,17 @@ const getProductTypeLabel = (type: string): string => {
   return labels[type as keyof typeof labels] || type;
 };
 
+// 格式化时间戳
+const formatTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp * 1000);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
 // 商品类型颜色
 const getProductTypeColor = (type: string): string => {
   const colors = {
@@ -4981,6 +5076,26 @@ onMounted(() => {
   color: #e6a23c;
 }
 .email-invalid-tag {
+  font-size: 11px;
+}
+.customer-extra {
+  font-size: 12px;
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.gender-tag {
+  color: #409eff;
+  font-weight: 500;
+}
+.age-tag {
+  color: #67c23a;
+  font-weight: 500;
+}
+.not-filled {
+  color: #c0c4cc;
+  font-style: italic;
   font-size: 11px;
 }
 

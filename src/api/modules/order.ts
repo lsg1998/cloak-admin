@@ -85,6 +85,9 @@ export interface Order {
   product_description?: string;
   product_country?: string; // 商品国家
   product_template?: string; // 商品模版
+  // 抽奖用户信息
+  gender?: string; // 性别：male/female/other
+  age?: number; // 年龄
 }
 
 // 订单列表查询参数

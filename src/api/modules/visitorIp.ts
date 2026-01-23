@@ -60,6 +60,13 @@ export interface VisitorIp {
   last_visit: string;
   created_at: string;
   updated_at: string;
+  recommend_data?: {
+    [productId: string]: {
+      show: boolean;
+      show_time?: number;
+      clicks: string[];
+    };
+  };
 }
 
 export interface VisitorIpListParams {

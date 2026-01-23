@@ -382,6 +382,30 @@
               </div>
             </div>
 
+            <!-- 推荐产品追踪 -->
+            <div class="ip-section" v-if="row.recommend_data && Object.keys(row.recommend_data).length > 0">
+              <div class="section-title">📊 推荐追踪</div>
+              <div class="recommend-tracking">
+                <div v-for="(trackData, productId) in row.recommend_data" :key="productId" class="recommend-track-item">
+                  <div class="track-product-id">产品: {{ productId }}</div>
+                  <div class="track-info">
+                    <el-tag :type="trackData.show ? 'success' : 'info'" size="small">
+                      {{ trackData.show ? "✓ 已展示" : "未展示" }}
+                    </el-tag>
+                    <el-tag v-if="trackData.clicks && trackData.clicks.length > 0" type="warning" size="small">
+                      点击: {{ trackData.clicks.length }}
+                    </el-tag>
+                    <el-tag v-else type="info" size="small">未点击</el-tag>
+                  </div>
+                  <div v-if="trackData.clicks && trackData.clicks.length > 0" class="track-clicks">
+                    <div class="clicked-products">
+                      <div v-for="(clickId, idx) in trackData.clicks" :key="idx" class="clicked-product">→ {{ clickId }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Privacy 隐私检测 -->
             <div class="ip-section">
               <div class="section-title">Privacy 隐私检测</div>
@@ -1805,6 +1829,54 @@ onMounted(() => {
   color: #606266;
   font-weight: 500;
   min-width: 50px;
+}
+
+/* 推荐追踪样式 */
+.recommend-tracking {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recommend-track-item {
+  padding: 10px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  border-left: 3px solid #409eff;
+}
+
+.track-product-id {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.track-info {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.track-clicks {
+  margin-top: 6px;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+}
+
+.clicked-products {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clicked-product {
+  font-size: 12px;
+  color: #67c23a;
+  font-family: "Courier New", monospace;
+  padding: 2px 0;
 }
 
 .feature-item .el-tag {
