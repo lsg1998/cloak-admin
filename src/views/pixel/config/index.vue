@@ -51,7 +51,7 @@
         </el-table-column>
         <el-table-column prop="enabled" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.enabled" @change="handleStatusChange" />
+            <el-switch v-model="row.enabled" @change="handleStatusChange(row)" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" align="center" fixed="right">
@@ -389,7 +389,13 @@ import {
   List,
   Select
 } from "@element-plus/icons-vue";
-import { getGlobalPixelConfigApi, updateGlobalPixelConfigApi } from "@/api/modules/pixel";
+import {
+  getGlobalPixelConfigApi,
+  updateGlobalPixelConfigApi,
+  addGoogleAdsAccountApi,
+  updateGoogleAdsAccountApi,
+  deleteGoogleAdsAccountApi
+} from "@/api/modules/pixel";
 import { getProductListApi } from "@/api/modules/product";
 
 // 响应式数据
@@ -629,25 +635,18 @@ const handleSaveAccount = async () => {
     };
 
     if (editingIndex.value >= 0) {
-      // 编辑
+      // 编辑：调用更新接口
+      await updateGoogleAdsAccountApi(accountForm.conversion_id, accountData);
       googleAdsAccounts.value[editingIndex.value] = accountData;
+      ElMessage.success("账户更新成功");
     } else {
-      // 添加
+      // 添加：调用添加接口
+      await addGoogleAdsAccountApi(accountData);
       googleAdsAccounts.value.push(accountData);
+      ElMessage.success("账户添加成功");
     }
 
-    // 立即保存到后端
-    await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
-      facebook_enabled: config.facebook_enabled,
-      facebook_pixel_id: config.facebook_pixel_id,
-      tiktok_enabled: config.tiktok_enabled,
-      tiktok_pixel_id: config.tiktok_pixel_id,
-      custom_pixels: JSON.stringify(customPixels.value)
-    });
-
     accountDialogVisible.value = false;
-    ElMessage.success(editingIndex.value >= 0 ? "账户更新成功" : "账户添加成功");
   } catch (error) {
     console.error(error);
     ElMessage.error("保存失败，请重试");
@@ -663,27 +662,17 @@ const handleDeleteAccount = async (row: any) => {
       type: "warning"
     });
 
-    // 在原始数组中查找真实索引（因为显示的是倒序数组）
+    // 调用删除接口
+    await deleteGoogleAdsAccountApi(row.conversion_id);
+
+    // 在原始数组中查找并删除
     const realIndex = googleAdsAccounts.value.findIndex(
       account => account.conversion_id === row.conversion_id && account.conversion_label === row.conversion_label
     );
 
-    if (realIndex === -1) {
-      ElMessage.error("找不到要删除的账户");
-      return;
+    if (realIndex !== -1) {
+      googleAdsAccounts.value.splice(realIndex, 1);
     }
-
-    googleAdsAccounts.value.splice(realIndex, 1);
-
-    // 立即保存到后端
-    await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
-      facebook_enabled: config.facebook_enabled,
-      facebook_pixel_id: config.facebook_pixel_id,
-      tiktok_enabled: config.tiktok_enabled,
-      tiktok_pixel_id: config.tiktok_pixel_id,
-      custom_pixels: JSON.stringify(customPixels.value)
-    });
 
     ElMessage.success("删除成功");
   } catch (error) {
@@ -695,20 +684,29 @@ const handleDeleteAccount = async (row: any) => {
 };
 
 // 状态变更
-const handleStatusChange = async () => {
+const handleStatusChange = async (row: any) => {
   try {
-    // 立即保存状态变更
-    await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
-      facebook_enabled: config.facebook_enabled,
-      facebook_pixel_id: config.facebook_pixel_id,
-      tiktok_enabled: config.tiktok_enabled,
-      tiktok_pixel_id: config.tiktok_pixel_id,
-      custom_pixels: JSON.stringify(customPixels.value)
+    // 调用更新接口，只更新这一条账户
+    await updateGoogleAdsAccountApi(row.conversion_id, {
+      name: row.name,
+      conversion_id: row.conversion_id,
+      conversion_label: row.conversion_label,
+      enabled: row.enabled,
+      product_ids: row.product_ids || [],
+      em_params: row.em_params || []
     });
+
+    // 同步更新原始数组中的状态
+    const realIndex = googleAdsAccounts.value.findIndex(account => account.conversion_id === row.conversion_id);
+    if (realIndex !== -1) {
+      googleAdsAccounts.value[realIndex].enabled = row.enabled;
+    }
+
     ElMessage.success("状态已更新");
   } catch (error) {
     console.error(error);
+    // 失败时恢复开关状态
+    row.enabled = !row.enabled;
     ElMessage.error("状态更新失败，请重试");
   }
 };
@@ -724,7 +722,6 @@ const addCustomPixel = async () => {
   try {
     // 立即保存
     await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
       facebook_enabled: config.facebook_enabled,
       facebook_pixel_id: config.facebook_pixel_id,
       tiktok_enabled: config.tiktok_enabled,
@@ -745,7 +742,6 @@ const removeCustomPixel = async (index: number) => {
   try {
     // 立即保存
     await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
       facebook_enabled: config.facebook_enabled,
       facebook_pixel_id: config.facebook_pixel_id,
       tiktok_enabled: config.tiktok_enabled,
@@ -759,12 +755,13 @@ const removeCustomPixel = async (index: number) => {
   }
 };
 
-// 保存所有配置
+// 保存所有配置（Facebook、TikTok、自定义像素）
 const handleSave = async () => {
   saveLoading.value = true;
   try {
+    // 只保存 Facebook、TikTok、自定义像素配置
+    // Google Ads 账户已通过单独的增删改接口操作
     await updateGlobalPixelConfigApi({
-      google_ads_accounts: JSON.stringify(googleAdsAccounts.value),
       facebook_enabled: config.facebook_enabled,
       facebook_pixel_id: config.facebook_pixel_id,
       tiktok_enabled: config.tiktok_enabled,

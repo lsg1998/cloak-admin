@@ -1,0 +1,1 @@
+import{_ as t}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{c as o,o as s,a as c}from"./index-Bw6jS_hG.js";const n={},r={class:"card content-box"};function a(_,e){return s(),o("div",r,[...e[0]||(e[0]=[c("span",{class:"text"}," 系统日志（待完善） 🍓🍇🍈🍉",-1)])])}const i=t(n,[["render",a]]);export{i as default};
