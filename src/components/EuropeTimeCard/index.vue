@@ -9,9 +9,9 @@
       <div class="time-info">
         <div class="time-row">
           <div class="time-section">
-            <div class="time-label">东欧时间 (EET)</div>
-            <div class="time-value">{{ eetTime }}</div>
-            <div class="time-date">{{ eetDate }}</div>
+            <div class="time-label">捷克时间 (CET)</div>
+            <div class="time-value">{{ czechTime }}</div>
+            <div class="time-date">{{ czechDate }}</div>
           </div>
           <div class="time-divider"></div>
           <div class="time-section">
@@ -29,8 +29,8 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { Clock } from "@element-plus/icons-vue";
 
-const eetTime = ref("");
-const eetDate = ref("");
+const czechTime = ref("");
+const czechDate = ref("");
 const beijingTime = ref("");
 const beijingDate = ref("");
 let timer: number | null = null;
@@ -56,10 +56,10 @@ const formatDate = (date: Date) => {
 const updateTime = () => {
   const now = new Date();
 
-  // 东欧时间 (EET) UTC+2
-  const eetDateTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Athens" }));
-  eetTime.value = formatTime(eetDateTime);
-  eetDate.value = formatDate(eetDateTime);
+  // 捷克时间 (CET) - 布拉格时区
+  const czechDateTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Prague" }));
+  czechTime.value = formatTime(czechDateTime);
+  czechDate.value = formatDate(czechDateTime);
 
   // 北京时间 (CST) UTC+8
   const beijingDateTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
