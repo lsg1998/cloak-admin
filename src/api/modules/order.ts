@@ -76,8 +76,10 @@ export interface Order {
   // 重复订单标识（基于全数据库统计）
   duplicate_phone_count?: number; // 相同手机号的其他订单数量
   duplicate_ip_count?: number; // 相同IP地址的其他订单数量
+  duplicate_email_count?: number; // 相同邮箱的其他订单数量
   is_duplicate_phone?: boolean; // 手机号是否重复
   is_duplicate_ip?: boolean; // IP地址是否重复
+  is_duplicate_email?: boolean; // 邮箱是否重复
   // 关联商品信息
   product_title?: string;
   product_price?: number;

@@ -195,8 +195,19 @@
                   (重复{{ getPhoneDuplicateCount(row) }})
                 </span>
               </div>
-              <div v-if="row.email" class="customer-email" :class="{ 'invalid-email': !isEmailValid(row.email) }">
+              <div
+                v-if="row.email"
+                class="customer-email"
+                :class="{ 'invalid-email': !isEmailValid(row.email), 'duplicate-email': isEmailDuplicate(row) }"
+              >
                 {{ row.email }}
+                <span
+                  v-if="isEmailDuplicate(row)"
+                  class="duplicate-badge"
+                  :title="`相同邮箱有 ${getEmailDuplicateCount(row)} 个其他订单`"
+                >
+                  (重复{{ getEmailDuplicateCount(row) }})
+                </span>
                 <el-tooltip v-if="!isEmailValid(row.email)" content="邮箱格式不正确" placement="top">
                   <el-tag type="warning" size="small" class="email-invalid-tag" style="margin-left: 4px">
                     <el-icon><Warning /></el-icon>
@@ -874,7 +885,16 @@
             </el-form-item>
 
             <el-form-item label="SKU">
-              <el-input v-model="exportConfig.sku" placeholder="请输入SKU" style="width: 300px" />
+              <el-autocomplete
+                v-model="exportConfig.sku"
+                :fetch-suggestions="(queryString, cb) => cb(querySkuHistory(queryString, 'kuasuoda'))"
+                placeholder="请输入SKU或从历史记录中选择"
+                style="width: 300px"
+                clearable
+                @select="item => saveSkuToHistory(item.value, 'kuasuoda')"
+                @blur="() => exportConfig.sku && saveSkuToHistory(exportConfig.sku, 'kuasuoda')"
+              />
+              <div class="form-tip">支持手动输入或从历史记录中选择，使用过的SKU会自动保存</div>
             </el-form-item>
 
             <el-form-item label="配货信息" required>
@@ -956,8 +976,16 @@
             </el-form-item>
 
             <el-form-item v-if="exportConfig.yingpaiOrderType === 'normal'" label="SKU">
-              <el-input v-model="exportConfig.yingpaiSku" placeholder="请输入SKU" style="width: 300px" />
-              <div class="form-tip">SKU默认：15000W（转寄订单不需要填写SKU）</div>
+              <el-autocomplete
+                v-model="exportConfig.yingpaiSku"
+                :fetch-suggestions="(queryString, cb) => cb(querySkuHistory(queryString, 'yingpai'))"
+                placeholder="请输入SKU或从历史记录中选择"
+                style="width: 300px"
+                clearable
+                @select="item => saveSkuToHistory(item.value, 'yingpai')"
+                @blur="() => exportConfig.yingpaiSku && saveSkuToHistory(exportConfig.yingpaiSku, 'yingpai')"
+              />
+              <div class="form-tip">SKU默认：15000W（转寄订单不需要填写SKU），支持手动输入或从历史记录中选择</div>
             </el-form-item>
           </template>
 
@@ -1005,8 +1033,16 @@
             </el-form-item>
 
             <el-form-item label="客户SKU">
-              <el-input v-model="exportConfig.shenghongSku" placeholder="请输入客户SKU" style="width: 300px" />
-              <div class="form-tip">客户自定义SKU编码</div>
+              <el-autocomplete
+                v-model="exportConfig.shenghongSku"
+                :fetch-suggestions="(queryString, cb) => cb(querySkuHistory(queryString, 'shenghong'))"
+                placeholder="请输入客户SKU或从历史记录中选择"
+                style="width: 300px"
+                clearable
+                @select="item => saveSkuToHistory(item.value, 'shenghong')"
+                @blur="() => exportConfig.shenghongSku && saveSkuToHistory(exportConfig.shenghongSku, 'shenghong')"
+              />
+              <div class="form-tip">客户自定义SKU编码，支持手动输入或从历史记录中选择，使用过的SKU会自动保存</div>
             </el-form-item>
 
             <el-form-item label="发货人税号">
@@ -1587,6 +1623,71 @@ const removeEmojiAndSpecialChars = (text: string): string => {
   return cleaned.trim();
 };
 
+// SKU历史记录
+const skuHistory = {
+  kuasuoda: ref<string[]>([]), // 跨速达SKU历史
+  yingpai: ref<string[]>([]), // 盈派SKU历史
+  shenghong: ref<string[]>([]) // 森鸿SKU历史
+};
+
+// 加载SKU历史记录
+const loadSkuHistory = () => {
+  try {
+    const kuasuodaHistory = localStorage.getItem("skuHistory_kuasuoda");
+    if (kuasuodaHistory) {
+      skuHistory.kuasuoda.value = JSON.parse(kuasuodaHistory);
+    }
+    const yingpaiHistory = localStorage.getItem("skuHistory_yingpai");
+    if (yingpaiHistory) {
+      skuHistory.yingpai.value = JSON.parse(yingpaiHistory);
+    }
+    const shenghongHistory = localStorage.getItem("skuHistory_shenghong");
+    if (shenghongHistory) {
+      skuHistory.shenghong.value = JSON.parse(shenghongHistory);
+    }
+  } catch (error) {
+    console.error("加载SKU历史记录失败:", error);
+  }
+};
+
+// 保存SKU到历史记录
+const saveSkuToHistory = (sku: string, type: "kuasuoda" | "yingpai" | "shenghong") => {
+  if (!sku || !sku.trim()) return;
+
+  const trimmedSku = sku.trim();
+  const history = skuHistory[type].value;
+
+  // 如果已存在，先移除
+  const index = history.indexOf(trimmedSku);
+  if (index > -1) {
+    history.splice(index, 1);
+  }
+
+  // 添加到最前面
+  history.unshift(trimmedSku);
+
+  // 限制最多保存50条历史记录
+  if (history.length > 50) {
+    history.splice(50);
+  }
+
+  // 保存到localStorage
+  try {
+    localStorage.setItem(`skuHistory_${type}`, JSON.stringify(history));
+  } catch (error) {
+    console.error(`保存SKU历史记录失败(${type}):`, error);
+  }
+};
+
+// SKU自动完成查询函数
+const querySkuHistory = (queryString: string, type: "kuasuoda" | "yingpai" | "shenghong") => {
+  const history = skuHistory[type].value;
+  if (!queryString) {
+    return history.map(sku => ({ value: sku }));
+  }
+  return history.filter(sku => sku.toLowerCase().includes(queryString.toLowerCase())).map(sku => ({ value: sku }));
+};
+
 // 导出配置
 const exportConfig = reactive({
   logisticsCompany: "kuasuoda", // 物流公司：kuasuoda(跨速达) 或 huaxi(华熙)
@@ -1884,9 +1985,19 @@ const isIPDuplicate = (order: any) => {
   return order?.is_duplicate_ip === true || (order?.duplicate_ip_count ?? 0) > 0;
 };
 
+// 判断邮箱是否重复（使用后端返回的标识，不管什么状态只要有重复就标记）
+const isEmailDuplicate = (order: any) => {
+  return order?.is_duplicate_email === true || (order?.duplicate_email_count ?? 0) > 0;
+};
+
 // 获取手机号重复次数
 const getPhoneDuplicateCount = (order: any) => {
   return order?.duplicate_phone_count ?? 0;
+};
+
+// 获取邮箱重复次数
+const getEmailDuplicateCount = (order: any) => {
+  return order?.duplicate_email_count ?? 0;
 };
 
 // 获取IP重复次数
@@ -2818,13 +2929,29 @@ const handleExportByCompany = async () => {
       await handleYingpaiForwardExport();
     } else {
       await handleYingpaiExport();
+      // 保存盈派SKU到历史记录
+      if (exportConfig.yingpaiSku) {
+        saveSkuToHistory(exportConfig.yingpaiSku, "yingpai");
+      }
     }
   } else if (exportConfig.logisticsCompany === "shenghong") {
     await handleShenghongExport();
+    // 保存森鸿SKU到历史记录
+    if (exportConfig.shenghongSku) {
+      saveSkuToHistory(exportConfig.shenghongSku, "shenghong");
+    }
   } else if (exportConfig.logisticsCompany === "kuasuoda_spain") {
     await handleKuasuodaSpainExport();
+    // 保存跨速达SKU到历史记录
+    if (exportConfig.sku) {
+      saveSkuToHistory(exportConfig.sku, "kuasuoda");
+    }
   } else {
     await handleKuasuodaExport();
+    // 保存跨速达SKU到历史记录
+    if (exportConfig.sku) {
+      saveSkuToHistory(exportConfig.sku, "kuasuoda");
+    }
   }
   exportDialogVisible.value = false;
 };
@@ -4854,6 +4981,7 @@ onMounted(() => {
   loadData();
   loadCountryStats(); // 加载国家统计数据
   loadExportConfigFromCache(); // 加载导出配置缓存
+  loadSkuHistory(); // 加载SKU历史记录
 });
 </script>
 
@@ -5069,6 +5197,10 @@ onMounted(() => {
 }
 .customer-email.invalid-email {
   color: #e6a23c;
+}
+.customer-email.duplicate-email {
+  color: #f56c6c;
+  font-weight: 600;
 }
 .email-invalid-tag {
   font-size: 11px;
