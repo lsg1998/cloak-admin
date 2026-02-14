@@ -1,1 +1,0 @@
-import{a5 as e}from"./index-B-i6bX06.js";function a(){return e.get("/admin/pixel/global")}function i(o){return e.put("/admin/pixel/global",o)}function l(o){return e.post("/admin/pixel/google-ads-account",o)}function u(o,t){return e.put(`/admin/pixel/google-ads-account/${o}`,t)}function d(o){return e.delete(`/admin/pixel/google-ads-account/${o}`)}export{l as a,i as b,d,a as g,u};

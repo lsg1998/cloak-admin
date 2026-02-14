@@ -124,18 +124,42 @@ props.editorConfig.MENU_CONF!["uploadVideo"] = {
     formData.append("file", file);
     try {
       const { data } = await uploadVideo(formData);
+      console.log("视频上传响应:", data);
       // 根据你的后端接口响应格式调整
       const videoUrl = data.url || data.fileUrl || data;
-      insertFn(videoUrl);
-    } catch (error) {
-      console.log(error);
+      if (videoUrl) {
+        insertFn(videoUrl);
+        ElMessage.success("视频上传成功");
+      } else {
+        console.error("视频上传响应中没有URL:", data);
+        ElMessage.error("视频上传失败：响应格式错误");
+      }
+    } catch (error: any) {
+      console.error("视频上传错误:", error);
+      const errorMsg = error.response?.data?.msg || error.message || "视频上传失败";
+      ElMessage.error(errorMsg);
     }
   }
 };
 
 // 视频上传前判断
 const uploadVideoValidate = (file: File): boolean => {
-  console.log(file);
+  console.log("准备上传视频:", file);
+
+  // 检查文件类型
+  const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/webm", "video/ogg"];
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error(`不支持的视频格式: ${file.type}。支持的格式：MP4, MPEG, MOV, AVI, WebM, OGG`);
+    return false;
+  }
+
+  // 检查文件大小（200MB）
+  const maxSize = 200 * 1024 * 1024;
+  if (file.size > maxSize) {
+    ElMessage.error(`视频文件过大: ${(file.size / 1024 / 1024).toFixed(2)}MB。最大支持 200MB`);
+    return false;
+  }
+
   return true;
 };
 
