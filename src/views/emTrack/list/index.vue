@@ -147,30 +147,6 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="订单金额" width="140" align="center" sortable="custom" prop="total_amount">
-          <template #default="{ row }">
-            <div v-if="row.has_order" class="amount-cell">
-              <span class="amount">{{ row.total_amount }}</span>
-              <span class="currency">{{ row.currencies.join("/") }}</span>
-            </div>
-            <span v-else class="no-data">--</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="订单号" min-width="200" align="center">
-          <template #default="{ row }">
-            <div v-if="row.order_numbers && row.order_numbers.length > 0" class="order-numbers-cell">
-              <el-tag v-for="(num, idx) in row.order_numbers.slice(0, 3)" :key="idx" size="small" type="info" style="margin: 2px">
-                {{ num }}
-              </el-tag>
-              <el-tag v-if="row.order_numbers.length > 3" size="small" type="warning" style="margin: 2px">
-                +{{ row.order_numbers.length - 3 }}
-              </el-tag>
-            </div>
-            <span v-else class="no-data">--</span>
-          </template>
-        </el-table-column>
-
         <el-table-column label="访客国家" width="140" align="center">
           <template #default="{ row }">
             <div v-if="row.countries && row.countries.length > 0" class="countries-cell">
@@ -225,41 +201,41 @@
     </el-card>
 
     <!-- 订单详情弹窗 -->
-    <el-dialog v-model="orderDialogVisible" :title="`${currentEmParam} - 订单详情`" width="900px" top="5vh">
-      <div v-loading="orderLoading">
-        <el-table :data="emOrders" border stripe size="small">
-          <el-table-column prop="order_number" label="订单号" width="160" />
-          <el-table-column prop="customer_name" label="客户姓名" width="120" />
-          <el-table-column prop="phone" label="电话" width="140" />
-          <el-table-column label="金额" width="120" align="center">
+    <el-dialog v-model="orderDialogVisible" :title="`${currentEmParam} - 订单详情`" width="90%" top="5vh">
+      <div v-loading="orderLoading" class="dialog-table-wrapper">
+        <el-table :data="emOrders" border stripe size="small" style="width: 100%">
+          <el-table-column prop="order_number" label="订单号" min-width="150" />
+          <el-table-column prop="customer_name" label="客户姓名" min-width="100" />
+          <el-table-column prop="phone" label="电话" min-width="130" />
+          <el-table-column label="金额" min-width="110" align="center">
             <template #default="{ row }"> {{ row.total_amount }} {{ row.currency }} </template>
           </el-table-column>
-          <el-table-column label="状态" width="100" align="center">
+          <el-table-column label="状态" min-width="90" align="center">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" size="small">{{ getStatusLabel(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="product_title" label="商品" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="ip_address" label="IP" width="130" />
-          <el-table-column prop="created_at" label="下单时间" width="170" />
+          <el-table-column prop="product_title" label="商品" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="ip_address" label="IP" min-width="130" />
+          <el-table-column prop="created_at" label="下单时间" min-width="160" />
         </el-table>
       </div>
     </el-dialog>
 
     <!-- 访客详情弹窗 -->
-    <el-dialog v-model="visitorDialogVisible" :title="`${currentEmParam} - 访客列表`" width="800px" top="5vh">
-      <div v-loading="visitorLoading">
-        <el-table :data="emVisitors" border stripe size="small">
-          <el-table-column prop="ip_address" label="IP地址" width="140" />
-          <el-table-column label="国家/地区" width="120">
+    <el-dialog v-model="visitorDialogVisible" :title="`${currentEmParam} - 访客列表`" width="90%" top="5vh">
+      <div v-loading="visitorLoading" class="dialog-table-wrapper">
+        <el-table :data="emVisitors" border stripe size="small" style="width: 100%">
+          <el-table-column prop="ip_address" label="IP地址" min-width="130" />
+          <el-table-column label="国家/地区" min-width="100">
             <template #default="{ row }"> {{ getCountryFlag(row.country) }} {{ row.country }} </template>
           </el-table-column>
-          <el-table-column prop="region" label="地区" width="120" />
-          <el-table-column prop="city" label="城市" width="120" />
-          <el-table-column prop="organization" label="ISP" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="visit_count" label="访问次数" width="90" align="center" />
-          <el-table-column prop="first_visit" label="首次访问" width="170" />
-          <el-table-column prop="last_visit" label="最后访问" width="170" />
+          <el-table-column prop="region" label="地区" min-width="110" />
+          <el-table-column prop="city" label="城市" min-width="110" />
+          <el-table-column prop="organization" label="ISP" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="visit_count" label="访问次数" min-width="80" align="center" />
+          <el-table-column prop="first_visit" label="首次访问" min-width="160" />
+          <el-table-column prop="last_visit" label="最后访问" min-width="160" />
         </el-table>
       </div>
     </el-dialog>
@@ -726,6 +702,12 @@ onMounted(() => {
   td {
     background-color: #fef0f0 !important;
   }
+}
+
+/* 弹窗内表格 */
+.dialog-table-wrapper {
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 /* 响应式 */
