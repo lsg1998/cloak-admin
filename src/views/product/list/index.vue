@@ -260,6 +260,7 @@
                 <el-tag v-else-if="row.template === 'shopline-watch'" type="danger" size="small">Watch</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-tool'" type="warning" size="small">Tool</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-drill'" size="small" color="#1565c0">Drill</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -312,7 +313,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right" align="center">
+        <el-table-column label="操作" width="280" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons-wrap">
               <div class="action-row">
@@ -357,6 +358,12 @@
                 <el-button size="small" type="danger" link @click="handleDelete(row)">
                   <el-icon><Delete /></el-icon>
                   删除
+                </el-button>
+              </div>
+              <div v-if="row.template === 'shopline-drill'" class="action-row">
+                <el-button size="small" type="primary" link @click="handleManageReviews(row)">
+                  <el-icon><ChatDotSquare /></el-icon>
+                  评论管理
                 </el-button>
               </div>
             </div>
@@ -596,6 +603,12 @@
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag style="background-color: #2d5016; border-color: #2d5016; color: white" size="small">Wildlife</el-tag>
                     <span>野生动物相机 - 户外监控相机专属设计，森林绿配色</span>
+                  </div>
+                </el-option>
+                <el-option label="电钻/起子机 (Shopline-Drill)" value="shopline-drill">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #1565c0; border-color: #1565c0; color: white" size="small">Drill</el-tag>
+                    <span>电钻/起子机 - 欧洲老年人电动工具专属设计，工业蓝配色</span>
                   </div>
                 </el-option>
                 <el-option label="血糖仪 (Blood-Glucose-Meter)" value="blood-glucose-meter">
@@ -1599,6 +1612,164 @@
       </template>
     </el-dialog>
 
+    <!-- 评论管理对话框 -->
+    <el-dialog v-model="reviewDialogVisible" title="评论管理" width="1000px" :close-on-click-modal="false" destroy-on-close>
+      <div v-if="currentProduct" class="review-management">
+        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center">
+          <span style="font-size: 14px; color: #606266">产品: {{ currentProduct.title }} ({{ currentProduct.id }})</span>
+          <el-button type="primary" size="small" @click="handleAddReview">
+            <el-icon><Plus /></el-icon>添加评论
+          </el-button>
+        </div>
+        <el-table :data="reviewList" v-loading="reviewLoading" border stripe size="small" max-height="500">
+          <el-table-column prop="sort_order" label="排序" width="60" align="center" />
+          <el-table-column prop="reviewer_name" label="评论者" width="130">
+            <template #default="{ row }">{{ row.reviewer_name }} {{ row.reviewer_country_flag }}</template>
+          </el-table-column>
+          <el-table-column prop="rating" label="评分" width="70" align="center">
+            <template #default="{ row }">
+              <span style="color: #e6a23c">{{ "★".repeat(row.rating) }}{{ "☆".repeat(5 - row.rating) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="review_content" label="评论内容" min-width="250" show-overflow-tooltip />
+          <el-table-column label="媒体" width="100" align="center">
+            <template #default="{ row }">
+              <span v-if="row.review_images && row.review_images.length">{{ row.review_images.length }}张图</span>
+              <span v-if="row.review_video" style="color: #409eff"> 视频</span>
+              <span v-if="!row.review_images?.length && !row.review_video" style="color: #c0c4cc">无</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="seller_reply" label="卖家回复" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.seller_reply">{{ row.seller_reply }}</span>
+              <span v-else style="color: #c0c4cc">无</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="helpful_count" label="有用数" width="70" align="center" />
+          <el-table-column prop="status" label="状态" width="70" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{
+                row.status === "active" ? "显示" : "隐藏"
+              }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="130" align="center">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="handleEditReview(row)">编辑</el-button>
+              <el-button size="small" type="danger" link @click="handleDeleteReview(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="reviewDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 评论编辑对话框 -->
+    <el-dialog
+      v-model="reviewFormDialogVisible"
+      :title="reviewFormTitle"
+      width="700px"
+      :close-on-click-modal="false"
+      destroy-on-close
+      append-to-body
+    >
+      <el-form ref="reviewFormRef" :model="reviewForm" :rules="reviewFormRules" label-width="100px">
+        <el-form-item label="评论者姓名" prop="reviewer_name">
+          <el-input v-model="reviewForm.reviewer_name" placeholder="如: Milan K." />
+        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="国家代码" prop="reviewer_country">
+              <el-input v-model="reviewForm.reviewer_country" placeholder="SK" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="国旗" prop="reviewer_country_flag">
+              <el-input v-model="reviewForm.reviewer_country_flag" placeholder="🇸🇰" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="评分" prop="rating">
+              <el-rate v-model="reviewForm.rating" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="评论内容" prop="review_content">
+          <el-input v-model="reviewForm.review_content" type="textarea" :rows="4" placeholder="评论内容" />
+        </el-form-item>
+        <el-form-item label="评论图片">
+          <div class="review-media-section">
+            <div class="review-image-list">
+              <div v-for="(img, idx) in reviewForm.review_images" :key="idx" class="review-image-item">
+                <el-image :src="img" fit="cover" style="width: 80px; height: 80px; border-radius: 4px" />
+                <el-icon class="review-image-remove" @click="removeReviewImage(idx)"><Close /></el-icon>
+              </div>
+            </div>
+            <el-upload :action="uploadUrl" :show-file-list="false" :on-success="handleReviewImageSuccess" accept="image/*">
+              <el-button size="small">上传图片</el-button>
+            </el-upload>
+          </div>
+        </el-form-item>
+        <el-form-item label="评论视频">
+          <div style="display: flex; gap: 8px; align-items: center; width: 100%">
+            <el-input v-model="reviewForm.review_video" placeholder="视频URL（可选）" clearable style="flex: 1" />
+            <el-upload
+              :action="reviewVideoUploadUrl"
+              :show-file-list="false"
+              :on-success="handleReviewVideoSuccess"
+              accept="video/*"
+            >
+              <el-button size="small">上传视频</el-button>
+            </el-upload>
+          </div>
+        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="购买规格">
+              <el-input v-model="reviewForm.purchased_spec" placeholder="购买的规格名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="显示日期">
+              <el-input v-model="reviewForm.review_date" placeholder="如: 3 days ago" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="已验证">
+              <el-switch v-model="reviewForm.is_verified" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="有用数">
+              <el-input-number v-model="reviewForm.helpful_count" :min="0" :max="999" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="排序">
+              <el-input-number v-model="reviewForm.sort_order" :min="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="卖家回复">
+          <el-input v-model="reviewForm.seller_reply" type="textarea" :rows="2" placeholder="卖家回复（可选）" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="reviewForm.status">
+            <el-radio value="active">显示</el-radio>
+            <el-radio value="hidden">隐藏</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewFormDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitReviewForm" :loading="reviewSubmitLoading">确认</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 域名选择对话框 -->
     <el-dialog v-model="viewDialogVisible" title="选择查看域名" width="500px" :close-on-click-modal="false">
       <div v-if="currentViewProduct" class="domain-select-dialog">
@@ -1666,7 +1837,8 @@ import {
   Close,
   DocumentCopy,
   Location,
-  Star
+  Star,
+  ChatDotSquare
 } from "@element-plus/icons-vue";
 import {
   getProductListApi,
@@ -1689,6 +1861,13 @@ import {
 import { getProductSkusApi, createSkuApi, updateSkuApi, deleteSkuApi, type ProductSku } from "@/api/modules/productSku";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
 import { getDomainConfigs, type DomainConfig } from "@/api/modules/domainConfig";
+import {
+  getProductReviewsApi,
+  createProductReviewApi,
+  updateProductReviewApi,
+  deleteProductReviewApi,
+  type ProductReview
+} from "@/api/modules/review";
 import http from "@/api";
 import WangEditor from "@/components/WangEditor/index.vue";
 import ProductImg from "@/components/Upload/ProductImg.vue";
@@ -2246,6 +2425,175 @@ const confirmView = () => {
   viewDialogVisible.value = false;
 };
 
+// ==================== 评论管理 ====================
+const reviewDialogVisible = ref(false);
+const reviewFormDialogVisible = ref(false);
+const reviewFormTitle = ref("添加评论");
+const reviewLoading = ref(false);
+const reviewSubmitLoading = ref(false);
+const reviewList = ref<ProductReview[]>([]);
+const reviewFormRef = ref();
+const editingReviewId = ref<number | null>(null);
+
+const reviewForm = reactive<Partial<ProductReview>>({
+  reviewer_name: "",
+  reviewer_country: "SK",
+  reviewer_country_flag: "🇸🇰",
+  rating: 5,
+  review_content: "",
+  review_images: [],
+  review_video: null,
+  purchased_spec: "",
+  review_date: "",
+  is_verified: 1,
+  helpful_count: 0,
+  seller_reply: null,
+  sort_order: 0,
+  status: "active"
+});
+
+const reviewFormRules = {
+  reviewer_name: [{ required: true, message: "请输入评论者姓名", trigger: "blur" }],
+  review_content: [{ required: true, message: "请输入评论内容", trigger: "blur" }]
+};
+
+const reviewVideoUploadUrl = computed(() => {
+  const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  return `${baseURL}/admin/upload/video`;
+});
+
+const resetReviewForm = () => {
+  Object.assign(reviewForm, {
+    reviewer_name: "",
+    reviewer_country: "SK",
+    reviewer_country_flag: "🇸🇰",
+    rating: 5,
+    review_content: "",
+    review_images: [],
+    review_video: null,
+    purchased_spec: "",
+    review_date: "",
+    is_verified: 1,
+    helpful_count: 0,
+    seller_reply: null,
+    sort_order: 0,
+    status: "active"
+  });
+  editingReviewId.value = null;
+};
+
+const handleManageReviews = async (row: Product) => {
+  currentProduct.value = row;
+  reviewDialogVisible.value = true;
+  await loadReviewData(row.id);
+};
+
+const loadReviewData = async (productId: string) => {
+  reviewLoading.value = true;
+  try {
+    const res = await getProductReviewsApi(productId);
+    reviewList.value = (res as any).data || [];
+  } catch (e) {
+    console.error("加载评论失败", e);
+    ElMessage.error("加载评论数据失败");
+  } finally {
+    reviewLoading.value = false;
+  }
+};
+
+const handleAddReview = () => {
+  resetReviewForm();
+  reviewFormTitle.value = "添加评论";
+  reviewForm.sort_order = reviewList.value.length + 1;
+  reviewFormDialogVisible.value = true;
+};
+
+const handleReviewImageSuccess = (res: any) => {
+  if (res.code === 200 && res.data?.url) {
+    if (!reviewForm.review_images) reviewForm.review_images = [];
+    reviewForm.review_images.push(res.data.url);
+  } else {
+    ElMessage.error("图片上传失败");
+  }
+};
+
+const removeReviewImage = (index: number) => {
+  reviewForm.review_images?.splice(index, 1);
+};
+
+const handleReviewVideoSuccess = (res: any) => {
+  if (res.code === 200 && res.data?.url) {
+    reviewForm.review_video = res.data.url;
+    ElMessage.success("视频上传成功");
+  } else {
+    ElMessage.error("视频上传失败");
+  }
+};
+
+const handleEditReview = (row: ProductReview) => {
+  resetReviewForm();
+  reviewFormTitle.value = "编辑评论";
+  editingReviewId.value = row.id!;
+  Object.assign(reviewForm, {
+    reviewer_name: row.reviewer_name,
+    reviewer_country: row.reviewer_country,
+    reviewer_country_flag: row.reviewer_country_flag,
+    rating: row.rating,
+    review_content: row.review_content,
+    review_images: row.review_images ? [...row.review_images] : [],
+    review_video: row.review_video || null,
+    purchased_spec: row.purchased_spec,
+    review_date: row.review_date,
+    is_verified: row.is_verified,
+    helpful_count: row.helpful_count,
+    seller_reply: row.seller_reply,
+    sort_order: row.sort_order,
+    status: row.status
+  });
+  reviewFormDialogVisible.value = true;
+};
+
+const handleDeleteReview = async (row: ProductReview) => {
+  if (!currentProduct.value) return;
+  try {
+    await ElMessageBox.confirm("确定删除该评论?", "提示", { type: "warning" });
+    await deleteProductReviewApi(currentProduct.value.id, row.id!);
+    ElMessage.success("删除成功");
+    await loadReviewData(currentProduct.value.id);
+  } catch (e: any) {
+    if (e !== "cancel") {
+      ElMessage.error("删除失败");
+    }
+  }
+};
+
+const submitReviewForm = async () => {
+  if (!currentProduct.value) return;
+  const formEl = reviewFormRef.value;
+  if (!formEl) return;
+  await formEl.validate(async (valid: boolean) => {
+    if (!valid) return;
+    reviewSubmitLoading.value = true;
+    try {
+      const payload = { ...reviewForm };
+      if (editingReviewId.value) {
+        await updateProductReviewApi(currentProduct.value!.id, editingReviewId.value, payload);
+        ElMessage.success("更新评论成功");
+      } else {
+        await createProductReviewApi(currentProduct.value!.id, payload);
+        ElMessage.success("添加评论成功");
+      }
+      reviewFormDialogVisible.value = false;
+      await loadReviewData(currentProduct.value!.id);
+    } catch (e) {
+      ElMessage.error("操作失败");
+    } finally {
+      reviewSubmitLoading.value = false;
+    }
+  });
+};
+// ==================== 评论管理结束 ====================
+
 // 编辑
 const handleEdit = (row: Product) => {
   dialogTitle.value = "编辑商品";
@@ -2415,8 +2763,8 @@ const beforeImageUpload = (file: File) => {
 };
 
 const handleImageUploadSuccess = (response: any, file: any) => {
-  // 处理后端返回的数据
-  if (response && response.success && response.data && response.data.url) {
+  // 处理后端返回的数据 - 检查 success 字段或 code === 200
+  if (response && (response.success || response.code === 200) && response.data && response.data.url) {
     form.image_urls.push(response.data.url);
 
     // 保存文件名用于删除时使用
@@ -2424,7 +2772,7 @@ const handleImageUploadSuccess = (response: any, file: any) => {
 
     ElMessage.success("图片上传成功");
   } else {
-    ElMessage.error("图片上传失败: " + (response.error || "未知错误"));
+    ElMessage.error("图片上传失败: " + (response.msg || response.error || "未知错误"));
   }
 };
 
@@ -3889,6 +4237,37 @@ onMounted(() => {
 }
 .dialog-footer {
   text-align: right;
+}
+
+/* 评论媒体上传样式 */
+.review-media-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.review-image-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.review-image-item {
+  position: relative;
+  display: inline-block;
+}
+.review-image-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  background: #f56c6c;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* SKU管理样式 */

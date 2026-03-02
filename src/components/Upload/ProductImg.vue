@@ -149,8 +149,8 @@ const beforeUpload: UploadProps["beforeUpload"] = rawFile => {
  * @param response 服务器响应
  */
 const uploadSuccess = (response: any) => {
-  // 处理后端返回的数据 - 与添加商品保持一致的数据格式
-  if (response && response.success && response.data && response.data.url) {
+  // 处理后端返回的数据 - 检查 success 字段或 code === 200
+  if (response && (response.success || response.code === 200) && response.data && response.data.url) {
     emit("update:imageUrl", response.data.url);
     emit("update:image-url", response.data.url);
     ElMessage.success("图片上传成功!");
@@ -158,7 +158,7 @@ const uploadSuccess = (response: any) => {
     // 调用 el-form 内部的校验方法（可自动校验）
     formItemContext?.prop && formContext?.validateField([formItemContext.prop as string]);
   } else {
-    ElMessage.error("图片上传失败: " + (response.error || "未知错误"));
+    ElMessage.error("图片上传失败: " + (response.msg || response.error || "未知错误"));
   }
 };
 
