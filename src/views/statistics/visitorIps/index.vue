@@ -51,6 +51,11 @@
             @keyup.enter="handleSearch"
           />
         </el-form-item>
+        <el-form-item label="国家">
+          <el-select v-model="searchForm.country" placeholder="请选择国家" clearable style="width: 150px">
+            <el-option v-for="c in countryOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -879,13 +884,53 @@ const currentVisitorIp = ref<VisitorIp | null>(null);
 // const timelineLoading = ref(false);
 // const currentTimeline = ref<UserBehaviorTimeline | null>(null);
 
+// 国家选项（与销售统计等页面保持一致）
+const countryOptions = [
+  { label: "日本", value: "JP" },
+  { label: "中国", value: "CN" },
+  { label: "英国", value: "GB" },
+  { label: "斯洛伐克", value: "SK" },
+  { label: "斯洛文尼亚", value: "SI" },
+  { label: "波兰", value: "PL" },
+  { label: "葡萄牙", value: "PT" },
+  { label: "匈牙利", value: "HU" },
+  { label: "西班牙", value: "ES" },
+  { label: "意大利", value: "IT" },
+  { label: "捷克", value: "CZ" },
+  { label: "立陶宛", value: "LT" },
+  { label: "拉脱维亚", value: "LV" },
+  { label: "克罗地亚", value: "HR" },
+  { label: "德国", value: "DE" },
+  { label: "奥地利", value: "AT" },
+  { label: "罗马尼亚", value: "RO" },
+  { label: "法国", value: "FR" },
+  { label: "比利时", value: "BE" },
+  { label: "荷兰", value: "NL" },
+  { label: "希腊", value: "GR" },
+  { label: "保加利亚", value: "BG" },
+  { label: "瑞典", value: "SE" },
+  { label: "芬兰", value: "FI" },
+  { label: "丹麦", value: "DK" },
+  { label: "挪威", value: "NO" },
+  { label: "爱尔兰", value: "IE" },
+  { label: "瑞士", value: "CH" },
+  { label: "爱沙尼亚", value: "EE" },
+  { label: "塞尔维亚", value: "RS" },
+  { label: "波黑", value: "BA" },
+  { label: "黑山", value: "ME" },
+  { label: "北马其顿", value: "MK" },
+  { label: "阿尔巴尼亚", value: "AL" },
+  { label: "美国", value: "US" }
+];
+
 // 搜索表单
 const searchForm = reactive({
   ip: "",
   timeRange: "today", // 默认今天
   visitorType: "",
   productId: "",
-  emParam: ""
+  emParam: "",
+  country: ""
 });
 
 // 商品选择相关
@@ -1204,6 +1249,7 @@ const handleReset = () => {
   Object.assign(searchForm, {
     ip: "",
     timeRange: "today", // 重置为默认今天
+    country: "",
     visitorType: "",
     productId: "",
     emParam: ""

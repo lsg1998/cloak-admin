@@ -77,6 +77,7 @@ export interface VisitorIpListParams {
   visitorType?: string;
   productId?: string;
   emParam?: string;
+  country?: string; // 国家代码筛选
 }
 
 export interface IpStatistics {
