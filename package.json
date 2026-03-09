@@ -21,6 +21,7 @@
   "scripts": {
     "dev": "vite",
     "serve": "vite",
+    "build": "vite build --mode production",
     "build:dev": "vue-tsc && vite build --mode development",
     "build:test": "vue-tsc && vite build --mode test",
     "build:pro": "vue-tsc && vite build --mode production",

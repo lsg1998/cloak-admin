@@ -5,14 +5,17 @@
       <el-col :xs="24" :sm="12" :md="6" v-for="stat in statsCards" :key="stat.key">
         <el-card class="stat-card" shadow="hover">
           <div class="stat-content">
-            <div class="stat-icon" :style="{ backgroundColor: stat.color }">
+            <div class="stat-icon" :style="{ backgroundColor: stat.color }" v-if="stat.icon">
               <el-icon :size="24">
                 <component :is="stat.icon" />
               </el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ stat.value }}</div>
+              <div class="stat-value" :class="{ 'trend-up': stat.trend === 'increase', 'trend-down': stat.trend === 'decrease' }">
+                {{ stat.value }}
+              </div>
               <div class="stat-label">{{ stat.label }}</div>
+              <div class="stat-sub" v-if="stat.subValue">{{ stat.subValue }}</div>
             </div>
           </div>
         </el-card>
@@ -94,7 +97,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick } from "vue";
 import { ElMessage } from "element-plus";
-import { ShoppingCart, Money, Clock, Check, ArrowRight } from "@element-plus/icons-vue";
+import { ShoppingCart, Money, Clock, Check, ArrowRight, Calendar, Top, Bottom } from "@element-plus/icons-vue";
 import * as echarts from "echarts";
 import {
   getOrderStatisticsApi,
@@ -129,6 +132,13 @@ const statsCards = reactive([
     color: "#409EFF"
   },
   {
+    key: "month",
+    label: "本月订单",
+    value: "0",
+    icon: Calendar,
+    color: "#909399"
+  },
+  {
     key: "amount",
     label: "总销售额",
     value: "€0",
@@ -148,6 +158,15 @@ const statsCards = reactive([
     value: "0",
     icon: Check,
     color: "#67C23A"
+  },
+  {
+    key: "compare",
+    label: "较昨日同时刻",
+    value: "-",
+    subValue: "",
+    trend: "" as "" | "increase" | "decrease",
+    icon: Top,
+    color: "#909399"
   }
 ]);
 
@@ -167,13 +186,35 @@ const getStatusText = (status: string) => {
 // 更新统计卡片数据
 const updateStatsCards = (data: OrderStatistics) => {
   statsCards[0].value = data.total_orders.toLocaleString();
+  statsCards[1].value = (data.month_orders ?? 0).toLocaleString();
 
   // 根据货币类型显示正确的符号
   const currencySymbol = getCurrencySymbol(data.currency);
-  statsCards[1].value = `${currencySymbol}${data.total_amount.toLocaleString()}`;
+  statsCards[2].value = `${currencySymbol}${data.total_amount.toLocaleString()}`;
 
-  statsCards[2].value = data.pending_orders.toLocaleString();
-  statsCards[3].value = data.completed_orders.toLocaleString();
+  statsCards[3].value = data.pending_orders.toLocaleString();
+  statsCards[4].value = data.completed_orders.toLocaleString();
+
+  // 环比昨日同时刻
+  const compareCard = statsCards[5];
+  const trend = data.order_change_trend ?? "increase";
+  const diff = data.order_change_diff ?? 0;
+  const percent = data.order_change_percent ?? 0;
+  const todaySame = data.today_orders_same_time ?? 0;
+  const yesterdaySame = data.yesterday_orders_same_time ?? 0;
+
+  compareCard.trend = trend;
+  compareCard.icon = trend === "increase" ? Top : Bottom;
+  compareCard.color = trend === "increase" ? "#67C23A" : "#F56C6C";
+  if (diff === 0) {
+    compareCard.value = "持平";
+    compareCard.subValue = `今日${todaySame}单 vs 昨日${yesterdaySame}单`;
+    compareCard.icon = Top;
+    compareCard.color = "#909399";
+  } else {
+    compareCard.value = trend === "increase" ? `增加 ${diff}` : `减少 ${diff}`;
+    compareCard.subValue = percent !== 0 ? `${trend === "increase" ? "+" : ""}${percent}%` : "";
+  }
 };
 
 // 获取货币符号
@@ -422,6 +463,20 @@ onMounted(async () => {
 .stat-label {
   font-size: 14px;
   color: #909399;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.stat-value.trend-up {
+  color: #67c23a;
+}
+
+.stat-value.trend-down {
+  color: #f56c6c;
 }
 
 /* 图表区域 */

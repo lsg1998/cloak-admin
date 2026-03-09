@@ -188,11 +188,18 @@ export interface OrderStatistics {
   // 基础统计
   total_orders: number;
   today_orders: number;
+  month_orders: number; // 本月订单数
   pending_orders: number;
   completed_orders: number;
   total_amount: number;
   today_amount: number;
   currency: string; // 主要货币类型
+  // 环比昨日同时刻
+  today_orders_same_time: number;
+  yesterday_orders_same_time: number;
+  order_change_trend: "increase" | "decrease"; // 环比趋势：增加/减少
+  order_change_diff: number; // 环比差值（绝对值）
+  order_change_percent: number; // 环比百分比
 
   // 趋势数据
   trend_data: {
