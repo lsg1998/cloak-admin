@@ -974,6 +974,11 @@
             <el-form-item label="SKU">
               <el-input v-model="exportConfig.lingxingSku" placeholder="请输入SKU" style="width: 300px" />
             </el-form-item>
+
+            <el-form-item label="填写省/州">
+              <el-checkbox v-model="exportConfig.lingxingIncludeState">填写省/州字段</el-checkbox>
+              <div class="form-tip">欧洲大多数国家用邮编+城市即可寻址，无需填写省/州</div>
+            </el-form-item>
           </template>
 
           <!-- 盈派专用配置 -->
@@ -1752,10 +1757,11 @@ const exportConfig = reactive({
   huaxiProductInfo: "焊枪套装",
   // 华熙-领星专用配置
   lingxingWarehouseCode: "ZXGJ001",
-  lingxingShippingService: "GLS-cod (GLS)",
-  lingxingCarrier: "GLS",
+  lingxingShippingService: "International",
+  lingxingCarrier: "DHL",
   lingxingStore: "",
   lingxingSku: "",
+  lingxingIncludeState: false,
   // 盈派专用配置
   yingpaiLogistics: "欧洲小包特货",
   yingpaiSku: "15000W",
@@ -1807,6 +1813,7 @@ const loadExportConfigFromCache = () => {
       if (config.lingxingCarrier !== undefined) exportConfig.lingxingCarrier = config.lingxingCarrier;
       if (config.lingxingStore !== undefined) exportConfig.lingxingStore = config.lingxingStore;
       if (config.lingxingSku !== undefined) exportConfig.lingxingSku = config.lingxingSku;
+      if (config.lingxingIncludeState !== undefined) exportConfig.lingxingIncludeState = config.lingxingIncludeState;
       // 盈派配置
       if (config.yingpaiLogistics !== undefined) exportConfig.yingpaiLogistics = config.yingpaiLogistics;
       if (config.yingpaiSku !== undefined) exportConfig.yingpaiSku = config.yingpaiSku;
@@ -1861,6 +1868,7 @@ const saveExportConfigToCache = () => {
       lingxingCarrier: exportConfig.lingxingCarrier,
       lingxingStore: exportConfig.lingxingStore,
       lingxingSku: exportConfig.lingxingSku,
+      lingxingIncludeState: exportConfig.lingxingIncludeState,
       // 盈派配置
       yingpaiLogistics: exportConfig.yingpaiLogistics,
       yingpaiSku: exportConfig.yingpaiSku,
@@ -4437,7 +4445,9 @@ const handleHuaxiLingxingExport = async () => {
       row.push("");
 
       // Shipping Service/物流渠道
-      row.push(exportConfig.lingxingShippingService || "");
+      // 物流渠道只取括号内的值，如 "GLS-cod (GLS)" → "GLS"
+      const shippingServiceMatch = exportConfig.lingxingShippingService?.match(/\(([^)]+)\)/);
+      row.push(shippingServiceMatch ? shippingServiceMatch[1] : exportConfig.lingxingShippingService || "");
 
       // Carrier/承运商
       row.push(exportConfig.lingxingCarrier || "");
@@ -4469,8 +4479,8 @@ const handleHuaxiLingxingExport = async () => {
       // Recipient Country/国家/地区简码 - 使用2位国家代码
       row.push(getCountryCode(order) || "");
 
-      // Recipient State/省/州
-      row.push(order.province || "");
+      // Recipient State/省/州 - 欧洲用邮编+城市寻址，可选是否填写
+      row.push(exportConfig.lingxingIncludeState ? order.province || "" : "");
 
       // Recipient City/城市
       row.push(order.city || "");
@@ -4487,8 +4497,10 @@ const handleHuaxiLingxingExport = async () => {
       // Recipient AddressLine2/地址2 - 留空
       row.push("");
 
-      // Remark/备注 - 留空
-      row.push("");
+      // Remark/备注 - COD PLN/[币种][金额]
+      const remarkAmount = order.total_amount || order.product_price * order.quantity || 0;
+      const remarkCurrency = order.currency || "EUR";
+      row.push(`COD PLN/${remarkCurrency}${remarkAmount}`);
 
       // SKU1/SKU1
       row.push(exportConfig.lingxingSku || "");
