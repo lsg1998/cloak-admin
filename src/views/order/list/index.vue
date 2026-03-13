@@ -954,12 +954,12 @@
 
             <el-form-item label="物流渠道">
               <el-select v-model="exportConfig.lingxingShippingService" style="width: 300px" @change="syncLingxingCarrier">
+                <el-option label="DHLcod-泛欧 (International)" value="DHLcod-泛欧 (International)" />
                 <el-option label="GLS-cod (GLS)" value="GLS-cod (GLS)" />
-                <el-option label="上传物流面单 (Upload_Shipping_Label)" value="Upload_Shipping_Label" />
-                <el-option label="无需物流服务 (No_Shipping_Service)" value="No_Shipping_Service" />
-                <el-option label="DHL本土cod (DHL-domestic)" value="DHL-domestic" />
-                <el-option label="DHLcod-泛欧 (International)" value="International" />
-                <el-option label="自提柜 (DHL-locker)" value="DHL-locker" />
+                <el-option label="DHL本土cod (DHL-domestic)" value="DHL本土cod (DHL-domestic)" />
+                <el-option label="自提柜 (DHL-locker)" value="自提柜 (DHL-locker)" />
+                <el-option label="上传物流面单 (Upload_Shipping_Label)" value="上传物流面单 (Upload_Shipping_Label)" />
+                <el-option label="无需物流服务 (No_Shipping_Service)" value="无需物流服务 (No_Shipping_Service)" />
               </el-select>
             </el-form-item>
 
@@ -1757,7 +1757,7 @@ const exportConfig = reactive({
   huaxiProductInfo: "焊枪套装",
   // 华熙-领星专用配置
   lingxingWarehouseCode: "ZXGJ001",
-  lingxingShippingService: "International",
+  lingxingShippingService: "DHLcod-泛欧 (International)",
   lingxingCarrier: "DHL",
   lingxingStore: "",
   lingxingSku: "",
@@ -4306,12 +4306,12 @@ const handleHuaxiExport = async () => {
 
 // 根据物流渠道自动同步承运商
 const lingxingCarrierMap: { [key: string]: string } = {
+  "DHLcod-泛欧 (International)": "DHL",
   "GLS-cod (GLS)": "GLS",
-  Upload_Shipping_Label: "",
-  No_Shipping_Service: "",
-  "DHL-domestic": "DHL",
-  International: "DHL",
-  "DHL-locker": "DHL"
+  "DHL本土cod (DHL-domestic)": "DHL",
+  "自提柜 (DHL-locker)": "DHL",
+  "上传物流面单 (Upload_Shipping_Label)": "",
+  "无需物流服务 (No_Shipping_Service)": ""
 };
 const syncLingxingCarrier = (val: string) => {
   exportConfig.lingxingCarrier = lingxingCarrierMap[val] ?? "";
@@ -4485,11 +4485,11 @@ const handleHuaxiLingxingExport = async () => {
       // Recipient City/城市
       row.push(order.city || "");
 
-      // Recipient Zip Code/邮编
-      row.push(order.postal_code || "");
+      // Recipient Zip Code/邮编 - 去除空格
+      row.push((order.postal_code || "").replace(/\s+/g, ""));
 
-      // Recipient House Number/门牌号 - 留空
-      row.push("");
+      // Recipient House Number/门牌号 - 系统无单独门牌号字段，使用完整地址
+      row.push(order.address || "");
 
       // Recipient AddressLine1/地址1
       row.push(order.address || "");
@@ -4497,10 +4497,10 @@ const handleHuaxiLingxingExport = async () => {
       // Recipient AddressLine2/地址2 - 留空
       row.push("");
 
-      // Remark/备注 - COD PLN/[币种][金额]
+      // Remark/备注 - COD [币种][金额]
       const remarkAmount = order.total_amount || order.product_price * order.quantity || 0;
       const remarkCurrency = order.currency || "EUR";
-      row.push(`COD PLN/${remarkCurrency}${remarkAmount}`);
+      row.push(`COD ${remarkCurrency}${remarkAmount}`);
 
       // SKU1/SKU1
       row.push(exportConfig.lingxingSku || "");
