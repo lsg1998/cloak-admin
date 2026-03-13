@@ -4464,8 +4464,8 @@ const handleHuaxiLingxingExport = async () => {
       // RecipientName/收件人
       row.push(order.customer_name || "");
 
-      // Recipient Phone/电话
-      row.push(order.phone || "");
+      // Recipient Phone/电话 - 去除空格
+      row.push((order.phone || "").replace(/\s+/g, ""));
 
       // Recipient Email/邮箱
       row.push(order.email || "");
