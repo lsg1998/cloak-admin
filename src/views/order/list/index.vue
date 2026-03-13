@@ -417,6 +417,7 @@
                     <el-dropdown-item command="kuasuoda">📦 跨速达(匈牙利)</el-dropdown-item>
                     <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
+                    <el-dropdown-item command="huaxi_lingxing">🚚 华熙-领星</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                     <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
                   </el-dropdown-menu>
@@ -447,6 +448,7 @@
                     <el-dropdown-item command="kuasuoda">📦 跨速达(匈牙利)</el-dropdown-item>
                     <el-dropdown-item command="kuasuoda_spain">📦 跨速达(西班牙)</el-dropdown-item>
                     <el-dropdown-item command="huaxi">🚚 华熙</el-dropdown-item>
+                    <el-dropdown-item command="huaxi_lingxing">🚚 华熙-领星</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                     <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
                   </el-dropdown-menu>
@@ -780,13 +782,15 @@
       :title="
         exportConfig.logisticsCompany === 'huaxi'
           ? '导出华熙订单'
-          : exportConfig.logisticsCompany === 'yingpai'
-            ? '导出盈派订单'
-            : exportConfig.logisticsCompany === 'shenghong'
-              ? '导出森鸿订单（奥地利）'
-              : exportConfig.logisticsCompany === 'kuasuoda_spain'
-                ? '导出跨速达订单（西班牙）'
-                : '导出跨速达订单（匈牙利）'
+          : exportConfig.logisticsCompany === 'huaxi_lingxing'
+            ? '导出华熙-领星订单'
+            : exportConfig.logisticsCompany === 'yingpai'
+              ? '导出盈派订单'
+              : exportConfig.logisticsCompany === 'shenghong'
+                ? '导出森鸿订单（奥地利）'
+                : exportConfig.logisticsCompany === 'kuasuoda_spain'
+                  ? '导出跨速达订单（西班牙）'
+                  : '导出跨速达订单（匈牙利）'
       "
       width="600px"
       :close-on-click-modal="false"
@@ -798,6 +802,7 @@
               <el-option label="跨速达（匈牙利发货）" value="kuasuoda" />
               <el-option label="跨速达（西班牙发货）" value="kuasuoda_spain" />
               <el-option label="华熙（波兰COD）" value="huaxi" />
+              <el-option label="华熙-领星（领星WMS）" value="huaxi_lingxing" />
               <el-option label="盈派" value="yingpai" />
               <el-option label="森鸿（奥地利WMS）" value="shenghong" />
             </el-select>
@@ -941,6 +946,36 @@
             </el-form-item>
           </template>
 
+          <!-- 华熙-领星专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'huaxi_lingxing'">
+            <el-form-item label="仓库代码">
+              <el-input v-model="exportConfig.lingxingWarehouseCode" placeholder="如：ZXGJ001" style="width: 300px" />
+            </el-form-item>
+
+            <el-form-item label="物流渠道">
+              <el-select v-model="exportConfig.lingxingShippingService" style="width: 300px" @change="syncLingxingCarrier">
+                <el-option label="GLS-cod (GLS)" value="GLS-cod (GLS)" />
+                <el-option label="上传物流面单 (Upload_Shipping_Label)" value="Upload_Shipping_Label" />
+                <el-option label="无需物流服务 (No_Shipping_Service)" value="No_Shipping_Service" />
+                <el-option label="DHL本土cod (DHL-domestic)" value="DHL-domestic" />
+                <el-option label="DHLcod-泛欧 (International)" value="International" />
+                <el-option label="自提柜 (DHL-locker)" value="DHL-locker" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="承运商">
+              <el-input v-model="exportConfig.lingxingCarrier" style="width: 300px" readonly />
+            </el-form-item>
+
+            <el-form-item label="店铺">
+              <el-input v-model="exportConfig.lingxingStore" placeholder="请输入店铺名称（可选）" style="width: 300px" />
+            </el-form-item>
+
+            <el-form-item label="SKU">
+              <el-input v-model="exportConfig.lingxingSku" placeholder="请输入SKU" style="width: 300px" />
+            </el-form-item>
+          </template>
+
           <!-- 盈派专用配置 -->
           <template v-if="exportConfig.logisticsCompany === 'yingpai'">
             <el-form-item v-if="exportConfig.yingpaiOrderType === 'forward'" label="退单单号" required>
@@ -1062,6 +1097,8 @@
                   ：将按照跨速达（西班牙发货）模板格式导出，仅PT/ES订单
                 </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">：将按照华熙（波兰COD）模板格式导出</span>
+                <!-- prettier-ignore -->
+                <span v-else-if="exportConfig.logisticsCompany === 'huaxi_lingxing'">：将按照华熙-领星（领星WMS）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">：将按照森鸿（奥地利WMS）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">：将按照盈派转寄订单模板格式导出</span>
@@ -1074,6 +1111,8 @@
                   将按照跨速达（西班牙发货）模板格式导出订单数据，仅PT/ES订单
                 </span>
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi'">将按照华熙（波兰COD）模板格式导出订单数据</span>
+                <!-- prettier-ignore -->
+                <span v-else-if="exportConfig.logisticsCompany === 'huaxi_lingxing'">将按照华熙-领星（领星WMS）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">将按照森鸿（奥地利WMS）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">将按照盈派转寄订单模板格式导出订单数据</span>
@@ -1711,6 +1750,12 @@ const exportConfig = reactive({
   huaxiCustomsName: "welding gun",
   huaxiChineseName: "焊枪",
   huaxiProductInfo: "焊枪套装",
+  // 华熙-领星专用配置
+  lingxingWarehouseCode: "ZXGJ001",
+  lingxingShippingService: "GLS-cod (GLS)",
+  lingxingCarrier: "GLS",
+  lingxingStore: "",
+  lingxingSku: "",
   // 盈派专用配置
   yingpaiLogistics: "欧洲小包特货",
   yingpaiSku: "15000W",
@@ -1756,6 +1801,12 @@ const loadExportConfigFromCache = () => {
       if (config.huaxiCustomsName) exportConfig.huaxiCustomsName = config.huaxiCustomsName;
       if (config.huaxiChineseName) exportConfig.huaxiChineseName = config.huaxiChineseName;
       if (config.huaxiProductInfo) exportConfig.huaxiProductInfo = config.huaxiProductInfo;
+      // 华熙-领星配置
+      if (config.lingxingWarehouseCode !== undefined) exportConfig.lingxingWarehouseCode = config.lingxingWarehouseCode;
+      if (config.lingxingShippingService !== undefined) exportConfig.lingxingShippingService = config.lingxingShippingService;
+      if (config.lingxingCarrier !== undefined) exportConfig.lingxingCarrier = config.lingxingCarrier;
+      if (config.lingxingStore !== undefined) exportConfig.lingxingStore = config.lingxingStore;
+      if (config.lingxingSku !== undefined) exportConfig.lingxingSku = config.lingxingSku;
       // 盈派配置
       if (config.yingpaiLogistics !== undefined) exportConfig.yingpaiLogistics = config.yingpaiLogistics;
       if (config.yingpaiSku !== undefined) exportConfig.yingpaiSku = config.yingpaiSku;
@@ -1804,6 +1855,12 @@ const saveExportConfigToCache = () => {
       huaxiCustomsName: exportConfig.huaxiCustomsName,
       huaxiChineseName: exportConfig.huaxiChineseName,
       huaxiProductInfo: exportConfig.huaxiProductInfo,
+      // 华熙-领星配置
+      lingxingWarehouseCode: exportConfig.lingxingWarehouseCode,
+      lingxingShippingService: exportConfig.lingxingShippingService,
+      lingxingCarrier: exportConfig.lingxingCarrier,
+      lingxingStore: exportConfig.lingxingStore,
+      lingxingSku: exportConfig.lingxingSku,
       // 盈派配置
       yingpaiLogistics: exportConfig.yingpaiLogistics,
       yingpaiSku: exportConfig.yingpaiSku,
@@ -2924,6 +2981,8 @@ const handleExportByCompany = async () => {
 
   if (exportConfig.logisticsCompany === "huaxi") {
     await handleHuaxiExport();
+  } else if (exportConfig.logisticsCompany === "huaxi_lingxing") {
+    await handleHuaxiLingxingExport();
   } else if (exportConfig.logisticsCompany === "yingpai") {
     if (exportConfig.yingpaiOrderType === "forward") {
       await handleYingpaiForwardExport();
@@ -4229,6 +4288,266 @@ const handleHuaxiExport = async () => {
       exportConfig.exportLimit = 100;
     }
     // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
+    }
+  }
+};
+
+// 根据物流渠道自动同步承运商
+const lingxingCarrierMap: { [key: string]: string } = {
+  "GLS-cod (GLS)": "GLS",
+  Upload_Shipping_Label: "",
+  No_Shipping_Service: "",
+  "DHL-domestic": "DHL",
+  International: "DHL",
+  "DHL-locker": "DHL"
+};
+const syncLingxingCarrier = (val: string) => {
+  exportConfig.lingxingCarrier = lingxingCarrierMap[val] ?? "";
+};
+
+// 华熙-领星导出 - 领星WMS小包出库单模板格式
+const handleHuaxiLingxingExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      orders = [singleOrderToExport.value];
+      console.log(`华熙-领星单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      orders = [...batchExportOrders.value];
+      console.log(`华熙-领星批量导出模式: 共 ${orders.length} 个订单`);
+    } else {
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
+      };
+
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      if (exportConfig.filterByCountry && !searchForm.country) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`华熙-领星导出：获取到 ${orders.length} 条订单数据`);
+
+    // 领星WMS小包出库单模板字段（43列）
+    const lingxingTemplateFields = [
+      "Warehouse Code/仓库代码",
+      "Sales Platform/销售平台",
+      "Store/店铺",
+      "Reference Number/参考单号",
+      "Platform Number/平台单号",
+      "Shipping Service/物流渠道",
+      "Carrier/承运商",
+      "Tracking No./物流跟踪号",
+      "Signature Type/签名服务类型",
+      "Insurance/保险金额",
+      "RecipientName/收件人",
+      "Recipient Phone/电话",
+      "Recipient Email/邮箱",
+      "Recipient Tax ID/收件人税号",
+      "Recipient Company/公司名称",
+      "Recipient Country/国家/地区简码",
+      "Recipient State/省/州",
+      "Recipient City/城市",
+      "Recipient Zip Code/邮编",
+      "Recipient House Number/门牌号",
+      "Recipient AddressLine1/地址1",
+      "Recipient AddressLine2/地址2",
+      "Remark/备注",
+      "SKU1/SKU1",
+      "Quantity1/出库数量1",
+      "SKU2/SKU2",
+      "Quantity2/出库数量2",
+      "SKU3/SKU3",
+      "Quantity3/出库数量3",
+      "SKU4/SKU4",
+      "Quantity4/出库数量4",
+      "SKU5/SKU5",
+      "Quantity5/出库数量5",
+      "SKU6/SKU6",
+      "Quantity6/出库数量6",
+      "SKU7/SKU7",
+      "Quantity7/出库数量7",
+      "SKU8/SKU8",
+      "Quantity8/出库数量8",
+      "SKU9/SKU9",
+      "Quantity9/出库数量9",
+      "SKU10/SKU10",
+      "Quantity10/出库数量10"
+    ];
+
+    const excelData: any[][] = [];
+    excelData.push(lingxingTemplateFields);
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      // Warehouse Code/仓库代码
+      row.push(exportConfig.lingxingWarehouseCode || "");
+
+      // Sales Platform/销售平台 - 固定Shopify
+      row.push("Shopify");
+
+      // Store/店铺
+      row.push(exportConfig.lingxingStore || "");
+
+      // Reference Number/参考单号 - 使用系统订单号
+      row.push(order.order_number || "");
+
+      // Platform Number/平台单号 - 留空
+      row.push("");
+
+      // Shipping Service/物流渠道
+      row.push(exportConfig.lingxingShippingService || "");
+
+      // Carrier/承运商
+      row.push(exportConfig.lingxingCarrier || "");
+
+      // Tracking No./物流跟踪号 - 留空
+      row.push("");
+
+      // Signature Type/签名服务类型 - 留空
+      row.push("");
+
+      // Insurance/保险金额 - 留空
+      row.push("");
+
+      // RecipientName/收件人
+      row.push(order.customer_name || "");
+
+      // Recipient Phone/电话
+      row.push(order.phone || "");
+
+      // Recipient Email/邮箱
+      row.push(order.email || "");
+
+      // Recipient Tax ID/收件人税号 - 留空
+      row.push("");
+
+      // Recipient Company/公司名称 - 留空
+      row.push("");
+
+      // Recipient Country/国家/地区简码 - 使用2位国家代码
+      row.push(getCountryCode(order) || "");
+
+      // Recipient State/省/州
+      row.push(order.province || "");
+
+      // Recipient City/城市
+      row.push(order.city || "");
+
+      // Recipient Zip Code/邮编
+      row.push(order.postal_code || "");
+
+      // Recipient House Number/门牌号 - 留空
+      row.push("");
+
+      // Recipient AddressLine1/地址1
+      row.push(order.address || "");
+
+      // Recipient AddressLine2/地址2 - 留空
+      row.push("");
+
+      // Remark/备注 - 留空
+      row.push("");
+
+      // SKU1/SKU1
+      row.push(exportConfig.lingxingSku || "");
+
+      // Quantity1/出库数量1
+      row.push(order.quantity || 1);
+
+      // SKU2~SKU10 及对应数量 - 全部留空
+      for (let i = 2; i <= 10; i++) {
+        row.push("");
+        row.push("");
+      }
+
+      excelData.push(row);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    const colWidths = lingxingTemplateFields.map(() => ({ wch: 20 }));
+    ws["!cols"] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, "小包出库单");
+
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `华熙领星发货订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为华熙-领星模板`);
+
+    saveExportConfigToCache();
+
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      exportConfig.exportLimit = 100;
+    }
     if (batchExportMode.value) {
       batchExportMode.value = false;
       batchExportOrders.value = [];
