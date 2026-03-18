@@ -104,6 +104,7 @@ export interface OrderListParams {
   start_date?: string;
   end_date?: string;
   country?: string;
+  ip?: string; // 按IP地址筛选
 }
 
 // 订单列表响应数据

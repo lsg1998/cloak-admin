@@ -637,7 +637,7 @@
     </el-dialog>
 
     <!-- IP详情对话框 -->
-    <el-dialog v-model="ipInfoDialogVisible" title="IP详细信息" width="800px" :close-on-click-modal="false" destroy-on-close>
+    <el-dialog v-model="ipInfoDialogVisible" title="IP详细信息" width="900px" :close-on-click-modal="false" destroy-on-close>
       <div v-loading="ipInfoLoading" class="ip-info-content">
         <!-- 推荐追踪信息 -->
         <el-alert
@@ -766,6 +766,44 @@
           </el-descriptions-item>
         </el-descriptions>
         <el-empty v-else description="暂无IP信息" />
+
+        <!-- 该IP下的订单列表 -->
+        <div v-if="ipOrders.length > 0" class="ip-orders-section" style="margin-top: 24px">
+          <div class="section-title" style="font-weight: 600; margin-bottom: 12px; font-size: 15px">
+            <el-icon><List /></el-icon>
+            该IP下的订单 (共 {{ ipOrders.length }} 个)
+          </div>
+          <el-table :data="ipOrders" border size="small" max-height="300">
+            <el-table-column label="订单号" prop="order_number" width="140" show-overflow-tooltip />
+            <el-table-column label="客户" min-width="100">
+              <template #default="{ row }">{{ row.customer_name }}</template>
+            </el-table-column>
+            <el-table-column label="商品" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.product_title || "--" }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="OrderStatusColors[row.status]" size="small">
+                  {{ OrderStatusLabels[row.status] || row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100">
+              <template #default="{ row }">
+                {{ row.total_amount || row.product_price * row.quantity }} {{ row.currency }}
+              </template>
+            </el-table-column>
+            <el-table-column label="下单时间" width="160">
+              <template #default="{ row }">{{ row.created_at }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="90" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="handleViewDetail(row)">查看详情</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <el-empty v-else-if="!ipInfoLoading && currentViewingIP" description="该IP暂无订单记录" style="margin-top: 16px" />
       </div>
 
       <template #footer>
@@ -1360,7 +1398,8 @@ import {
   Iphone,
   Location,
   CircleClose,
-  Star
+  Star,
+  List
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -1409,6 +1448,8 @@ const ipInfoDialogVisible = ref(false);
 const ipInfoLoading = ref(false);
 const currentIPInfo = ref<any>(null);
 const currentRecommendData = ref<any>(null);
+const ipOrders = ref<Order[]>([]); // 该IP下的订单列表
+const currentViewingIP = ref<string>(""); // 当前查看的IP
 
 // 单个订单导出相关
 const singleOrderExportMode = ref(false);
@@ -2145,10 +2186,14 @@ const handleViewIPInfo = async (ip: string) => {
     ipInfoDialogVisible.value = true;
     currentIPInfo.value = null;
     currentRecommendData.value = null;
+    ipOrders.value = [];
+    currentViewingIP.value = ip;
 
-    // 获取IP信息
-    const { data } = await getIPInfoApi(ip);
-    currentIPInfo.value = data;
+    // 并行获取IP信息和该IP下的订单
+    const [ipInfoRes, ordersRes] = await Promise.all([getIPInfoApi(ip), getOrderListApi({ ip, page: 1, size: 100 })]);
+
+    currentIPInfo.value = ipInfoRes.data;
+    ipOrders.value = ordersRes.data?.list ?? [];
 
     // 获取推荐追踪数据
     try {
@@ -5819,6 +5864,17 @@ onMounted(() => {
 /* 新增字段样式 */
 .ip-info {
   text-align: center;
+}
+.ip-orders-section {
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+}
+.ip-orders-section .section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .ip-address {
