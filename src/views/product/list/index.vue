@@ -360,7 +360,20 @@
                   删除
                 </el-button>
               </div>
-              <div v-if="row.template === 'shopline-drill'" class="action-row">
+              <div
+                v-if="
+                  [
+                    'shopline-drill',
+                    'shopline-pro',
+                    'shopline-health',
+                    'shopline-tool',
+                    'shopline-watch',
+                    'shopline-wildlife',
+                    'blood-glucose-meter'
+                  ].includes(row.template)
+                "
+                class="action-row"
+              >
                 <el-button size="small" type="primary" link @click="handleManageReviews(row)">
                   <el-icon><ChatDotSquare /></el-icon>
                   评论管理
@@ -1677,7 +1690,10 @@
     >
       <el-form ref="reviewFormRef" :model="reviewForm" :rules="reviewFormRules" label-width="100px">
         <el-form-item label="评论者姓名" prop="reviewer_name">
-          <el-input v-model="reviewForm.reviewer_name" placeholder="如: Milan K." />
+          <div style="display: flex; gap: 8px; width: 100%">
+            <el-input v-model="reviewForm.reviewer_name" placeholder="如: Milan K." />
+            <el-button :loading="reviewAiGenerating" @click="handleRandomizeReviewMeta">随机生成</el-button>
+          </div>
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="8">
@@ -2431,14 +2447,15 @@ const reviewFormDialogVisible = ref(false);
 const reviewFormTitle = ref("添加评论");
 const reviewLoading = ref(false);
 const reviewSubmitLoading = ref(false);
+const reviewAiGenerating = ref(false);
 const reviewList = ref<ProductReview[]>([]);
 const reviewFormRef = ref();
 const editingReviewId = ref<number | null>(null);
 
 const reviewForm = reactive<Partial<ProductReview>>({
   reviewer_name: "",
-  reviewer_country: "SK",
-  reviewer_country_flag: "🇸🇰",
+  reviewer_country: "",
+  reviewer_country_flag: "",
   rating: 5,
   review_content: "",
   review_images: [],
@@ -2462,11 +2479,170 @@ const reviewVideoUploadUrl = computed(() => {
   return `${baseURL}/admin/upload/video`;
 });
 
+const randomSpecFallbacks = ["标准款", "升级款", "大容量套装", "家庭装", "专业版", "基础版"];
+
+const randomInt = (min: number, max: number) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+function pickRandom<T>(list: T[]): T {
+  return list[randomInt(0, list.length - 1)];
+}
+
+const countryCodeToFlag = (countryCode?: string) => {
+  const code = (countryCode || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 2);
+  if (code.length !== 2) return "";
+  const [first, second] = code.split("");
+  return String.fromCodePoint(127397 + first.charCodeAt(0), 127397 + second.charCodeAt(0));
+};
+
+const normalizeCountryCode = (countryCode?: string) => {
+  return (countryCode || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 2);
+};
+
+const getRandomPurchasedSpec = () => {
+  const current = currentProduct.value as any;
+  const sourceList = current?.specificationList ?? current?.specification_list ?? [];
+  const specCandidates: string[] = [];
+
+  if (Array.isArray(sourceList)) {
+    sourceList.forEach((item: any) => {
+      if (typeof item?.sku_name === "string" && item.sku_name.trim()) {
+        specCandidates.push(item.sku_name.trim());
+      }
+      if (Array.isArray(item?.attributes) && item.attributes[0]?.value) {
+        const attrValue = String(item.attributes[0].value).trim();
+        if (attrValue) specCandidates.push(attrValue);
+      }
+    });
+  }
+
+  if (specCandidates.length > 0) return pickRandom(specCandidates);
+  return pickRandom(randomSpecFallbacks);
+};
+
+const generateRandomReviewMeta = () => {
+  reviewForm.reviewer_name = "";
+  reviewForm.purchased_spec = getRandomPurchasedSpec();
+  reviewForm.review_date = `${randomInt(2, 21)} days ago`;
+  reviewForm.helpful_count = randomInt(3, 89);
+};
+
+const ARK_API_URL = "https://ark.cn-beijing.volces.com/api/v3/responses";
+const ARK_MODEL = "doubao-seed-2-0-mini-260215";
+const ARK_API_KEY = "6215b24f-5fff-479c-b73e-ada092b21c70";
+const ARK_TIMEOUT_MS = 20000;
+
+const extractArkText = (payload: any) => {
+  if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text.trim();
+  }
+  if (Array.isArray(payload?.output)) {
+    for (const item of payload.output) {
+      if (!Array.isArray(item?.content)) continue;
+      for (const part of item.content) {
+        if (typeof part?.text === "string" && part.text.trim()) {
+          return part.text.trim();
+        }
+      }
+    }
+  }
+  return "";
+};
+
+const requestAiReviewerName = async (countryCode: string) => {
+  const productTitle = (currentProduct.value as any)?.title || "";
+  const purchasedSpec = String(reviewForm.purchased_spec || "");
+  const prompt = [
+    "你是电商评论助手。",
+    `请按国家代码 ${countryCode} 生成 1 个真实感强、符合该国家习惯的姓名。`,
+    "只返回姓名本身，不要解释，不要 JSON，不要多余符号。",
+    "格式示例: Milan K.",
+    productTitle ? `产品标题: ${productTitle}` : "",
+    purchasedSpec ? `购买规格: ${purchasedSpec}` : "",
+    "每个姓名控制在 3-24 字符。"
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ARK_TIMEOUT_MS);
+
+  const requestBody = {
+    model: ARK_MODEL,
+    input: [
+      {
+        role: "user",
+        content: [{ type: "input_text", text: prompt }]
+      }
+    ]
+  };
+
+  const sendRequest = async () => {
+    const response = await fetch(ARK_API_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${ARK_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
+    if (!response.ok) {
+      throw new Error(`ARK API请求失败: ${response.status}`);
+    }
+    return response.json();
+  };
+
+  let result: any;
+  try {
+    result = await sendRequest();
+    if (result?.status === "incomplete") {
+      // 某些情况下会先消耗在 reasoning，重试一次可拿到最终姓名
+      result = await sendRequest();
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  const name = extractArkText(result)
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
+  if (!name) {
+    throw new Error("AI未返回有效姓名");
+  }
+  return name;
+};
+
+const handleRandomizeReviewMeta = async () => {
+  generateRandomReviewMeta();
+  reviewAiGenerating.value = true;
+  try {
+    const countryCode = normalizeCountryCode(reviewForm.reviewer_country) || "SK";
+    reviewForm.reviewer_name = await requestAiReviewerName(countryCode);
+  } catch (error) {
+    reviewForm.reviewer_name = "";
+    ElMessage.error("AI姓名生成失败，请重试");
+    console.warn("AI姓名生成失败", error);
+  } finally {
+    reviewAiGenerating.value = false;
+  }
+};
+
 const resetReviewForm = () => {
   Object.assign(reviewForm, {
     reviewer_name: "",
-    reviewer_country: "SK",
-    reviewer_country_flag: "🇸🇰",
+    reviewer_country: "",
+    reviewer_country_flag: "",
     rating: 5,
     review_content: "",
     review_images: [],
@@ -2504,8 +2680,11 @@ const loadReviewData = async (productId: string) => {
 const handleAddReview = () => {
   resetReviewForm();
   reviewFormTitle.value = "添加评论";
+  const productCountry = normalizeCountryCode((currentProduct.value as any)?.country);
+  reviewForm.reviewer_country = productCountry || "SK";
   reviewForm.sort_order = reviewList.value.length + 1;
   reviewFormDialogVisible.value = true;
+  void handleRandomizeReviewMeta();
 };
 
 const handleReviewImageSuccess = (res: any) => {
@@ -2552,6 +2731,13 @@ const handleEditReview = (row: ProductReview) => {
   });
   reviewFormDialogVisible.value = true;
 };
+
+watch(
+  () => reviewForm.reviewer_country,
+  countryCode => {
+    reviewForm.reviewer_country_flag = countryCodeToFlag(countryCode || "");
+  }
+);
 
 const handleDeleteReview = async (row: ProductReview) => {
   if (!currentProduct.value) return;
