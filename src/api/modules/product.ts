@@ -17,6 +17,12 @@ export interface Product {
   b_page_product_id?: string; // 保留兼容性（旧格式）
   linked_original_ids?: string[]; // 新增：关联的正品ID数组
   country?: string;
+  company_name?: string;
+  company_tagline?: string;
+  company_address?: string;
+  company_email?: string;
+  company_phone?: string;
+  all_rights_reserved?: string;
   cloak_rule_id?: number;
   cloak_rule_name?: string;
   cloak_rule_mode?: string;
@@ -80,6 +86,12 @@ export interface CreateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  company_name?: string;
+  company_tagline?: string;
+  company_address?: string;
+  company_email?: string;
+  company_phone?: string;
+  all_rights_reserved?: string;
   cloak_rule_id?: number;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;
@@ -99,6 +111,12 @@ export interface UpdateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  company_name?: string;
+  company_tagline?: string;
+  company_address?: string;
+  company_email?: string;
+  company_phone?: string;
+  all_rights_reserved?: string;
   cloak_rule_id?: number;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;

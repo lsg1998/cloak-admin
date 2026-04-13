@@ -315,6 +315,18 @@
                     <el-icon><CircleClose /></el-icon>
                   </el-button>
                 </div>
+                <div class="fingerprint-info" v-if="row.fingerprint">
+                  <el-tag
+                    size="small"
+                    :type="isFingerprintDuplicate(row) ? 'danger' : 'warning'"
+                    style="cursor: pointer"
+                    :class="{ 'duplicate-fingerprint': isFingerprintDuplicate(row) }"
+                    :title="isFingerprintDuplicate(row) ? `相同指纹有 ${getFingerprintDuplicateCount(row)} 个其他订单` : ''"
+                    @click="handleViewFingerprintHistory(row)"
+                  >
+                    FP: {{ row.fingerprint }}
+                  </el-tag>
+                </div>
                 <div class="sk-info" v-if="row.product_template">
                   <el-tag size="small" type="primary">
                     {{ row.product_template }}
@@ -344,7 +356,7 @@
                   </el-tag>
                 </div>
               </div>
-              <div v-if="!row.ip_address && !row.from_url" class="no-data">--</div>
+              <div v-if="!row.ip_address && !row.fingerprint && !row.from_url" class="no-data">--</div>
             </div>
           </template>
         </el-table-column>
@@ -809,6 +821,68 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="ipInfoDialogVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 指纹历史订单对话框 -->
+    <el-dialog
+      v-model="fingerprintDialogVisible"
+      title="浏览器指纹历史订单"
+      width="900px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div v-loading="fingerprintLoading" class="ip-info-content">
+        <el-descriptions :column="1" border style="margin-bottom: 16px">
+          <el-descriptions-item label="指纹ID">
+            <el-tag type="warning">{{ currentViewingFingerprint || "--" }}</el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="fingerprintOrders.length > 0" class="ip-orders-section" style="margin-top: 24px">
+          <div class="section-title" style="font-weight: 600; margin-bottom: 12px; font-size: 15px">
+            <el-icon><List /></el-icon>
+            该指纹下的订单 (共 {{ fingerprintOrders.length }} 个)
+          </div>
+          <el-table :data="fingerprintOrders" border size="small" max-height="360">
+            <el-table-column label="订单号" prop="order_number" width="140" show-overflow-tooltip />
+            <el-table-column label="客户" min-width="100">
+              <template #default="{ row }">{{ row.customer_name }}</template>
+            </el-table-column>
+            <el-table-column label="电话" prop="phone" min-width="120" show-overflow-tooltip />
+            <el-table-column label="商品" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.product_title || "--" }}</template>
+            </el-table-column>
+            <el-table-column label="IP" prop="ip_address" width="140" show-overflow-tooltip />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="OrderStatusColors[row.status]" size="small">
+                  {{ OrderStatusLabels[row.status] || row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100">
+              <template #default="{ row }">
+                {{ row.total_amount || row.product_price * row.quantity }} {{ row.currency }}
+              </template>
+            </el-table-column>
+            <el-table-column label="下单时间" width="160">
+              <template #default="{ row }">{{ row.created_at }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="90" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="handleViewDetail(row)">查看详情</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <el-empty v-else-if="!fingerprintLoading && currentViewingFingerprint" description="该指纹暂无订单记录" />
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="fingerprintDialogVisible = false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -1412,6 +1486,7 @@ import {
   sendPickingNotificationEmailApi,
   sendShippedNotificationEmailApi,
   getIPInfoApi,
+  getOrderHistoryApi,
   exportOrderIPsUrl,
   exportCustomerMatchUrl,
   getOrderCountryStatsApi,
@@ -1450,6 +1525,10 @@ const currentIPInfo = ref<any>(null);
 const currentRecommendData = ref<any>(null);
 const ipOrders = ref<Order[]>([]); // 该IP下的订单列表
 const currentViewingIP = ref<string>(""); // 当前查看的IP
+const fingerprintDialogVisible = ref(false);
+const fingerprintLoading = ref(false);
+const currentViewingFingerprint = ref<string>("");
+const fingerprintOrders = ref<Order[]>([]);
 
 // 单个订单导出相关
 const singleOrderExportMode = ref(false);
@@ -2091,6 +2170,11 @@ const isIPDuplicate = (order: any) => {
   return order?.is_duplicate_ip === true || (order?.duplicate_ip_count ?? 0) > 0;
 };
 
+// 判断指纹是否重复（使用后端返回的标识）
+const isFingerprintDuplicate = (order: any) => {
+  return order?.is_duplicate_fingerprint === true || (order?.duplicate_fingerprint_count ?? 0) > 0;
+};
+
 // 判断邮箱是否重复（使用后端返回的标识，不管什么状态只要有重复就标记）
 const isEmailDuplicate = (order: any) => {
   return order?.is_duplicate_email === true || (order?.duplicate_email_count ?? 0) > 0;
@@ -2109,6 +2193,11 @@ const getEmailDuplicateCount = (order: any) => {
 // 获取IP重复次数
 const getIPDuplicateCount = (order: any) => {
   return order?.duplicate_ip_count ?? 0;
+};
+
+// 获取指纹重复次数
+const getFingerprintDuplicateCount = (order: any) => {
+  return order?.duplicate_fingerprint_count ?? 0;
 };
 
 // 验证邮箱格式
@@ -2209,6 +2298,36 @@ const handleViewIPInfo = async (ip: string) => {
     ipInfoDialogVisible.value = false;
   } finally {
     ipInfoLoading.value = false;
+  }
+};
+
+// 查看指纹历史订单
+const handleViewFingerprintHistory = async (row: Order) => {
+  const fingerprint = row.fingerprint?.trim();
+  if (!fingerprint) {
+    ElMessage.warning("该订单没有指纹ID");
+    return;
+  }
+
+  try {
+    fingerprintLoading.value = true;
+    fingerprintDialogVisible.value = true;
+    currentViewingFingerprint.value = fingerprint;
+    fingerprintOrders.value = [];
+
+    const { data } = await getOrderHistoryApi({
+      type: "fingerprint",
+      value: fingerprint,
+      exclude_order_id: row.id,
+      limit: 100
+    });
+
+    fingerprintOrders.value = data?.list ?? [];
+  } catch (error) {
+    ElMessage.error("获取指纹历史订单失败");
+    fingerprintDialogVisible.value = false;
+  } finally {
+    fingerprintLoading.value = false;
   }
 };
 
@@ -5717,6 +5836,10 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.ip-url-info .fingerprint-info {
+  flex-shrink: 0;
+}
+
 .ip-url-info .sk-info {
   flex-shrink: 0;
 }
@@ -5882,6 +6005,10 @@ onMounted(() => {
 }
 
 .duplicate-ip {
+  font-weight: 600 !important;
+}
+
+.duplicate-fingerprint {
   font-weight: 600 !important;
 }
 

@@ -67,6 +67,7 @@ export interface Order {
   from_url?: string;
   language_code?: string;
   ip_address?: string;
+  fingerprint?: string;
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
   shipped_email_sent?: boolean; // 是否已发送发货邮件
@@ -76,9 +77,11 @@ export interface Order {
   // 重复订单标识（基于全数据库统计）
   duplicate_phone_count?: number; // 相同手机号的其他订单数量
   duplicate_ip_count?: number; // 相同IP地址的其他订单数量
+  duplicate_fingerprint_count?: number; // 相同指纹的其他订单数量
   duplicate_email_count?: number; // 相同邮箱的其他订单数量
   is_duplicate_phone?: boolean; // 手机号是否重复
   is_duplicate_ip?: boolean; // IP地址是否重复
+  is_duplicate_fingerprint?: boolean; // 指纹是否重复
   is_duplicate_email?: boolean; // 邮箱是否重复
   // 关联商品信息
   product_title?: string;
@@ -105,6 +108,7 @@ export interface OrderListParams {
   end_date?: string;
   country?: string;
   ip?: string; // 按IP地址筛选
+  fingerprint?: string; // 按指纹筛选
 }
 
 // 订单列表响应数据
@@ -129,6 +133,27 @@ export const getOrderListApi = (params: OrderListParams = {}) => {
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
   );
   return http.get<OrderListResponse>("/admin/orders", filteredParams);
+};
+
+/**
+ * 查询某个标识对应的历史订单（IP/指纹）
+ */
+export interface OrderHistoryParams {
+  type: "ip" | "fingerprint";
+  value: string;
+  exclude_order_id?: number;
+  limit?: number;
+}
+
+export interface OrderHistoryResponse {
+  type: "ip" | "fingerprint";
+  value: string;
+  total: number;
+  list: Order[];
+}
+
+export const getOrderHistoryApi = (params: OrderHistoryParams) => {
+  return http.get<OrderHistoryResponse>("/admin/orders/history", params);
 };
 
 /**

@@ -14,6 +14,11 @@ export const uploadBase64Img = (params: { base64: string }) => {
   return http.post<Upload.ResFileUrl>("/admin/upload/base64", params);
 };
 
+// 通过图片URL转WebP并重新上传
+export const convertImageUrlToWebp = (params: { image_url: string }) => {
+  return http.post<Upload.ResFileUrl>("/admin/upload/image/convert-url", params, { cancel: false });
+};
+
 // 视频上传
 export const uploadVideo = (params: FormData) => {
   return http.post<Upload.ResFileUrl>("/admin/upload/video", params, { cancel: false });

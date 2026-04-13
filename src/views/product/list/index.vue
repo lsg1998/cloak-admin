@@ -257,10 +257,15 @@
               <div style="margin-bottom: 4px">
                 <el-tag v-if="row.template === 'shopline'" type="success" size="small">Shopline</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-pro'" type="primary" size="small">Shopline-Pro</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-binocular'" class="template-tag-binocular" size="small">
+                  Binocular
+                </el-tag>
                 <el-tag v-else-if="row.template === 'shopline-watch'" type="danger" size="small">Watch</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-tool'" type="warning" size="small">Tool</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-drill'" size="small" color="#1565c0">Drill</el-tag>
+                <el-tag v-else-if="row.template === 'stealth-optics'" size="small" color="#ff3e3e">Stealth</el-tag>
+                <el-tag v-else-if="row.template === 'stealth-optics---gen-7-thermal'" size="small" color="#ff3e3e">Gen-7</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -365,10 +370,13 @@
                   [
                     'shopline-drill',
                     'shopline-pro',
+                    'shopline-binocular',
                     'shopline-health',
                     'shopline-tool',
                     'shopline-watch',
                     'shopline-wildlife',
+                    'stealth-optics',
+                    'stealth-optics---gen-7-thermal',
                     'blood-glucose-meter'
                   ].includes(row.template)
                 "
@@ -594,6 +602,12 @@
                     <span>现代一站式 - 单页完整下单设计</span>
                   </div>
                 </el-option>
+                <el-option label="望远镜模板 (Shopline-Binocular)" value="shopline-binocular">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #1b4d3e; border-color: #1b4d3e; color: white" size="small">Binocular</el-tag>
+                    <span>望远镜专用 - 基于Shopline-Pro的一站式下单模板</span>
+                  </div>
+                </el-option>
                 <el-option label="奢华手表 (Shopline-Watch)" value="shopline-watch">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag type="danger" size="small">Watch</el-tag>
@@ -616,6 +630,18 @@
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag style="background-color: #2d5016; border-color: #2d5016; color: white" size="small">Wildlife</el-tag>
                     <span>野生动物相机 - 户外监控相机专属设计，森林绿配色</span>
+                  </div>
+                </el-option>
+                <el-option label="战术热成像 (Stealth-Optics)" value="stealth-optics">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #ff3e3e; border-color: #ff3e3e; color: white" size="small">Stealth</el-tag>
+                    <span>战术热成像/望远镜 - 深色硬核风格，红色强调</span>
+                  </div>
+                </el-option>
+                <el-option label="战术热成像 Gen-7 (Stealth-Optics-Gen7)" value="stealth-optics---gen-7-thermal">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #ff3e3e; border-color: #ff3e3e; color: white" size="small">Gen-7</el-tag>
+                    <span>战术热成像/望远镜 Gen-7 - 新版硬核 UI，保留 Shopline-Pro 全功能</span>
                   </div>
                 </el-option>
                 <el-option label="电钻/起子机 (Shopline-Drill)" value="shopline-drill">
@@ -644,9 +670,15 @@
                 <br />
                 <strong>Shopline-Pro:</strong> 🔥 现代一站式设计，与Shopline相同风格但表单在同页底部
                 <br />
+                <strong>Shopline-Binocular:</strong> 🔭 望远镜专用模板，当前基于 Shopline-Pro，可独立定制 UI
+                <br />
                 <strong>Shopline-Watch:</strong> ⌚ 高端手表专属模板，深蓝金色配色，奢华感设计
                 <br />
                 <strong>Shopline-Wildlife:</strong> 📸 野生动物相机专属模板，森林绿配色，户外专业感设计
+                <br />
+                <strong>Stealth-Optics:</strong> 🔭 战术望远镜/热成像专属模板，深色硬核风格，红色强调
+                <br />
+                <strong>Stealth-Optics-Gen7:</strong> 🔭 新版 Gen-7 战术望远镜 UI，继承 Shopline-Pro 一站式下单能力
                 <br />
                 <strong>Blood-Glucose-Meter:</strong> 🩺
                 血糖仪专属模板，医疗蓝配色，包含专业特性、使用说明、套装内容、安全提示等医疗产品必备模块
@@ -764,6 +796,44 @@
           </el-col>
         </el-row>
 
+        <!-- 公司信息页脚（按商品自定义） -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="公司名称" prop="company_name">
+              <el-input v-model="form.company_name" placeholder="留空则使用站点名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="公司标语" prop="company_tagline">
+              <el-input v-model="form.company_tagline" placeholder="留空则使用语言默认文案" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="公司地址" prop="company_address">
+              <el-input v-model="form.company_address" placeholder="留空则使用语言默认地址" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="公司邮箱" prop="company_email">
+              <el-input v-model="form.company_email" placeholder="留空则使用语言默认邮箱" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="公司电话" prop="company_phone">
+              <el-input v-model="form.company_phone" placeholder="留空则使用语言默认电话" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="版权文案" prop="all_rights_reserved">
+              <el-input v-model="form.all_rights_reserved" placeholder="留空则使用语言默认版权文案" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 商品图片 -->
         <el-form-item label="商品图片" prop="image_urls">
           <el-upload
@@ -793,6 +863,17 @@
               @update:value="handleWangEditorChange"
             />
             <div class="editor-controls">
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :loading="richTextWebpLoading"
+                @click="convertRichTextImagesToWebp"
+                title="将描述中的图片批量转换为WebP"
+              >
+                <el-icon><Picture /></el-icon>
+                一键瘦身(WebP)
+              </el-button>
               <el-button size="small" @click="toggleEditorSize" title="调整编辑器大小">
                 <el-icon><ScaleToOriginal v-if="isEditorFullscreen" /><FullScreen v-else /></el-icon>
                 {{ isEditorFullscreen ? "恢复" : "全屏编辑" }}
@@ -1887,6 +1968,7 @@ import {
 import http from "@/api";
 import WangEditor from "@/components/WangEditor/index.vue";
 import ProductImg from "@/components/Upload/ProductImg.vue";
+import { convertImageUrlToWebp, uploadBase64Img } from "@/api/modules/upload";
 
 // 响应式数据
 const loading = ref(false);
@@ -2071,7 +2153,13 @@ const form = reactive({
   country: "JA",
   template: "classic", // 模板类型：classic、shopline 或 standard
   page_primary_color: "#007d65", // 页面主要颜色
-  head_w_marquee: "" // 头部跑马灯内容
+  head_w_marquee: "", // 头部跑马灯内容
+  company_name: "", // 公司名称（页脚）
+  company_tagline: "", // 公司标语（页脚）
+  company_address: "", // 公司地址（页脚）
+  company_email: "", // 公司邮箱（页脚）
+  company_phone: "", // 公司电话（页脚）
+  all_rights_reserved: "" // 版权文案（页脚）
 });
 
 // 辅助输入字段
@@ -2150,6 +2238,7 @@ const sortDialogFullscreen = ref(false);
 
 // 富文本编辑器状态
 const isEditorFullscreen = ref(false);
+const richTextWebpLoading = ref(false);
 
 // 国家选项（基于language.php配置）
 const countryOptions = [
@@ -2373,7 +2462,16 @@ const handleAdd = () => {
     product_type: "original",
     b_page_product_id: "",
     cloak_rule_id: null, // 重置斗篷规则
-    country: "JA"
+    country: "JA",
+    template: "classic",
+    page_primary_color: "#007d65",
+    head_w_marquee: "",
+    company_name: "",
+    company_tagline: "",
+    company_address: "",
+    company_email: "",
+    company_phone: "",
+    all_rights_reserved: ""
   });
 
   // 重置相关状态
@@ -2805,7 +2903,13 @@ const handleEdit = (row: Product) => {
           : [],
     country: row.country || "JA",
     template: row.template || "classic", // 确保模板字段被正确设置
-    cloak_rule_id: row.cloak_rule_id || null // 确保斗篷规则ID被正确设置
+    cloak_rule_id: row.cloak_rule_id || null, // 确保斗篷规则ID被正确设置
+    company_name: row.company_name || "",
+    company_tagline: row.company_tagline || "",
+    company_address: row.company_address || "",
+    company_email: row.company_email || "",
+    company_phone: row.company_phone || "",
+    all_rights_reserved: row.all_rights_reserved || ""
   };
 
   console.log("处理后的编辑数据:", editData);
@@ -3006,6 +3110,83 @@ const clearRichTextContent = () => {
     form.rich_text_content = "";
     ElMessage.success("内容已清空");
   });
+};
+
+const isWebpImageUrl = (url: string) => {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes(".webp")) return true;
+  if (lowerUrl.includes("format=webp")) return true;
+  return false;
+};
+
+const convertSingleImageToWebp = async (src: string): Promise<string> => {
+  if (!src || isWebpImageUrl(src)) return src;
+
+  if (src.startsWith("data:image/")) {
+    const { data } = await uploadBase64Img({ base64: src });
+    return data?.url || data?.fileUrl || src;
+  }
+
+  if (!/^https?:\/\//i.test(src)) {
+    return src;
+  }
+
+  const { data } = await convertImageUrlToWebp({ image_url: src });
+  return data?.url || data?.fileUrl || src;
+};
+
+const convertRichTextImagesToWebp = async () => {
+  if (!form.rich_text_content) {
+    ElMessage.warning("商品描述为空，无需处理");
+    return;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(form.rich_text_content, "text/html");
+  const imgNodes = Array.from(doc.querySelectorAll("img[src]")) as HTMLImageElement[];
+
+  if (imgNodes.length === 0) {
+    ElMessage.warning("描述中没有图片");
+    return;
+  }
+
+  const uniqueSrcList = Array.from(new Set(imgNodes.map(img => (img.getAttribute("src") || "").trim()).filter(Boolean)));
+  const replacedMap = new Map<string, string>();
+  let successCount = 0;
+  let failCount = 0;
+
+  richTextWebpLoading.value = true;
+  try {
+    for (const src of uniqueSrcList) {
+      try {
+        const newUrl = await convertSingleImageToWebp(src);
+        replacedMap.set(src, newUrl);
+        if (newUrl !== src) successCount++;
+      } catch (error) {
+        replacedMap.set(src, src);
+        failCount++;
+        console.error("图片转换失败:", src, error);
+      }
+    }
+
+    imgNodes.forEach(img => {
+      const oldSrc = (img.getAttribute("src") || "").trim();
+      const newSrc = replacedMap.get(oldSrc);
+      if (newSrc) img.setAttribute("src", newSrc);
+    });
+
+    form.rich_text_content = doc.body.innerHTML;
+
+    if (successCount > 0) {
+      ElMessage.success(`转换完成：成功 ${successCount} 张，失败 ${failCount} 张`);
+    } else if (failCount > 0) {
+      ElMessage.warning(`未转换成功，失败 ${failCount} 张（可能是域名未在允许名单）`);
+    } else {
+      ElMessage.info("未发现可转换的图片");
+    }
+  } finally {
+    richTextWebpLoading.value = false;
+  }
 };
 
 // 加载数据
@@ -4239,6 +4420,12 @@ onMounted(() => {
 .action-row .el-button {
   min-width: auto;
   padding: 4px 8px;
+}
+
+.template-tag-binocular {
+  background-color: #1b4d3e;
+  border-color: #1b4d3e;
+  color: #fff;
 }
 
 /* 图片输入方式选择样式 */
