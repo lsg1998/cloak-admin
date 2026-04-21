@@ -264,6 +264,7 @@
                 <el-tag v-else-if="row.template === 'shopline-tool'" type="warning" size="small">Tool</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-drill'" size="small" color="#1565c0">Drill</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-massager'" size="small" color="#0f3d2e">Massager</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics'" size="small" color="#ff3e3e">Stealth</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics---gen-7-thermal'" size="small" color="#ff3e3e">Gen-7</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
@@ -375,6 +376,7 @@
                     'shopline-tool',
                     'shopline-watch',
                     'shopline-wildlife',
+                    'shopline-massager',
                     'stealth-optics',
                     'stealth-optics---gen-7-thermal',
                     'blood-glucose-meter'
@@ -650,6 +652,12 @@
                     <span>电钻/起子机 - 欧洲老年人电动工具专属设计，工业蓝配色</span>
                   </div>
                 </el-option>
+                <el-option label="按摩器/理疗 (Shopline-Massager)" value="shopline-massager">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #0f3d2e; border-color: #0f3d2e; color: white" size="small">Massager</el-tag>
+                    <span>按摩器/理疗 - SmoothSpine 风长页销售型，深绿+橙 CTA，含对比表/FAQ/90天保证</span>
+                  </div>
+                </el-option>
                 <el-option label="血糖仪 (Blood-Glucose-Meter)" value="blood-glucose-meter">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag style="background-color: #0066cc; border-color: #0066cc; color: white" size="small">Medical</el-tag>
@@ -682,6 +690,9 @@
                 <br />
                 <strong>Blood-Glucose-Meter:</strong> 🩺
                 血糖仪专属模板，医疗蓝配色，包含专业特性、使用说明、套装内容、安全提示等医疗产品必备模块
+                <br />
+                <strong>Shopline-Massager:</strong> 💆 按摩器/颈椎/理疗类专属模板，SmoothSpine 落地页风格，深绿配橙色
+                CTA，含客户引述横幅、免费赠品、对比表格、3 步使用、90 天无风险保证、FAQ、Newsletter 订阅
                 <br />
                 <strong>Standard:</strong> 新版标准模板，模块化架构，高性能，易通过Google审核
               </div>

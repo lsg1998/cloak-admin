@@ -1,1 +1,0 @@
-import{a5 as o}from"./index-BcXjuhNe.js";const s=a=>o.post("/admin/upload/image",a,{cancel:!1}),t=a=>o.post("/admin/upload/base64",a),n=a=>o.post("/admin/upload/image/convert-url",a,{cancel:!1}),l=a=>o.post("/admin/upload/video",a,{cancel:!1});export{l as a,t as b,n as c,s as u};
