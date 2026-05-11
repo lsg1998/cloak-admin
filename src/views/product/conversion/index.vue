@@ -107,6 +107,58 @@
         </div>
       </template>
       <el-table :data="statistics?.conversion_data || []" v-loading="loading" border>
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="domain-breakdown-wrapper">
+              <div class="domain-breakdown-title">
+                <el-icon><Link /></el-icon>
+                <span>{{ row.product_title }} · 按域名拆分</span>
+                <el-tag size="small" type="info" effect="plain">共 {{ row.domain_breakdown?.length || 0 }} 个域名</el-tag>
+              </div>
+              <el-table
+                :data="row.domain_breakdown || []"
+                size="small"
+                border
+                v-if="row.domain_breakdown && row.domain_breakdown.length > 0"
+              >
+                <el-table-column label="域名" min-width="220">
+                  <template #default="{ row: d }">
+                    <el-tag v-if="d.domain === '(unknown)'" type="info" size="small">未知来源</el-tag>
+                    <span v-else class="domain-text">{{ d.domain }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="访问人数" width="120" align="center">
+                  <template #default="{ row: d }">
+                    <span class="visitor-count">{{ formatNumber(d.visitor_count) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="下单人数" width="120" align="center">
+                  <template #default="{ row: d }">
+                    <span class="order-count">{{ formatNumber(d.order_count) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="订单数" width="100" align="center">
+                  <template #default="{ row: d }">
+                    <span>{{ d.total_orders }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="转化率" width="180">
+                  <template #default="{ row: d }">
+                    <div class="rate-cell">
+                      <el-progress
+                        :percentage="Math.min(d.conversion_rate, 100)"
+                        :stroke-width="10"
+                        :color="getProgressColor(d.conversion_rate)"
+                      />
+                      <span class="rate-text">{{ d.conversion_rate }}%</span>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-else description="暂无域名数据" :image-size="60" />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="排名" width="70" align="center">
           <template #default="{ $index }">
             <el-tag v-if="$index === 0" type="danger" size="small">{{ $index + 1 }}</el-tag>
@@ -172,7 +224,7 @@
 <script setup lang="ts" name="ConversionStatisticsPage">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-import { Search, Refresh, View, ShoppingCart, TrendCharts, Goods } from "@element-plus/icons-vue";
+import { Search, Refresh, View, ShoppingCart, TrendCharts, Goods, Link } from "@element-plus/icons-vue";
 import { getConversionStatisticsApi, type ConversionStatistics } from "@/api/modules/statistics";
 
 // 筛选表单
@@ -406,5 +458,27 @@ onMounted(() => {
 
 .no-country {
   color: #c0c4cc;
+}
+
+/* 域名拆分展开区域 */
+.domain-breakdown-wrapper {
+  padding: 12px 24px 16px;
+  background: #fafbfc;
+}
+
+.domain-breakdown-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.domain-text {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #1f2937;
 }
 </style>

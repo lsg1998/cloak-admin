@@ -185,6 +185,13 @@ export interface ConversionStatistics {
     order_count: number;
     total_orders: number;
     conversion_rate: number;
+    domain_breakdown: Array<{
+      domain: string; // 域名（host），(unknown) 表示无法识别
+      visitor_count: number;
+      order_count: number;
+      total_orders: number;
+      conversion_rate: number;
+    }>; // 按域名拆分的子数据
   }>; // 各商品转化数据
 }
 
