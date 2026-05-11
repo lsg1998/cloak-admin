@@ -432,6 +432,7 @@
                     <el-dropdown-item command="huaxi_lingxing">🚚 华熙-领星</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                     <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
+                    <el-dropdown-item command="ruitong">🛫 瑞通(欧洲COD)</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -463,6 +464,7 @@
                     <el-dropdown-item command="huaxi_lingxing">🚚 华熙-领星</el-dropdown-item>
                     <el-dropdown-item command="yingpai">✈️ 盈派</el-dropdown-item>
                     <el-dropdown-item command="shenghong">🌲 森鸿(奥地利)</el-dropdown-item>
+                    <el-dropdown-item command="ruitong">🛫 瑞通(欧洲COD)</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -900,9 +902,11 @@
               ? '导出盈派订单'
               : exportConfig.logisticsCompany === 'shenghong'
                 ? '导出森鸿订单（奥地利）'
-                : exportConfig.logisticsCompany === 'kuasuoda_spain'
-                  ? '导出跨速达订单（西班牙）'
-                  : '导出跨速达订单（匈牙利）'
+                : exportConfig.logisticsCompany === 'ruitong'
+                  ? '导出瑞通订单（欧洲COD）'
+                  : exportConfig.logisticsCompany === 'kuasuoda_spain'
+                    ? '导出跨速达订单（西班牙）'
+                    : '导出跨速达订单（匈牙利）'
       "
       width="600px"
       :close-on-click-modal="false"
@@ -917,6 +921,7 @@
               <el-option label="华熙-领星（领星WMS）" value="huaxi_lingxing" />
               <el-option label="盈派" value="yingpai" />
               <el-option label="森鸿（奥地利WMS）" value="shenghong" />
+              <el-option label="瑞通（欧洲COD小包）" value="ruitong" />
             </el-select>
           </el-form-item>
 
@@ -1202,6 +1207,65 @@
               <div class="form-tip">发货人税号号码（可选）</div>
             </el-form-item>
           </template>
+
+          <!-- 瑞通专用配置 -->
+          <template v-if="exportConfig.logisticsCompany === 'ruitong'">
+            <el-form-item label="运输方式">
+              <el-input
+                v-model="exportConfig.ruitongTransportMethod"
+                placeholder="如：1003奥地利专线COD-海外仓代发"
+                style="width: 300px"
+              />
+              <div class="form-tip">默认奥地利专线；导出时 DE 订单会自动改为「1003德国专线COD-海外仓代发」</div>
+            </el-form-item>
+
+            <el-form-item label="中文品名">
+              <el-input v-model="exportConfig.ruitongChineseName" placeholder="请输入中文品名（用于清关）" style="width: 300px" />
+              <div class="form-tip">中文品名，用于清关，尽量简短</div>
+            </el-form-item>
+
+            <el-form-item label="英文品名">
+              <el-input
+                v-model="exportConfig.ruitongEnglishName"
+                placeholder="请输入英文品名（海关报关品名）"
+                style="width: 300px"
+              />
+              <div class="form-tip">海关报关品名（英文），用于清关</div>
+            </el-form-item>
+
+            <el-form-item label="HS编码">
+              <el-input v-model="exportConfig.ruitongHsCode" placeholder="如：6402190090" style="width: 300px" />
+              <div class="form-tip">出口海关编码（10位数字）</div>
+            </el-form-item>
+
+            <el-form-item label="单重(KG)">
+              <el-input v-model="exportConfig.ruitongWeight" placeholder="请输入单重（默认KG）" style="width: 300px" />
+              <div class="form-tip">单件重量，单位 KG</div>
+            </el-form-item>
+
+            <el-form-item label="发货人税号">
+              <el-input v-model="exportConfig.ruitongShipperTaxNumber" placeholder="请输入发货人税号" style="width: 300px" />
+              <div class="form-tip">发货人税号（必填，模板要求）</div>
+            </el-form-item>
+
+            <el-form-item label="配货信息">
+              <el-input v-model="exportConfig.ruitongProductInfo" placeholder="请输入配货信息（可选）" style="width: 300px" />
+              <div class="form-tip">配货信息1，可选</div>
+            </el-form-item>
+
+            <el-form-item label="SKU">
+              <el-autocomplete
+                v-model="exportConfig.ruitongSku"
+                :fetch-suggestions="(queryString, cb) => cb(querySkuHistory(queryString, 'ruitong'))"
+                placeholder="请输入SKU或从历史记录中选择"
+                style="width: 300px"
+                clearable
+                @select="item => saveSkuToHistory(item.value, 'ruitong')"
+                @blur="() => exportConfig.ruitongSku && saveSkuToHistory(exportConfig.ruitongSku, 'ruitong')"
+              />
+              <div class="form-tip">用于附加到配货信息，可选</div>
+            </el-form-item>
+          </template>
         </el-form>
 
         <el-alert title="导出说明" type="info" show-icon :closable="false" style="margin-top: 20px">
@@ -1217,6 +1281,7 @@
                 <!-- prettier-ignore -->
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi_lingxing'">：将按照华熙-领星（领星WMS）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">：将按照森鸿（奥地利WMS）模板格式导出</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'ruitong'">：将按照瑞通（欧洲COD小包）模板格式导出</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">：将按照盈派转寄订单模板格式导出</span>
                   <span v-else>：将按照盈派批量上传模板格式导出</span>
@@ -1231,6 +1296,7 @@
                 <!-- prettier-ignore -->
                 <span v-else-if="exportConfig.logisticsCompany === 'huaxi_lingxing'">将按照华熙-领星（领星WMS）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'shenghong'">将按照森鸿（奥地利WMS）模板格式导出订单数据</span>
+                <span v-else-if="exportConfig.logisticsCompany === 'ruitong'">将按照瑞通（欧洲COD小包）模板格式导出订单数据</span>
                 <span v-else-if="exportConfig.logisticsCompany === 'yingpai'">
                   <span v-if="exportConfig.yingpaiOrderType === 'forward'">将按照盈派转寄订单模板格式导出订单数据</span>
                   <span v-else>将按照盈派批量上传模板格式导出订单数据</span>
@@ -1791,7 +1857,8 @@ const removeEmojiAndSpecialChars = (text: string): string => {
 const skuHistory = {
   kuasuoda: ref<string[]>([]), // 跨速达SKU历史
   yingpai: ref<string[]>([]), // 盈派SKU历史
-  shenghong: ref<string[]>([]) // 森鸿SKU历史
+  shenghong: ref<string[]>([]), // 森鸿SKU历史
+  ruitong: ref<string[]>([]) // 瑞通SKU历史
 };
 
 // 加载SKU历史记录
@@ -1809,13 +1876,17 @@ const loadSkuHistory = () => {
     if (shenghongHistory) {
       skuHistory.shenghong.value = JSON.parse(shenghongHistory);
     }
+    const ruitongHistory = localStorage.getItem("skuHistory_ruitong");
+    if (ruitongHistory) {
+      skuHistory.ruitong.value = JSON.parse(ruitongHistory);
+    }
   } catch (error) {
     console.error("加载SKU历史记录失败:", error);
   }
 };
 
 // 保存SKU到历史记录
-const saveSkuToHistory = (sku: string, type: "kuasuoda" | "yingpai" | "shenghong") => {
+const saveSkuToHistory = (sku: string, type: "kuasuoda" | "yingpai" | "shenghong" | "ruitong") => {
   if (!sku || !sku.trim()) return;
 
   const trimmedSku = sku.trim();
@@ -1844,7 +1915,7 @@ const saveSkuToHistory = (sku: string, type: "kuasuoda" | "yingpai" | "shenghong
 };
 
 // SKU自动完成查询函数
-const querySkuHistory = (queryString: string, type: "kuasuoda" | "yingpai" | "shenghong") => {
+const querySkuHistory = (queryString: string, type: "kuasuoda" | "yingpai" | "shenghong" | "ruitong") => {
   const history = skuHistory[type].value;
   if (!queryString) {
     return history.map(sku => ({ value: sku }));
@@ -1896,7 +1967,16 @@ const exportConfig = reactive({
   shenghongPaymentMethod: "PP", // 运费付款方式：PP/CA/CC
   shenghongWeight: "0.5", // 预报重量(KG)
   shenghongSku: "", // 客户SKU
-  shenghongTaxNumber: "" // 发货人税号
+  shenghongTaxNumber: "", // 发货人税号
+  // 瑞通专用配置
+  ruitongTransportMethod: "1003奥地利专线COD-海外仓代发", // 运输方式（默认奥地利；DE订单导出时自动改为德国专线）
+  ruitongChineseName: "", // 中文品名1
+  ruitongEnglishName: "", // 海关报关品名1（英文）
+  ruitongHsCode: "", // 出口海关编码
+  ruitongWeight: "0.5", // 单重(KG)
+  ruitongShipperTaxNumber: "", // 发货人税号
+  ruitongProductInfo: "", // 配货信息1
+  ruitongSku: "" // SKU（用于附加到配货信息）
 });
 
 // 从本地缓存加载导出配置
@@ -1950,6 +2030,15 @@ const loadExportConfigFromCache = () => {
       if (config.shenghongWeight !== undefined) exportConfig.shenghongWeight = config.shenghongWeight;
       if (config.shenghongSku !== undefined) exportConfig.shenghongSku = config.shenghongSku;
       if (config.shenghongTaxNumber !== undefined) exportConfig.shenghongTaxNumber = config.shenghongTaxNumber;
+      // 瑞通配置
+      if (config.ruitongTransportMethod !== undefined) exportConfig.ruitongTransportMethod = config.ruitongTransportMethod;
+      if (config.ruitongChineseName !== undefined) exportConfig.ruitongChineseName = config.ruitongChineseName;
+      if (config.ruitongEnglishName !== undefined) exportConfig.ruitongEnglishName = config.ruitongEnglishName;
+      if (config.ruitongHsCode !== undefined) exportConfig.ruitongHsCode = config.ruitongHsCode;
+      if (config.ruitongWeight !== undefined) exportConfig.ruitongWeight = config.ruitongWeight;
+      if (config.ruitongShipperTaxNumber !== undefined) exportConfig.ruitongShipperTaxNumber = config.ruitongShipperTaxNumber;
+      if (config.ruitongProductInfo !== undefined) exportConfig.ruitongProductInfo = config.ruitongProductInfo;
+      if (config.ruitongSku !== undefined) exportConfig.ruitongSku = config.ruitongSku;
     }
   } catch (error) {
     console.error("加载导出配置失败:", error);
@@ -2003,7 +2092,16 @@ const saveExportConfigToCache = () => {
       shenghongPaymentMethod: exportConfig.shenghongPaymentMethod,
       shenghongWeight: exportConfig.shenghongWeight,
       shenghongSku: exportConfig.shenghongSku,
-      shenghongTaxNumber: exportConfig.shenghongTaxNumber
+      shenghongTaxNumber: exportConfig.shenghongTaxNumber,
+      // 瑞通配置
+      ruitongTransportMethod: exportConfig.ruitongTransportMethod,
+      ruitongChineseName: exportConfig.ruitongChineseName,
+      ruitongEnglishName: exportConfig.ruitongEnglishName,
+      ruitongHsCode: exportConfig.ruitongHsCode,
+      ruitongWeight: exportConfig.ruitongWeight,
+      ruitongShipperTaxNumber: exportConfig.ruitongShipperTaxNumber,
+      ruitongProductInfo: exportConfig.ruitongProductInfo,
+      ruitongSku: exportConfig.ruitongSku
     };
 
     localStorage.setItem("hungaryExportConfig", JSON.stringify(configToSave));
@@ -3170,6 +3268,29 @@ const handleExportByCompany = async () => {
     // 保存森鸿SKU到历史记录
     if (exportConfig.shenghongSku) {
       saveSkuToHistory(exportConfig.shenghongSku, "shenghong");
+    }
+  } else if (exportConfig.logisticsCompany === "ruitong") {
+    // 瑞通必填校验
+    if (!exportConfig.ruitongShipperTaxNumber || !exportConfig.ruitongShipperTaxNumber.trim()) {
+      ElMessage.error("瑞通模板要求填写发货人税号");
+      return;
+    }
+    if (!exportConfig.ruitongChineseName || !exportConfig.ruitongChineseName.trim()) {
+      ElMessage.error("请填写中文品名");
+      return;
+    }
+    if (!exportConfig.ruitongEnglishName || !exportConfig.ruitongEnglishName.trim()) {
+      ElMessage.error("请填写英文品名（海关报关品名）");
+      return;
+    }
+    if (!exportConfig.ruitongHsCode || !String(exportConfig.ruitongHsCode).trim()) {
+      ElMessage.error("请填写出口海关编码（HS编码）");
+      return;
+    }
+    await handleRuitongExport();
+    // 保存瑞通SKU到历史记录
+    if (exportConfig.ruitongSku) {
+      saveSkuToHistory(exportConfig.ruitongSku, "ruitong");
     }
   } else if (exportConfig.logisticsCompany === "kuasuoda_spain") {
     await handleKuasuodaSpainExport();
@@ -5302,6 +5423,235 @@ const handleShenghongExport = async () => {
       exportConfig.exportLimit = 100;
     }
     // 重置批量导出模式
+    if (batchExportMode.value) {
+      batchExportMode.value = false;
+      batchExportOrders.value = [];
+      selectedOrders.value = [];
+    }
+  }
+};
+
+// 瑞通（欧洲COD小包）模板导出
+const handleRuitongExport = async () => {
+  exportLoading.value = true;
+  try {
+    let orders: Order[] = [];
+
+    // 检查是否是单个订单导出模式
+    if (singleOrderExportMode.value && singleOrderToExport.value) {
+      orders = [singleOrderToExport.value];
+      console.log(`瑞通单个订单导出模式: ${orders[0].order_number}`);
+    } else if (batchExportMode.value && batchExportOrders.value.length > 0) {
+      orders = [...batchExportOrders.value];
+      console.log(`瑞通批量导出模式: 共 ${orders.length} 个订单`);
+    } else {
+      const exportLimit = exportConfig.exportLimit || 100;
+      const params: OrderListParams = {
+        page: 1,
+        size: exportLimit,
+        order_number: searchForm.order_number || undefined,
+        customer_name: searchForm.customer_name || undefined,
+        phone: searchForm.phone || undefined,
+        status: (searchForm.status as OrderStatus) || undefined,
+        start_date: searchForm.start_date || undefined,
+        end_date: searchForm.end_date || undefined,
+        product_id: searchForm.product_id || undefined,
+        country: searchForm.country || undefined
+      };
+
+      if (exportConfig.onlyUnshipped) {
+        params.status = undefined;
+      }
+
+      const { data } = await getOrderListApi(params);
+      orders = data.list;
+
+      if (exportConfig.onlyUnshipped) {
+        orders = orders.filter(order => {
+          return (
+            order.status === OrderStatus.PENDING ||
+            order.status === OrderStatus.CONFIRMED ||
+            order.status === OrderStatus.PROCESSING
+          );
+        });
+      }
+
+      if (exportConfig.filterByCountry && !searchForm.country) {
+        orders = orders.filter(order => {
+          const countryCode = getCountryCode(order);
+          return countryCode === exportConfig.selectedCountry;
+        });
+      }
+    }
+
+    if (!orders || orders.length === 0) {
+      ElMessage.warning("没有找到符合条件的订单数据");
+      return;
+    }
+
+    console.log(`瑞通导出：获取到 ${orders.length} 条订单数据`);
+
+    // 瑞通欧洲COD小包模板字段（30列）
+    const ruitongTemplateFields = [
+      "运输方式",
+      "客户订单号",
+      "转单号",
+      "目的国家",
+      "包裹类型：文件或包裹",
+      "件数",
+      "单重",
+      "发货人税号",
+      "收件人税号",
+      "收件人姓名",
+      "收件人州省",
+      "收件人城市",
+      "收件人区",
+      "街道号",
+      "门牌号",
+      "护照号",
+      "收件人地址",
+      "收件人电话",
+      "收件人邮编",
+      "收件人邮箱",
+      "海关报关品名1",
+      "中文品名1",
+      "出口海关编码",
+      "申报币种",
+      "申报品数量1",
+      "申报价值1",
+      "配货信息1",
+      "代收货款",
+      "代收币种",
+      "备注"
+    ];
+
+    const excelData: any[][] = [];
+    excelData.push(ruitongTemplateFields);
+
+    // 配货信息：基础配货信息 + 可选 SKU
+    const productInfoCombined = [exportConfig.ruitongProductInfo, exportConfig.ruitongSku ? `SKU:${exportConfig.ruitongSku}` : ""]
+      .filter(s => s && String(s).trim())
+      .join(" ");
+
+    orders.forEach(order => {
+      const row: any[] = [];
+
+      const quantity = order.quantity || 1;
+      const unitPrice = order.product_price || (order.total_amount && quantity ? Number(order.total_amount) / quantity : 0);
+      const currency = order.currency || "EUR";
+      const countryCode = getCountryCode(order);
+
+      // 1. 运输方式（DE订单走德国专线，其余走配置的默认值（默认奥地利专线））
+      const transportMethod =
+        countryCode === "DE"
+          ? "1003德国专线COD-海外仓代发"
+          : exportConfig.ruitongTransportMethod || "1003奥地利专线COD-海外仓代发";
+      row.push(transportMethod);
+      // 2. 客户订单号
+      row.push(order.order_number || "");
+      // 3. 转单号
+      row.push("");
+      // 4. 目的国家（二字码）
+      row.push(countryCode);
+      // 5. 包裹类型
+      row.push("包裹");
+      // 6. 件数
+      row.push(quantity);
+      // 7. 单重(KG)
+      row.push(exportConfig.ruitongWeight || "");
+      // 8. 发货人税号
+      row.push(exportConfig.ruitongShipperTaxNumber || "");
+      // 9. 收件人税号
+      row.push("");
+      // 10. 收件人姓名
+      row.push(order.customer_name || "");
+      // 11. 收件人州省
+      row.push(order.province || "");
+      // 12. 收件人城市
+      row.push(order.city || "");
+      // 13. 收件人区
+      row.push(order.district || "");
+      // 14. 街道号
+      row.push("");
+      // 15. 门牌号
+      row.push("");
+      // 16. 护照号
+      row.push("");
+      // 17. 收件人地址
+      row.push(order.address || "");
+      // 18. 收件人电话
+      row.push(order.phone || "");
+      // 19. 收件人邮编
+      row.push(order.postal_code || "");
+      // 20. 收件人邮箱
+      row.push(order.email || "");
+      // 21. 海关报关品名1（英文）
+      row.push(exportConfig.ruitongEnglishName || "");
+      // 22. 中文品名1
+      row.push(exportConfig.ruitongChineseName || "");
+      // 23. 出口海关编码
+      row.push(exportConfig.ruitongHsCode || "");
+      // 24. 申报币种
+      row.push(currency);
+      // 25. 申报品数量1
+      row.push(quantity);
+      // 26. 申报价值1（单价）
+      row.push(unitPrice || 0);
+      // 27. 配货信息1
+      row.push(productInfoCombined);
+      // 28. 代收货款（订单总金额）
+      row.push(order.total_amount || unitPrice * quantity || 0);
+      // 29. 代收币种
+      row.push(currency);
+      // 30. 备注
+      row.push("");
+
+      excelData.push(row);
+    });
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    const colWidths = ruitongTemplateFields.map(() => ({ wch: 15 }));
+    ws["!cols"] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, "瑞通欧洲COD小包");
+
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `瑞通欧洲COD小包订单_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success(`导出成功！共导出 ${orders.length} 条订单数据，格式为瑞通模板`);
+
+    saveExportConfigToCache();
+
+    if (exportConfig.updateShippedStatus || exportConfig.sendShippedEmail) {
+      setTimeout(() => {
+        handlePostExportActions(orders);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error("导出失败：" + (error as Error).message);
+  } finally {
+    exportLoading.value = false;
+    if (singleOrderExportMode.value) {
+      singleOrderExportMode.value = false;
+      singleOrderToExport.value = null;
+      singleOrderLogisticsCompany.value = "";
+      exportConfig.exportLimit = 100;
+    }
     if (batchExportMode.value) {
       batchExportMode.value = false;
       batchExportOrders.value = [];
