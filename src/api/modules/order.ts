@@ -136,17 +136,17 @@ export const getOrderListApi = (params: OrderListParams = {}) => {
 };
 
 /**
- * 查询某个标识对应的历史订单（IP/指纹）
+ * 查询某个标识对应的历史订单（IP/指纹/手机号）
  */
 export interface OrderHistoryParams {
-  type: "ip" | "fingerprint";
+  type: "ip" | "fingerprint" | "phone";
   value: string;
   exclude_order_id?: number;
   limit?: number;
 }
 
 export interface OrderHistoryResponse {
-  type: "ip" | "fingerprint";
+  type: "ip" | "fingerprint" | "phone";
   value: string;
   total: number;
   list: Order[];

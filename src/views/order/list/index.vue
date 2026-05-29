@@ -186,11 +186,18 @@
             <div class="customer-info">
               <div class="customer-name">{{ row.customer_name }}</div>
               <div class="customer-phone" :class="{ 'duplicate-phone': isPhoneDuplicate(row) }">
-                {{ row.phone }}
+                <span
+                  :style="isPhoneDuplicate(row) ? 'cursor: pointer; text-decoration: underline' : ''"
+                  @click="isPhoneDuplicate(row) && handleViewPhoneHistory(row)"
+                >
+                  {{ row.phone }}
+                </span>
                 <span
                   v-if="isPhoneDuplicate(row)"
                   class="duplicate-badge"
-                  :title="`相同手机号有 ${getPhoneDuplicateCount(row)} 个其他订单`"
+                  style="cursor: pointer"
+                  :title="`相同手机号有 ${getPhoneDuplicateCount(row)} 个其他订单，点击查看`"
+                  @click="handleViewPhoneHistory(row)"
                 >
                   (重复{{ getPhoneDuplicateCount(row) }})
                 </span>
@@ -885,6 +892,68 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="fingerprintDialogVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 手机号历史订单对话框 -->
+    <el-dialog
+      v-model="phoneDialogVisible"
+      title="相同手机号历史订单"
+      width="900px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div v-loading="phoneLoading" class="ip-info-content">
+        <el-descriptions :column="1" border style="margin-bottom: 16px">
+          <el-descriptions-item label="手机号">
+            <el-tag type="danger">{{ currentViewingPhone || "--" }}</el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="phoneOrders.length > 0" class="ip-orders-section" style="margin-top: 24px">
+          <div class="section-title" style="font-weight: 600; margin-bottom: 12px; font-size: 15px">
+            <el-icon><List /></el-icon>
+            该手机号下的订单 (共 {{ phoneOrders.length }} 个)
+          </div>
+          <el-table :data="phoneOrders" border size="small" max-height="360">
+            <el-table-column label="订单号" prop="order_number" width="140" show-overflow-tooltip />
+            <el-table-column label="客户" min-width="100">
+              <template #default="{ row }">{{ row.customer_name }}</template>
+            </el-table-column>
+            <el-table-column label="电话" prop="phone" min-width="120" show-overflow-tooltip />
+            <el-table-column label="商品" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.product_title || "--" }}</template>
+            </el-table-column>
+            <el-table-column label="IP" prop="ip_address" width="140" show-overflow-tooltip />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="OrderStatusColors[row.status]" size="small">
+                  {{ OrderStatusLabels[row.status] || row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100">
+              <template #default="{ row }">
+                {{ row.total_amount || row.product_price * row.quantity }} {{ row.currency }}
+              </template>
+            </el-table-column>
+            <el-table-column label="下单时间" width="160">
+              <template #default="{ row }">{{ row.created_at }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="90" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="handleViewDetail(row)">查看详情</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <el-empty v-else-if="!phoneLoading && currentViewingPhone" description="该手机号暂无订单记录" />
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="phoneDialogVisible = false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -1595,6 +1664,10 @@ const fingerprintDialogVisible = ref(false);
 const fingerprintLoading = ref(false);
 const currentViewingFingerprint = ref<string>("");
 const fingerprintOrders = ref<Order[]>([]);
+const phoneDialogVisible = ref(false);
+const phoneLoading = ref(false);
+const currentViewingPhone = ref<string>("");
+const phoneOrders = ref<Order[]>([]);
 
 // 单个订单导出相关
 const singleOrderExportMode = ref(false);
@@ -2426,6 +2499,36 @@ const handleViewFingerprintHistory = async (row: Order) => {
     fingerprintDialogVisible.value = false;
   } finally {
     fingerprintLoading.value = false;
+  }
+};
+
+// 查看手机号历史订单
+const handleViewPhoneHistory = async (row: Order) => {
+  const phone = row.phone?.trim();
+  if (!phone) {
+    ElMessage.warning("该订单没有手机号");
+    return;
+  }
+
+  try {
+    phoneLoading.value = true;
+    phoneDialogVisible.value = true;
+    currentViewingPhone.value = phone;
+    phoneOrders.value = [];
+
+    const { data } = await getOrderHistoryApi({
+      type: "phone",
+      value: phone,
+      exclude_order_id: row.id,
+      limit: 100
+    });
+
+    phoneOrders.value = data?.list ?? [];
+  } catch (error) {
+    ElMessage.error("获取手机号历史订单失败");
+    phoneDialogVisible.value = false;
+  } finally {
+    phoneLoading.value = false;
   }
 };
 
