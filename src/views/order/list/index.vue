@@ -322,6 +322,11 @@
                     <el-icon><CircleClose /></el-icon>
                   </el-button>
                 </div>
+                <!-- 该IP访问次数 + 首次访问时间 -->
+                <div class="ip-visit-info" v-if="row.ip_visit_count">
+                  <el-tag size="small" type="warning" effect="plain">访问 {{ row.ip_visit_count }} 次</el-tag>
+                  <span v-if="row.ip_first_visit" class="first-visit-time">首访 {{ row.ip_first_visit }}</span>
+                </div>
                 <div class="fingerprint-info" v-if="row.fingerprint">
                   <el-tag
                     size="small"
@@ -6287,6 +6292,19 @@ onMounted(() => {
 
 .ip-url-info .ip-address {
   flex-shrink: 0;
+}
+
+.ip-url-info .ip-visit-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ip-url-info .first-visit-time {
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
 }
 
 .ip-url-info .fingerprint-info {

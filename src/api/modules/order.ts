@@ -67,6 +67,8 @@ export interface Order {
   from_url?: string;
   language_code?: string;
   ip_address?: string;
+  ip_visit_count?: number; // 该IP的历史访问次数（来自 visitor_ips）
+  ip_first_visit?: string; // 该IP的首次访问时间（来自 visitor_ips）
   fingerprint?: string;
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
