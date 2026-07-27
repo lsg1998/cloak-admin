@@ -299,8 +299,9 @@
         <el-table-column label="IP/来源" min-width="300" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="ip-url-info">
-              <div class="ip-sk-row" v-if="row.ip_address">
-                <div class="ip-address">
+              <div class="ip-info-block" v-if="row.ip_address">
+                <!-- 第1行：IP + 拉黑 + 国家 -->
+                <div class="ip-line">
                   <el-tag
                     size="small"
                     :type="isIPDuplicate(row) ? 'danger' : 'info'"
@@ -315,20 +316,27 @@
                     size="small"
                     type="danger"
                     link
-                    style="margin-left: 4px"
                     @click="handleBlacklistIP(row)"
                     title="拉黑此IP，该IP只能看到仿品页面"
                   >
                     <el-icon><CircleClose /></el-icon>
                   </el-button>
+                  <el-tag size="small" type="success" v-if="row.language_code">
+                    {{ countryCodeMap[row.language_code.toUpperCase()] || row.language_code }}
+                  </el-tag>
+                  <el-tag size="small" type="success" v-else-if="row.province && provinceToCountryMap[row.province]">
+                    {{ countryCodeMap[provinceToCountryMap[row.province]] }}
+                  </el-tag>
                 </div>
-                <!-- 该IP访问次数 + 首次访问时间 -->
-                <div class="ip-visit-info" v-if="row.ip_visit_count">
+                <!-- 第2行：访问次数 + 首次访问 -->
+                <div class="ip-visit-line" v-if="row.ip_visit_count">
                   <el-tag size="small" type="warning" effect="plain">访问 {{ row.ip_visit_count }} 次</el-tag>
                   <span v-if="row.ip_first_visit" class="first-visit-time">首访 {{ row.ip_first_visit }}</span>
                 </div>
-                <div class="fingerprint-info" v-if="row.fingerprint">
+                <!-- 第3行：指纹 + 商品模板 -->
+                <div class="ip-tags-line" v-if="row.fingerprint || row.product_template">
                   <el-tag
+                    v-if="row.fingerprint"
                     size="small"
                     :type="isFingerprintDuplicate(row) ? 'danger' : 'warning'"
                     style="cursor: pointer"
@@ -338,19 +346,8 @@
                   >
                     FP: {{ row.fingerprint }}
                   </el-tag>
-                </div>
-                <div class="sk-info" v-if="row.product_template">
-                  <el-tag size="small" type="primary">
+                  <el-tag v-if="row.product_template" size="small" type="primary">
                     {{ row.product_template }}
-                  </el-tag>
-                </div>
-                <!-- 显示订单国家 -->
-                <div class="order-country">
-                  <el-tag size="small" type="success" v-if="row.language_code">
-                    {{ countryCodeMap[row.language_code.toUpperCase()] || row.language_code }}
-                  </el-tag>
-                  <el-tag size="small" type="success" v-else-if="row.province && provinceToCountryMap[row.province]">
-                    {{ countryCodeMap[provinceToCountryMap[row.province]] }}
                   </el-tag>
                 </div>
               </div>
@@ -792,6 +789,44 @@
           </el-descriptions-item>
         </el-descriptions>
         <el-empty v-else description="暂无IP信息" />
+
+        <!-- 本站访问记录（他访问时的信息） -->
+        <div v-if="currentIPInfo && currentIPInfo.visit" class="visit-record-section" style="margin-top: 20px">
+          <div class="section-title" style="font-weight: 600; margin-bottom: 12px; font-size: 15px">
+            <el-icon><Calendar /></el-icon>
+            本站访问记录
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="访问次数">
+              <el-tag type="warning" size="small">{{ currentIPInfo.visit.visit_count || 0 }} 次</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="产品类型">
+              <el-tag :type="currentIPInfo.visit.product_type === 'original' ? 'success' : 'danger'" size="small">
+                {{
+                  currentIPInfo.visit.product_type === "original"
+                    ? "正品"
+                    : currentIPInfo.visit.product_type === "fake"
+                      ? "仿品"
+                      : "--"
+                }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="首次访问">{{ currentIPInfo.visit.first_visit || "--" }}</el-descriptions-item>
+            <el-descriptions-item label="最后访问">{{ currentIPInfo.visit.last_visit || "--" }}</el-descriptions-item>
+            <el-descriptions-item label="判断原因" :span="2">
+              <span style="color: #f56c6c">{{ currentIPInfo.visit.cloak_reason || "--" }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="推广参数">{{ currentIPInfo.visit.em_param || "--" }}</el-descriptions-item>
+            <el-descriptions-item label="设备">{{ currentIPInfo.visit.is_mobile ? "移动设备" : "PC" }}</el-descriptions-item>
+            <el-descriptions-item label="商品ID" :span="2">{{ currentIPInfo.visit.product_id || "--" }}</el-descriptions-item>
+            <el-descriptions-item label="访问地址" :span="2">
+              <span style="word-break: break-all">{{ currentIPInfo.visit.access_address || "--" }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="来源页面" :span="2">
+              <span style="word-break: break-all">{{ currentIPInfo.visit.referer || "--" }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
 
         <!-- 该IP下的订单列表 -->
         <div v-if="ipOrders.length > 0" class="ip-orders-section" style="margin-top: 24px">
@@ -6282,37 +6317,31 @@ onMounted(() => {
   line-height: 1.5;
 }
 
-.ip-url-info .ip-sk-row {
+/* 新版：IP 信息竖向分行，避免挤在一起 */
+.ip-url-info .ip-info-block {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 6px;
 }
 
-.ip-url-info .ip-address {
-  flex-shrink: 0;
-}
-
-.ip-url-info .ip-visit-info {
+.ip-url-info .ip-line,
+.ip-url-info .ip-visit-line,
+.ip-url-info .ip-tags-line {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ip-url-info .ip-visit-line {
+  font-size: 12px;
 }
 
 .ip-url-info .first-visit-time {
   font-size: 12px;
   color: #909399;
   white-space: nowrap;
-}
-
-.ip-url-info .fingerprint-info {
-  flex-shrink: 0;
-}
-
-.ip-url-info .sk-info {
-  flex-shrink: 0;
 }
 
 .ip-url-info .ip-location {
