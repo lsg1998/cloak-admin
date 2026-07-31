@@ -210,6 +210,14 @@ export const updateProductFakeLinkApi = (id: string, originalProductIds: string[
   return http.put(`/admin/products/${id}/fake-link`, data);
 };
 
+// 【产品端指派】给某个正品指派它使用的仿品（小仿品库，可复用同一条仿品）
+// fakeProductId 传 null 表示取消该正品的仿品关联
+export const assignFakeToOriginalApi = (originalId: string, fakeProductId: string | null) => {
+  return http.put(`/admin/products/${originalId}/assign-fake`, {
+    fake_product_id: fakeProductId
+  });
+};
+
 // 获取商品像素配置
 export const getProductPixelConfigApi = (id: string) => {
   return http.get<{ pixel_config: PixelConfig; pixel_enabled: boolean }>(`/admin/products/${id}/pixel`);

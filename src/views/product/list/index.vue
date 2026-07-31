@@ -1557,6 +1557,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="fakeProductDialogVisible = false">取消</el-button>
+          <el-button type="danger" plain @click="handleUnassignFake">取消关联</el-button>
           <el-button type="primary" @click="handleConfirmFakeLink" :disabled="!selectedFakeProductId"> 确定关联 </el-button>
         </div>
       </template>
@@ -1956,6 +1957,7 @@ import {
   copyProductApi,
   getOriginalProductsApi,
   updateProductFakeLinkApi,
+  assignFakeToOriginalApi,
   updateProductCloakRuleApi,
   getProductCountryStatsApi,
   getProductRecommendationsApi,
@@ -3941,7 +3943,15 @@ const loadOriginalProducts = async () => {
 // 关联仿品商品
 const handleSetFakeProduct = (originalProduct: Product) => {
   currentOriginalProduct.value = originalProduct;
-  selectedFakeProductId.value = "";
+  // 预选中该正品当前使用的仿品（从已加载数据里找哪条仿品的关联串包含它），方便看到现状
+  const currentFake = tableData.value.find(p => {
+    if (p.product_type !== "fake") return false;
+    if (p.linked_original_ids && Array.isArray(p.linked_original_ids)) {
+      return p.linked_original_ids.includes(originalProduct.id);
+    }
+    return p.b_page_product_id === originalProduct.id;
+  });
+  selectedFakeProductId.value = currentFake ? currentFake.id : "";
   fakeSearchKeyword.value = "";
   fakePagination.current = 1;
   fakeProductDialogVisible.value = true;
@@ -3960,8 +3970,8 @@ const loadFakeProducts = async () => {
     };
 
     const { data } = await getProductListApi(params);
-    // 过滤掉已经关联其他正品的仿品
-    fakeProducts.value = data.list.filter(product => !product.b_page_product_id);
+    // 小仿品库：同一条仿品可被多个正品共用，这里不再过滤"已被使用"的仿品
+    fakeProducts.value = data.list;
     fakePagination.total = data.total;
   } catch (error) {
     ElMessage.error("加载仿品商品列表失败");
@@ -3995,12 +4005,28 @@ const handleConfirmFakeLink = async () => {
   }
 
   try {
-    await updateProductFakeLinkApi(selectedFakeProductId.value, currentOriginalProduct.value.id);
+    // 产品端指派：给这个正品指派它使用的仿品（仿品可被多个正品共用）
+    await assignFakeToOriginalApi(currentOriginalProduct.value.id, selectedFakeProductId.value);
     ElMessage.success("仿品关联成功");
     fakeProductDialogVisible.value = false;
     loadData(); // 刷新列表
   } catch (error) {
     ElMessage.error("仿品关联失败");
+  }
+};
+
+// 取消该正品的仿品关联（只解除这一个正品，不影响该仿品关联的其他正品）
+const handleUnassignFake = async () => {
+  if (!currentOriginalProduct.value) {
+    return;
+  }
+  try {
+    await assignFakeToOriginalApi(currentOriginalProduct.value.id, null);
+    ElMessage.success("已取消仿品关联");
+    fakeProductDialogVisible.value = false;
+    loadData();
+  } catch (error) {
+    ElMessage.error("取消关联失败");
   }
 };
 
