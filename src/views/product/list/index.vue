@@ -250,7 +250,10 @@
                 "
                 style="display: flex; flex-direction: column; gap: 4px; align-items: center"
               >
-                <el-tag type="warning" size="small">已关联</el-tag>
+                <el-tag type="warning" size="small">
+                  <el-icon style="margin-right: 4px"><Link /></el-icon>
+                  覆盖 {{ getLinkedOriginalCount(row) }} 个正品
+                </el-tag>
                 <el-button size="small" type="danger" link @click="handleCancelAssociation(row)">
                   <el-icon><Close /></el-icon>
                   取消
@@ -2116,6 +2119,20 @@ const sortedCountryOptions = computed(() => {
 
 // el-table 的 row-key：树形子节点用复合key(正品id-仿品id)，避免共享仿品挂在多个正品下时 row-key 冲突
 const getRowKey = (row: any) => row._rowKey || row.id;
+
+// 一条仿品覆盖(关联)了多少个正品
+const getLinkedOriginalCount = (row: any): number => {
+  if (row.linked_original_ids && Array.isArray(row.linked_original_ids)) {
+    return row.linked_original_ids.length;
+  }
+  if (row.b_page_product_id) {
+    return String(row.b_page_product_id)
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter((s: string) => s !== "").length;
+  }
+  return 0;
+};
 
 // 按 id 去重，防止同一条记录被渲染多行
 const uniqueById = (arr: Product[]) => {
