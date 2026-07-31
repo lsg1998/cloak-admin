@@ -136,6 +136,10 @@
             <el-tag type="info" size="small">{{ pagination.total }} 条记录</el-tag>
           </div>
           <div class="table-actions">
+            <el-button size="small" type="danger" :disabled="selectedProducts.length === 0" @click="handleBatchDelete">
+              <el-icon><Delete /></el-icon>
+              批量删除{{ selectedProducts.length > 0 ? ` (${selectedProducts.length})` : "" }}
+            </el-button>
             <el-button size="small" @click="loadData">
               <el-icon><Refresh /></el-icon>
               刷新
@@ -153,7 +157,9 @@
         :header-cell-style="{ background: '#f8f9fa', color: '#606266' }"
         row-key="id"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="45" :reserve-selection="false" />
         <el-table-column prop="title" label="商品标题" width="240" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="product-info">
@@ -2954,6 +2960,47 @@ const handleEdit = (row: Product) => {
   console.log("斗篷规则列表:", cloakRules.value);
 
   dialogVisible.value = true;
+};
+
+// 表格勾选
+const selectedProducts = ref<Product[]>([]);
+const handleSelectionChange = (rows: Product[]) => {
+  // 树形视图里共享仿品会挂在多个正品下、id 相同，这里按 id 去重，避免重复删除
+  const seen = new Set<string>();
+  selectedProducts.value = rows.filter(r => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+};
+
+// 批量删除
+const handleBatchDelete = () => {
+  const rows = selectedProducts.value;
+  if (rows.length === 0) return;
+
+  const fakeCount = rows.filter(r => r.product_type === "fake").length;
+  const originalCount = rows.length - fakeCount;
+  const detail = `（正品 ${originalCount} 个，仿品 ${fakeCount} 个）`;
+
+  ElMessageBox.confirm(`确定要删除选中的 ${rows.length} 个商品吗${detail}？删除后无法恢复！`, "批量删除确认", {
+    confirmButtonText: "确定删除",
+    cancelButtonText: "取消",
+    type: "warning",
+    confirmButtonClass: "el-button--danger"
+  }).then(async () => {
+    const results = await Promise.allSettled(rows.map(r => deleteProductApi(r.id)));
+    const failed = results.filter(r => r.status === "rejected").length;
+    const succeeded = rows.length - failed;
+
+    if (failed === 0) {
+      ElMessage.success(`成功删除 ${succeeded} 个商品`);
+    } else {
+      ElMessage.warning(`删除完成：成功 ${succeeded} 个，失败 ${failed} 个`);
+    }
+    selectedProducts.value = [];
+    loadData(true);
+  });
 };
 
 // 删除
