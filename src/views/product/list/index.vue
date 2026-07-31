@@ -163,7 +163,7 @@
         border
         style="width: 100%"
         :header-cell-style="{ background: '#f8f9fa', color: '#606266' }"
-        row-key="id"
+        :row-key="getRowKey"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         @selection-change="handleSelectionChange"
       >
@@ -2114,11 +2114,24 @@ const sortedCountryOptions = computed(() => {
   };
 });
 
+// el-table 的 row-key：树形子节点用复合key(正品id-仿品id)，避免共享仿品挂在多个正品下时 row-key 冲突
+const getRowKey = (row: any) => row._rowKey || row.id;
+
+// 按 id 去重，防止同一条记录被渲染多行
+const uniqueById = (arr: Product[]) => {
+  const seen = new Set<string>();
+  return arr.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
+
 // 转换为树形结构的数据（仅显示正品，仿品作为子节点）
 const displayTableData = computed(() => {
-  // 如果有搜索条件或筛选仿品，返回原始扁平数据
+  // 如果有搜索条件或筛选仿品，返回扁平数据（去重，避免重复行）
   if (searchForm.title || searchForm.status || searchForm.product_type === "fake") {
-    return tableData.value;
+    return uniqueById(tableData.value);
   }
 
   // 如果筛选了正品，只返回正品（不显示树形结构）
@@ -2146,7 +2159,9 @@ const displayTableData = computed(() => {
     if (relatedFakes.length > 0) {
       return {
         ...original,
-        children: relatedFakes,
+        // 克隆子节点并赋复合 rowKey：共享仿品会挂在多个正品下，若沿用同一 id 作 row-key
+        // 会污染 el-table 的树内部状态，导致该仿品被重复渲染。复合 key 保证每个位置唯一。
+        children: relatedFakes.map(fake => ({ ...fake, _rowKey: `${original.id}-${fake.id}` })),
         hasChildren: true
       };
     }
