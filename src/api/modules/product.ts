@@ -218,6 +218,14 @@ export const assignFakeToOriginalApi = (originalId: string, fakeProductId: strin
   });
 };
 
+// 【批量指派】给多个正品统一绑定/解绑同一条仿品；fakeProductId 传 null 为批量解绑
+export const batchAssignFakeToOriginalsApi = (originalIds: string[], fakeProductId: string | null) => {
+  return http.post(`/admin/products/batch-assign-fake`, {
+    original_ids: originalIds,
+    fake_product_id: fakeProductId
+  });
+};
+
 // 获取商品像素配置
 export const getProductPixelConfigApi = (id: string) => {
   return http.get<{ pixel_config: PixelConfig; pixel_enabled: boolean }>(`/admin/products/${id}/pixel`);

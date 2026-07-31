@@ -136,6 +136,14 @@
             <el-tag type="info" size="small">{{ pagination.total }} 条记录</el-tag>
           </div>
           <div class="table-actions">
+            <el-button size="small" type="success" :disabled="selectedOriginals.length === 0" @click="handleBatchBindFake">
+              <el-icon><Link /></el-icon>
+              批量绑定仿品{{ selectedOriginals.length > 0 ? ` (${selectedOriginals.length})` : "" }}
+            </el-button>
+            <el-button size="small" type="warning" :disabled="selectedOriginals.length === 0" @click="handleBatchUnbindFake">
+              <el-icon><Close /></el-icon>
+              批量解绑
+            </el-button>
             <el-button size="small" type="danger" :disabled="selectedProducts.length === 0" @click="handleBatchDelete">
               <el-icon><Delete /></el-icon>
               批量删除{{ selectedProducts.length > 0 ? ` (${selectedProducts.length})` : "" }}
@@ -1457,7 +1465,7 @@
     <!-- 关联仿品对话框 -->
     <el-dialog
       v-model="fakeProductDialogVisible"
-      title="选择关联仿品"
+      :title="fakeDialogBatchMode ? '批量绑定仿品' : '选择关联仿品'"
       width="1000px"
       :close-on-click-modal="false"
       destroy-on-close
@@ -1466,9 +1474,14 @@
         <!-- 当前正品信息 -->
         <el-card class="current-product-card" shadow="never">
           <template #header>
-            <span style="font-weight: 600; color: #409eff">当前正品商品</span>
+            <span style="font-weight: 600; color: #409eff">{{ fakeDialogBatchMode ? "批量绑定目标" : "当前正品商品" }}</span>
           </template>
-          <div v-if="currentOriginalProduct" class="product-summary">
+          <div v-if="fakeDialogBatchMode" class="product-summary">
+            <el-tag type="success" size="default">
+              已选中 {{ selectedOriginals.length }} 个正品，将统一绑定到下方选中的仿品
+            </el-tag>
+          </div>
+          <div v-else-if="currentOriginalProduct" class="product-summary">
             <el-avatar :size="60" v-if="currentOriginalProduct.image_urls && currentOriginalProduct.image_urls[0]">
               <img
                 :src="currentOriginalProduct.image_urls[0]"
@@ -1563,8 +1576,10 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="fakeProductDialogVisible = false">取消</el-button>
-          <el-button type="danger" plain @click="handleUnassignFake">取消关联</el-button>
-          <el-button type="primary" @click="handleConfirmFakeLink" :disabled="!selectedFakeProductId"> 确定关联 </el-button>
+          <el-button v-if="!fakeDialogBatchMode" type="danger" plain @click="handleUnassignFake">取消关联</el-button>
+          <el-button type="primary" @click="handleConfirmFakeLink" :disabled="!selectedFakeProductId">
+            {{ fakeDialogBatchMode ? "确定批量绑定" : "确定关联" }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -1964,6 +1979,7 @@ import {
   getOriginalProductsApi,
   updateProductFakeLinkApi,
   assignFakeToOriginalApi,
+  batchAssignFakeToOriginalsApi,
   updateProductCloakRuleApi,
   getProductCountryStatsApi,
   getProductRecommendationsApi,
@@ -2202,6 +2218,8 @@ const originalProductsLoading = ref(false);
 
 // 仿品关联对话框相关
 const fakeProductDialogVisible = ref(false);
+// 对话框是否处于"批量绑定"模式（true=给多个选中正品统一绑定；false=单个正品）
+const fakeDialogBatchMode = ref(false);
 const currentOriginalProduct = ref<Product | null>(null);
 const fakeProducts = ref<Product[]>([]);
 const fakeProductsLoading = ref(false);
@@ -2964,6 +2982,8 @@ const handleEdit = (row: Product) => {
 
 // 表格勾选
 const selectedProducts = ref<Product[]>([]);
+// 选中的正品（批量绑定/解绑仿品只针对正品）
+const selectedOriginals = computed(() => selectedProducts.value.filter(p => p.product_type === "original"));
 const handleSelectionChange = (rows: Product[]) => {
   // 树形视图里共享仿品会挂在多个正品下、id 相同，这里按 id 去重，避免重复删除
   const seen = new Set<string>();
@@ -3989,6 +4009,7 @@ const loadOriginalProducts = async () => {
 
 // 关联仿品商品
 const handleSetFakeProduct = (originalProduct: Product) => {
+  fakeDialogBatchMode.value = false;
   currentOriginalProduct.value = originalProduct;
   // 预选中该正品当前使用的仿品（从已加载数据里找哪条仿品的关联串包含它），方便看到现状
   const currentFake = tableData.value.find(p => {
@@ -4047,10 +4068,29 @@ const handleFakeCurrentChange = (current: number) => {
 
 // 确认仿品关联
 const handleConfirmFakeLink = async () => {
-  if (!selectedFakeProductId.value || !currentOriginalProduct.value) {
+  if (!selectedFakeProductId.value) {
     return;
   }
 
+  // 批量模式：给所有选中的正品统一绑定这条仿品
+  if (fakeDialogBatchMode.value) {
+    const ids = selectedOriginals.value.map(p => p.id);
+    if (ids.length === 0) return;
+    try {
+      await batchAssignFakeToOriginalsApi(ids, selectedFakeProductId.value);
+      ElMessage.success(`已为 ${ids.length} 个正品绑定仿品`);
+      fakeProductDialogVisible.value = false;
+      selectedProducts.value = [];
+      loadData(true);
+    } catch (error) {
+      ElMessage.error("批量绑定失败");
+    }
+    return;
+  }
+
+  if (!currentOriginalProduct.value) {
+    return;
+  }
   try {
     // 产品端指派：给这个正品指派它使用的仿品（仿品可被多个正品共用）
     await assignFakeToOriginalApi(currentOriginalProduct.value.id, selectedFakeProductId.value);
@@ -4060,6 +4100,39 @@ const handleConfirmFakeLink = async () => {
   } catch (error) {
     ElMessage.error("仿品关联失败");
   }
+};
+
+// 批量绑定仿品：打开仿品选择对话框（批量模式）
+const handleBatchBindFake = () => {
+  if (selectedOriginals.value.length === 0) return;
+  fakeDialogBatchMode.value = true;
+  currentOriginalProduct.value = null;
+  selectedFakeProductId.value = "";
+  fakeSearchKeyword.value = "";
+  fakePagination.current = 1;
+  fakeProductDialogVisible.value = true;
+  loadFakeProducts();
+};
+
+// 批量解绑仿品：解除所有选中正品的仿品关联
+const handleBatchUnbindFake = () => {
+  const ids = selectedOriginals.value.map(p => p.id);
+  if (ids.length === 0) return;
+
+  ElMessageBox.confirm(`确定要解除选中的 ${ids.length} 个正品的仿品关联吗？`, "批量解绑确认", {
+    confirmButtonText: "确定解绑",
+    cancelButtonText: "取消",
+    type: "warning"
+  }).then(async () => {
+    try {
+      await batchAssignFakeToOriginalsApi(ids, null);
+      ElMessage.success(`已解绑 ${ids.length} 个正品`);
+      selectedProducts.value = [];
+      loadData(true);
+    } catch (error) {
+      ElMessage.error("批量解绑失败");
+    }
+  });
 };
 
 // 取消该正品的仿品关联（只解除这一个正品，不影响该仿品关联的其他正品）
