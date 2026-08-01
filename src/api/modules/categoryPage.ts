@@ -3,9 +3,9 @@ import http from "@/api";
 // 分类落地页商品项
 export interface CategoryPageItem {
   image: string;
-  title: string;
-  price: string;
   target_product_id: string;
+  title?: string;
+  price?: string;
   target_url?: string;
   sort?: number;
 }

@@ -152,7 +152,7 @@
             </div>
 
             <div class="item-fields">
-              <!-- 绑定的真实商品 -->
+              <!-- 绑定的真实商品：标题/价格/折扣前台自动取该商品，无需手填 -->
               <div class="bound-product">
                 <template v-if="item.target_product_id">
                   <el-tag type="success" size="small">
@@ -167,8 +167,7 @@
                   </el-button>
                 </template>
               </div>
-              <el-input v-model="item.title" placeholder="展示标题（默认取商品标题，可自定义）" size="small" />
-              <el-input v-model="item.price" placeholder="展示价格，如 ¥29.90（可自定义）" size="small" />
+              <div class="form-tip">标题、价格、折扣自动取自该真实商品；图片不上传则用商品主图</div>
             </div>
 
             <div class="item-actions">
@@ -376,7 +375,7 @@ const handleDelete = (row: CategoryPage) => {
 };
 
 const addItem = () => {
-  form.items.push({ image: "", title: "", price: "", target_product_id: "", target_url: "", sort: form.items.length });
+  form.items.push({ image: "", target_product_id: "", sort: form.items.length });
 };
 
 const removeItem = (index: number) => {
@@ -443,12 +442,9 @@ const loadPickerProducts = async () => {
 const selectProduct = (p: Product) => {
   const item = form.items[currentItemIndex.value];
   if (!item) return;
+  // 只绑定商品ID；标题/价格/折扣前台自动取真实商品，图片不上传则用商品主图
   item.target_product_id = String(p.id);
   item.product_title = p.title;
-  // 展示标题/价格默认取商品的（可再自定义）；图片仅在未自定义时带入商品图，保留用户上传的自定义图
-  if (!item.title) item.title = p.title;
-  if (!item.price && p.sell_price) item.price = `¥${p.sell_price}`;
-  if (!item.image && p.image_urls && p.image_urls[0]) item.image = p.image_urls[0];
   pickerVisible.value = false;
   ElMessage.success("已选择商品");
 };
