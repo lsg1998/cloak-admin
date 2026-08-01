@@ -77,7 +77,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="form.id ? '编辑分类落地页' : '新建分类落地页'"
-      width="900px"
+      width="960px"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -106,28 +106,48 @@
           />
         </el-form-item>
 
-        <el-divider content-position="left">商品项（点击时真人跳对应真实商品，仿品跳首页）</el-divider>
+        <el-divider content-position="left">商品项（真人点击跳对应真实商品，仿品跳首页）</el-divider>
 
         <div class="items-editor">
           <div v-for="(item, index) in form.items" :key="index" class="item-row">
             <div class="item-index">{{ index + 1 }}</div>
-            <el-upload
-              class="item-uploader"
-              :show-file-list="false"
-              :http-request="(opt: any) => handleItemUpload(opt, item)"
-              accept="image/*"
-            >
-              <img v-if="item.image" :src="item.image" class="item-img" />
-              <div v-else class="item-img-placeholder">
-                <el-icon><Plus /></el-icon>
-              </div>
-            </el-upload>
-            <div class="item-fields">
-              <el-input v-model="item.title" placeholder="商品标题" size="small" />
-              <el-input v-model="item.price" placeholder="展示价格，如 ¥29.90" size="small" />
-              <el-input v-model="item.target_product_id" placeholder="真实商品ID（用于判断+默认跳 /product/{id}）" size="small" />
-              <el-input v-model="item.target_url" placeholder="真实跳转URL（可选，覆盖默认）" size="small" />
+
+            <!-- 自定义展示图片 -->
+            <div class="item-img-col">
+              <el-upload
+                class="item-uploader"
+                :show-file-list="false"
+                :http-request="(opt: any) => handleItemUpload(opt, item)"
+                accept="image/*"
+              >
+                <img v-if="item.image" :src="item.image" class="item-img" />
+                <div v-else class="item-img-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>上传图片</span>
+                </div>
+              </el-upload>
             </div>
+
+            <div class="item-fields">
+              <!-- 绑定的真实商品 -->
+              <div class="bound-product">
+                <template v-if="item.target_product_id">
+                  <el-tag type="success" size="small">
+                    真实商品 #{{ item.target_product_id }}
+                    <template v-if="item.product_title">· {{ item.product_title }}</template>
+                  </el-tag>
+                  <el-button size="small" type="primary" link @click="openProductPicker(index)">更换商品</el-button>
+                </template>
+                <template v-else>
+                  <el-button size="small" type="primary" @click="openProductPicker(index)">
+                    <el-icon><Search /></el-icon>从商品列表选择真实商品
+                  </el-button>
+                </template>
+              </div>
+              <el-input v-model="item.title" placeholder="展示标题（默认取商品标题，可自定义）" size="small" />
+              <el-input v-model="item.price" placeholder="展示价格，如 ¥29.90（可自定义）" size="small" />
+            </div>
+
             <div class="item-actions">
               <el-button size="small" :disabled="index === 0" circle @click="moveItem(index, -1)">
                 <el-icon><ArrowUp /></el-icon>
@@ -152,14 +172,62 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 商品选择器 -->
+    <el-dialog v-model="pickerVisible" title="选择真实商品" width="800px" append-to-body destroy-on-close>
+      <div class="picker-toolbar">
+        <el-input
+          v-model="pickerSearch"
+          placeholder="搜索商品标题"
+          clearable
+          style="width: 240px"
+          @keyup.enter="loadPickerProducts"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="loadPickerProducts">
+          <el-icon><Search /></el-icon>搜索
+        </el-button>
+      </div>
+
+      <div v-loading="pickerLoading" class="picker-grid">
+        <div v-for="p in pickerProducts" :key="p.id" class="picker-card" @click="selectProduct(p)">
+          <img v-if="p.image_urls && p.image_urls[0]" :src="p.image_urls[0]" class="picker-img" />
+          <div v-else class="picker-img picker-img-empty">
+            <el-icon><Box /></el-icon>
+          </div>
+          <div class="picker-info">
+            <div class="picker-title">{{ p.title }}</div>
+            <div class="picker-meta">
+              <span class="picker-price">¥{{ p.sell_price }}</span>
+              <span class="picker-id">#{{ p.id }}</span>
+            </div>
+          </div>
+        </div>
+        <el-empty v-if="!pickerLoading && pickerProducts.length === 0" description="没有找到商品" />
+      </div>
+
+      <div class="pagination">
+        <el-pagination
+          v-model:current-page="pickerPagination.current"
+          v-model:page-size="pickerPagination.size"
+          layout="total, prev, pager, next"
+          :total="pickerPagination.total"
+          @current-change="loadPickerProducts"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
+import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
+import { getProductListApi, type Product } from "@/api/modules/product";
 import {
   getCategoryPageListApi,
   getCategoryPageApi,
@@ -178,7 +246,10 @@ const dialogVisible = ref(false);
 
 const pagination = reactive({ current: 1, size: 20, total: 0 });
 
-const defaultForm = (): CategoryPage & { id: number | null } => ({
+type EditItem = CategoryPageItem & { product_title?: string };
+type EditForm = Omit<CategoryPage, "items"> & { id: number | null; items: EditItem[] };
+
+const defaultForm = (): EditForm => ({
   id: null,
   name: "",
   slug: "",
@@ -187,7 +258,7 @@ const defaultForm = (): CategoryPage & { id: number | null } => ({
   items: [],
   status: "active"
 });
-const form = reactive<CategoryPage & { id: number | null }>(defaultForm());
+const form = reactive<EditForm>(defaultForm());
 
 const loadData = async () => {
   loading.value = true;
@@ -224,7 +295,7 @@ const handleEdit = async (row: CategoryPage) => {
       slug: data.slug,
       title: data.title || "",
       home_redirect_url: data.home_redirect_url || "",
-      items: Array.isArray(data.items) ? data.items : [],
+      items: Array.isArray(data.items) ? (data.items as EditItem[]) : [],
       status: data.status || "active"
     });
     dialogVisible.value = true;
@@ -265,7 +336,7 @@ const moveItem = (index: number, dir: number) => {
   [arr[index], arr[target]] = [arr[target], arr[index]];
 };
 
-const handleItemUpload = async (options: any, item: CategoryPageItem) => {
+const handleItemUpload = async (options: any, item: EditItem) => {
   const fd = new FormData();
   fd.append("file", options.file);
   try {
@@ -281,12 +352,62 @@ const handleItemUpload = async (options: any, item: CategoryPageItem) => {
   }
 };
 
+// ============ 商品选择器 ============
+const pickerVisible = ref(false);
+const pickerLoading = ref(false);
+const pickerProducts = ref<Product[]>([]);
+const pickerSearch = ref("");
+const pickerPagination = reactive({ current: 1, size: 12, total: 0 });
+const currentItemIndex = ref(-1);
+
+const openProductPicker = (index: number) => {
+  currentItemIndex.value = index;
+  pickerSearch.value = "";
+  pickerPagination.current = 1;
+  pickerVisible.value = true;
+  loadPickerProducts();
+};
+
+const loadPickerProducts = async () => {
+  pickerLoading.value = true;
+  try {
+    const { data } = await getProductListApi({
+      page: pickerPagination.current,
+      size: pickerPagination.size,
+      title: pickerSearch.value || undefined,
+      product_type: "original"
+    });
+    pickerProducts.value = data.list;
+    pickerPagination.total = data.total;
+  } catch (e) {
+    ElMessage.error("加载商品失败");
+  } finally {
+    pickerLoading.value = false;
+  }
+};
+
+const selectProduct = (p: Product) => {
+  const item = form.items[currentItemIndex.value];
+  if (!item) return;
+  item.target_product_id = String(p.id);
+  item.product_title = p.title;
+  // 展示标题/价格默认取商品的（可再自定义）；图片仅在未自定义时带入商品图，保留用户上传的自定义图
+  if (!item.title) item.title = p.title;
+  if (!item.price && p.sell_price) item.price = `¥${p.sell_price}`;
+  if (!item.image && p.image_urls && p.image_urls[0]) item.image = p.image_urls[0];
+  pickerVisible.value = false;
+  ElMessage.success("已选择商品");
+};
+
 const handleSubmit = async () => {
   if (!form.name.trim() || !form.slug.trim()) {
     ElMessage.warning("名称和 slug 不能为空");
     return;
   }
-  // 写回 sort
+  if (form.items.some(it => !it.target_product_id)) {
+    ElMessage.warning("每个商品项都要选择一个真实商品");
+    return;
+  }
   form.items.forEach((it, i) => (it.sort = i));
 
   submitLoading.value = true;
@@ -377,20 +498,23 @@ onMounted(loadData);
   font-size: 12px;
   flex-shrink: 0;
 }
-.item-uploader {
+.item-img-col {
   flex-shrink: 0;
 }
 .item-img,
 .item-img-placeholder {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 6px;
   object-fit: cover;
   border: 1px dashed #dcdfe6;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   color: #909399;
+  font-size: 12px;
   cursor: pointer;
   background: #fff;
 }
@@ -398,6 +522,11 @@ onMounted(loadData);
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+.bound-product {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 .item-actions {
@@ -408,5 +537,66 @@ onMounted(loadData);
 }
 .add-item-btn {
   align-self: flex-start;
+}
+.picker-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  min-height: 200px;
+}
+.picker-card {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.picker-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+.picker-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: #f0f0f0;
+  display: block;
+}
+.picker-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c0c4cc;
+  font-size: 28px;
+}
+.picker-info {
+  padding: 8px;
+}
+.picker-title {
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 36px;
+}
+.picker-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+.picker-price {
+  color: #e4393c;
+  font-weight: 700;
+}
+.picker-id {
+  color: #909399;
+  font-size: 11px;
 }
 </style>
