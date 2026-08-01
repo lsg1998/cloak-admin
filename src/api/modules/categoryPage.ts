@@ -16,11 +16,9 @@ export interface CategoryPage {
   name: string;
   slug: string;
   title?: string;
-  store_name?: string;
   home_redirect_url?: string;
   cloak_rule_id?: number | null;
   language?: string;
-  shipping_policy?: string;
   items: CategoryPageItem[];
   status: string;
   item_count?: number;
