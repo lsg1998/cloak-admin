@@ -16,6 +16,7 @@ export interface CategoryPage {
   name: string;
   slug: string;
   title?: string;
+  banner_text?: string;
   home_redirect_url?: string;
   cloak_rule_id?: number | null;
   language?: string;

@@ -93,6 +93,9 @@
         <el-form-item label="页面标题">
           <el-input v-model="form.title" placeholder="合集标题，同时作为页眉品牌名" />
         </el-form-item>
+        <el-form-item label="促销横幅">
+          <el-input v-model="form.banner_text" placeholder="顶部橙色促销条文案，留空则用默认；如：夏季特惠 · 全场8折" />
+        </el-form-item>
         <el-form-item label="斗篷规则" required>
           <el-select
             v-model="form.cloak_rule_id"
@@ -303,6 +306,7 @@ const defaultForm = (): EditForm => ({
   name: "",
   slug: "",
   title: "",
+  banner_text: "",
   home_redirect_url: "",
   cloak_rule_id: null,
   language: "",
@@ -345,6 +349,7 @@ const handleEdit = async (row: CategoryPage) => {
       name: data.name,
       slug: data.slug,
       title: data.title || "",
+      banner_text: data.banner_text || "",
       home_redirect_url: data.home_redirect_url || "",
       cloak_rule_id: data.cloak_rule_id ?? null,
       language: data.language || "",
@@ -470,6 +475,7 @@ const handleSubmit = async () => {
       name: form.name,
       slug: form.slug,
       title: form.title,
+      banner_text: form.banner_text,
       home_redirect_url: form.home_redirect_url,
       cloak_rule_id: form.cloak_rule_id,
       language: form.language,
