@@ -93,6 +93,29 @@
         <el-form-item label="页面标题">
           <el-input v-model="form.title" placeholder="展示在页面顶部" />
         </el-form-item>
+        <el-form-item label="斗篷规则" required>
+          <el-select
+            v-model="form.cloak_rule_id"
+            placeholder="选择整页统一使用的斗篷规则（如西班牙规则）"
+            clearable
+            filterable
+            style="width: 100%"
+          >
+            <el-option v-for="r in cloakRules" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+          <div class="form-tip">整页用这条规则判断地区/机器人等；未选则回退到每个真实商品各自的规则</div>
+        </el-form-item>
+        <el-form-item label="页面语言">
+          <el-select
+            v-model="form.language"
+            placeholder="用于页面语言标记，每个国家建独立页"
+            clearable
+            filterable
+            style="width: 100%"
+          >
+            <el-option v-for="l in languageOptions" :key="l.value" :label="l.label" :value="l.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="仿品跳转URL">
           <el-input v-model="form.home_redirect_url" placeholder="判定为仿品流量时跳转的地址，留空则回本站根 /" />
         </el-form-item>
@@ -228,6 +251,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
 import { getProductListApi, type Product } from "@/api/modules/product";
+import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
 import {
   getCategoryPageListApi,
   getCategoryPageApi,
@@ -237,6 +261,32 @@ import {
   type CategoryPage,
   type CategoryPageItem
 } from "@/api/modules/categoryPage";
+
+// 页面语言选项（每个国家/语言建独立分类页）
+const languageOptions = [
+  { label: "西班牙语 (es)", value: "es" },
+  { label: "意大利语 (it)", value: "it" },
+  { label: "德语 (de)", value: "de" },
+  { label: "法语 (fr)", value: "fr" },
+  { label: "葡萄牙语 (pt)", value: "pt" },
+  { label: "英语 (en)", value: "en" },
+  { label: "波兰语 (pl)", value: "pl" },
+  { label: "捷克语 (cs)", value: "cs" },
+  { label: "斯洛伐克语 (sk)", value: "sk" },
+  { label: "匈牙利语 (hu)", value: "hu" },
+  { label: "荷兰语 (nl)", value: "nl" },
+  { label: "日语 (ja)", value: "ja" }
+];
+
+const cloakRules = ref<CloakRule[]>([]);
+const loadCloakRules = async () => {
+  try {
+    const { data } = await cloakRuleApi.getCloakRules({ page: 1, size: 200, is_active: 1 });
+    cloakRules.value = (data as any).list || [];
+  } catch (e) {
+    // 忽略，下拉为空不影响其他操作
+  }
+};
 
 const loading = ref(false);
 const submitLoading = ref(false);
@@ -255,6 +305,8 @@ const defaultForm = (): EditForm => ({
   slug: "",
   title: "",
   home_redirect_url: "",
+  cloak_rule_id: null,
+  language: "",
   items: [],
   status: "active"
 });
@@ -295,6 +347,8 @@ const handleEdit = async (row: CategoryPage) => {
       slug: data.slug,
       title: data.title || "",
       home_redirect_url: data.home_redirect_url || "",
+      cloak_rule_id: data.cloak_rule_id ?? null,
+      language: data.language || "",
       items: Array.isArray(data.items) ? (data.items as EditItem[]) : [],
       status: data.status || "active"
     });
@@ -404,6 +458,10 @@ const handleSubmit = async () => {
     ElMessage.warning("名称和 slug 不能为空");
     return;
   }
+  if (!form.cloak_rule_id) {
+    ElMessage.warning("请选择斗篷规则（决定整页的地区等判断）");
+    return;
+  }
   if (form.items.some(it => !it.target_product_id)) {
     ElMessage.warning("每个商品项都要选择一个真实商品");
     return;
@@ -417,6 +475,8 @@ const handleSubmit = async () => {
       slug: form.slug,
       title: form.title,
       home_redirect_url: form.home_redirect_url,
+      cloak_rule_id: form.cloak_rule_id,
+      language: form.language,
       items: form.items,
       status: form.status
     };
@@ -444,7 +504,10 @@ const copyLink = (slug: string) => {
     .catch(() => ElMessage.warning(url));
 };
 
-onMounted(loadData);
+onMounted(() => {
+  loadData();
+  loadCloakRules();
+});
 </script>
 
 <style scoped>
@@ -537,6 +600,12 @@ onMounted(loadData);
 }
 .add-item-btn {
   align-self: flex-start;
+}
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 .picker-toolbar {
   display: flex;

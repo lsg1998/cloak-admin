@@ -17,6 +17,8 @@ export interface CategoryPage {
   slug: string;
   title?: string;
   home_redirect_url?: string;
+  cloak_rule_id?: number | null;
+  language?: string;
   items: CategoryPageItem[];
   status: string;
   item_count?: number;
