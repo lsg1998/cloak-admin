@@ -31,6 +31,7 @@
           <template #default="{ row }">
             <div class="link-cell">
               <span class="link-text">/c/{{ row.slug }}</span>
+              <el-button size="small" type="primary" link @click="previewLink(row.slug)">预览</el-button>
               <el-button size="small" type="primary" link @click="copyLink(row.slug)">复制</el-button>
             </div>
           </template>
@@ -205,14 +206,24 @@
           v-model="pickerSearch"
           placeholder="搜索商品标题"
           clearable
-          style="width: 240px"
-          @keyup.enter="loadPickerProducts"
+          style="width: 220px"
+          @keyup.enter="handlePickerSearch"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-button type="primary" @click="loadPickerProducts">
+        <el-select
+          v-model="pickerCountry"
+          placeholder="全部国家"
+          clearable
+          filterable
+          style="width: 180px"
+          @change="handlePickerSearch"
+        >
+          <el-option v-for="c in countryOptions" :key="c.country" :label="`${c.country} (${c.count})`" :value="c.country" />
+        </el-select>
+        <el-button type="primary" @click="handlePickerSearch">
           <el-icon><Search /></el-icon>搜索
         </el-button>
       </div>
@@ -252,7 +263,7 @@ import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
-import { getProductListApi, type Product } from "@/api/modules/product";
+import { getProductListApi, getProductCountryStatsApi, type Product } from "@/api/modules/product";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
 import {
   getCategoryPageListApi,
@@ -415,14 +426,33 @@ const pickerVisible = ref(false);
 const pickerLoading = ref(false);
 const pickerProducts = ref<Product[]>([]);
 const pickerSearch = ref("");
+const pickerCountry = ref("");
 const pickerPagination = reactive({ current: 1, size: 12, total: 0 });
 const currentItemIndex = ref(-1);
+const countryOptions = ref<{ country: string; count: number }[]>([]);
+
+const loadCountryOptions = async () => {
+  if (countryOptions.value.length) return;
+  try {
+    const { data } = await getProductCountryStatsApi();
+    countryOptions.value = (data as any).stats || [];
+  } catch (e) {
+    // 忽略，国家下拉为空不影响选品
+  }
+};
 
 const openProductPicker = (index: number) => {
   currentItemIndex.value = index;
   pickerSearch.value = "";
+  pickerCountry.value = "";
   pickerPagination.current = 1;
   pickerVisible.value = true;
+  loadCountryOptions();
+  loadPickerProducts();
+};
+
+const handlePickerSearch = () => {
+  pickerPagination.current = 1;
   loadPickerProducts();
 };
 
@@ -433,6 +463,7 @@ const loadPickerProducts = async () => {
       page: pickerPagination.current,
       size: pickerPagination.size,
       title: pickerSearch.value || undefined,
+      country: pickerCountry.value || undefined,
       product_type: "original"
     });
     pickerProducts.value = data.list;
@@ -496,6 +527,10 @@ const handleSubmit = async () => {
   } finally {
     submitLoading.value = false;
   }
+};
+
+const previewLink = (slug: string) => {
+  window.open(`${location.origin}/c/${slug}`, "_blank");
 };
 
 const copyLink = (slug: string) => {
