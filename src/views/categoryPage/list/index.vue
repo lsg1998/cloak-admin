@@ -91,7 +91,10 @@
           </el-input>
         </el-form-item>
         <el-form-item label="页面标题">
-          <el-input v-model="form.title" placeholder="展示在页面顶部" />
+          <el-input v-model="form.title" placeholder="合集标题，展示在页面顶部" />
+        </el-form-item>
+        <el-form-item label="店铺名">
+          <el-input v-model="form.store_name" placeholder="页眉品牌名，留空则用页面标题" />
         </el-form-item>
         <el-form-item label="斗篷规则" required>
           <el-select
@@ -118,6 +121,15 @@
         </el-form-item>
         <el-form-item label="仿品跳转URL">
           <el-input v-model="form.home_redirect_url" placeholder="判定为仿品流量时跳转的地址，留空则回本站根 /" />
+        </el-form-item>
+        <el-form-item label="配送政策">
+          <div style="width: 100%">
+            <div class="policy-toolbar">
+              <el-button size="small" @click="fillShippingTemplate">填入标准模板</el-button>
+              <span class="form-tip">多语言页面请把模板内文案翻成对应语言；展示在页脚，保留换行</span>
+            </div>
+            <el-input v-model="form.shipping_policy" type="textarea" :rows="10" placeholder="点上方按钮填入模板后按需修改" />
+          </div>
         </el-form-item>
         <el-form-item label="状态">
           <el-switch
@@ -278,6 +290,34 @@ const languageOptions = [
   { label: "日语 (ja)", value: "ja" }
 ];
 
+// 配送政策标准模板（骨架，用户按目标语言翻译/填空）
+const SHIPPING_TEMPLATE = `【发货地区】{列出支持配送的国家/地区}
+【处理时效】订单确认后 1-3 个工作日内发出
+【运输时效】7-15 个工作日送达（具体因目的地而异）
+【运费】
+· 订单满 {金额} 免运费
+· 未达免邮额，运费 {金额}，结账时显示
+【物流跟踪】发货后我们会通过邮件发送物流单号，您可在 {物流商网站} 查询
+【关税/税费】{说明是否含税、清关税费由谁承担}
+
+如包裹长时间未更新或未送达，请联系 {support@yourdomain.com}，我们会协助处理。`;
+
+const fillShippingTemplate = () => {
+  if (form.shipping_policy && form.shipping_policy.trim()) {
+    ElMessageBox.confirm("当前已有内容，确定用标准模板覆盖吗？", "提示", {
+      confirmButtonText: "覆盖",
+      cancelButtonText: "取消",
+      type: "warning"
+    })
+      .then(() => {
+        form.shipping_policy = SHIPPING_TEMPLATE;
+      })
+      .catch(() => undefined);
+  } else {
+    form.shipping_policy = SHIPPING_TEMPLATE;
+  }
+};
+
 const cloakRules = ref<CloakRule[]>([]);
 const loadCloakRules = async () => {
   try {
@@ -304,9 +344,11 @@ const defaultForm = (): EditForm => ({
   name: "",
   slug: "",
   title: "",
+  store_name: "",
   home_redirect_url: "",
   cloak_rule_id: null,
   language: "",
+  shipping_policy: "",
   items: [],
   status: "active"
 });
@@ -346,9 +388,11 @@ const handleEdit = async (row: CategoryPage) => {
       name: data.name,
       slug: data.slug,
       title: data.title || "",
+      store_name: data.store_name || "",
       home_redirect_url: data.home_redirect_url || "",
       cloak_rule_id: data.cloak_rule_id ?? null,
       language: data.language || "",
+      shipping_policy: data.shipping_policy || "",
       items: Array.isArray(data.items) ? (data.items as EditItem[]) : [],
       status: data.status || "active"
     });
@@ -474,9 +518,11 @@ const handleSubmit = async () => {
       name: form.name,
       slug: form.slug,
       title: form.title,
+      store_name: form.store_name,
       home_redirect_url: form.home_redirect_url,
       cloak_rule_id: form.cloak_rule_id,
       language: form.language,
+      shipping_policy: form.shipping_policy,
       items: form.items,
       status: form.status
     };
@@ -606,6 +652,16 @@ onMounted(() => {
   color: #909399;
   line-height: 1.4;
   margin-top: 4px;
+}
+.policy-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.policy-toolbar .form-tip {
+  margin-top: 0;
 }
 .picker-toolbar {
   display: flex;
