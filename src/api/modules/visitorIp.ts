@@ -67,6 +67,24 @@ export interface VisitorIp {
       clicks: string[];
     };
   };
+  /**
+   * 分类落地页"商品卡点击"记录（存于 Redis，主表无此字段，由接口补齐）
+   * status: none=未点击 / passed=点了看到正品 / blocked=点了却被打回首页 / mixed=两者都有
+   */
+  card_click?: {
+    count: number;
+    to_product: number;
+    to_home: number;
+    label: string;
+    status: "none" | "passed" | "blocked" | "mixed";
+    first_at?: string;
+    last_at?: string;
+    last_page?: string;
+    last_page_id?: string | number;
+    last_index?: number | null;
+    last_product?: string;
+    last_result?: "product" | "home";
+  } | null;
 }
 
 export interface VisitorIpListParams {

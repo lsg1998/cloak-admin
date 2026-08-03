@@ -367,6 +367,18 @@
                   </el-tag>
                 </div>
                 <div class="type-line">
+                  <span class="label">商品卡点击:</span>
+                  <el-tag
+                    v-if="row.card_click && row.card_click.count > 0"
+                    size="small"
+                    :type="getCardClickColor(row.card_click.status)"
+                    :title="cardClickTitle(row.card_click)"
+                  >
+                    {{ row.card_click.label }}
+                  </el-tag>
+                  <span v-else class="value">未点击</span>
+                </div>
+                <div class="type-line">
                   <span class="label">访问页面:</span>
                   <span class="value referer" :title="row.access_address || '-'">
                     {{ row.access_address || "-" }}
@@ -543,6 +555,23 @@
               >
                 {{ getProductTypeLabel(currentVisitorIp.product_type) }}
               </el-tag>
+              <span v-else class="text-gray-400">--</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="商品卡点击">
+              <el-tag
+                v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.count > 0"
+                :type="getCardClickColor(currentVisitorIp.card_click.status)"
+                size="small"
+                :title="cardClickTitle(currentVisitorIp.card_click)"
+              >
+                {{ currentVisitorIp.card_click.label }}
+              </el-tag>
+              <span v-else class="text-gray-400">未点击</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="最后点击时间">
+              <span v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.last_at">
+                {{ currentVisitorIp.card_click.last_at }}
+              </span>
               <span v-else class="text-gray-400">--</span>
             </el-descriptions-item>
             <el-descriptions-item label="首次访问">{{ formatDate(currentVisitorIp.first_visit) }}</el-descriptions-item>
@@ -1148,6 +1177,31 @@ const getBotDescription = (row: VisitorIp) => {
 };
 
 // 获取产品类型标签颜色
+// 分类落地页"商品卡点击"状态配色
+// passed=点了看到正品 / blocked=点了却被打回首页(有意向却被斗篷拦,值得关注) / mixed=两者都有
+const getCardClickColor = (status: string): "success" | "warning" | "info" | "primary" | "danger" => {
+  const colorMap: Record<string, "success" | "warning" | "info" | "primary" | "danger"> = {
+    passed: "success",
+    blocked: "danger",
+    mixed: "warning"
+  };
+  return colorMap[status] || "info";
+};
+
+// 鼠标悬停显示点击明细
+const cardClickTitle = (c: any) => {
+  if (!c) return "";
+  const parts = [
+    `累计点击 ${c.count} 次`,
+    `跳真实商品 ${c.to_product} 次 / 被打回首页 ${c.to_home} 次`,
+    c.last_page ? `最后落地页: ${c.last_page}` : "",
+    c.last_index !== null && c.last_index !== undefined ? `最后点击第 ${c.last_index + 1} 张卡` : "",
+    c.last_product ? `最后商品: ${c.last_product}` : "",
+    c.last_at ? `最后点击: ${c.last_at}` : ""
+  ];
+  return parts.filter(Boolean).join("\n");
+};
+
 const getProductTypeColor = (type: string): "success" | "warning" | "info" | "primary" | "danger" => {
   const colorMap: Record<string, "success" | "warning" | "info" | "primary" | "danger"> = {
     A: "primary",
