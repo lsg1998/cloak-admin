@@ -74,3 +74,27 @@ export const updateCategoryPageApi = (id: number | string, data: Partial<Categor
 export const deleteCategoryPageApi = (id: number | string) => {
   return http.delete(`/admin/category-pages/${id}`);
 };
+
+/**
+ * 分类落地页 营销元素开关
+ * 分类页对所有访客一致，广告审核员看到的就是这个页面。
+ * 出问题时可一键关闭全部营销元素（或单独关掉某项），不用改代码。
+ */
+export interface MarketingSettings {
+  enabled: number; // 总开关
+  countdown: number; // 顶部倒计时
+  toast: number; // 最近购买弹窗
+  viewers: number; // 正在浏览人数
+  hot_badge: number; // 热销角标
+  scarcity: number; // 仅剩X件 / 今日已售
+  rating: number; // 评分与评价数
+  trust: number; // 货到付款 / 免费配送
+}
+
+export const getMarketingSettingsApi = () => {
+  return http.get<MarketingSettings>(`/admin/category-pages-marketing`);
+};
+
+export const updateMarketingSettingsApi = (data: MarketingSettings) => {
+  return http.put(`/admin/category-pages-marketing`, data);
+};

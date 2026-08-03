@@ -20,8 +20,61 @@
         <el-button type="success" @click="handleAdd">
           <el-icon><Plus /></el-icon>新建落地页
         </el-button>
+        <div class="toolbar-right">
+          <el-button :type="marketing.enabled ? 'warning' : 'danger'" plain @click="openMarketing">
+            <el-icon><Setting /></el-icon>
+            营销元素{{ marketing.enabled ? "（已开启）" : "（已全部关闭）" }}
+          </el-button>
+        </div>
       </div>
     </el-card>
+
+    <!-- 营销元素开关 -->
+    <el-dialog v-model="marketingVisible" title="分类落地页 营销元素开关" width="560px">
+      <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 16px">
+        <template #title>分类落地页对所有访客显示同一份内容</template>
+        <div style="font-size: 12px; line-height: 1.6">
+          广告审核员看到的就是这个页面。过度的紧迫感元素有时会被判定为"误导性内容"，
+          审核出问题时可在这里一键关闭，无需改代码或下线页面。
+          关闭后商品图、标题、价格、折扣和订购按钮不受影响。
+        </div>
+      </el-alert>
+
+      <el-form label-width="120px">
+        <el-form-item label="总开关">
+          <el-switch
+            v-model="marketing.enabled"
+            :active-value="1"
+            :inactive-value="0"
+            active-text="开启"
+            inactive-text="全部关闭"
+          />
+          <div class="form-tip">关闭后，下面所有项一律不显示</div>
+        </el-form-item>
+
+        <el-divider content-position="left">单项控制</el-divider>
+
+        <el-form-item
+          v-for="opt in marketingOptions"
+          :key="opt.key"
+          :label="opt.label"
+        >
+          <el-switch
+            v-model="marketing[opt.key]"
+            :active-value="1"
+            :inactive-value="0"
+            :disabled="!marketing.enabled"
+          />
+          <span class="form-tip" style="margin-left: 10px">{{ opt.tip }}</span>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="marketingVisible = false">取消</el-button>
+        <el-button type="danger" plain @click="disableAllMarketing">一键全部关闭</el-button>
+        <el-button type="primary" :loading="marketingSaving" @click="saveMarketing">保存</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 列表 -->
     <el-card class="table-card" shadow="never">
@@ -299,7 +352,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box } from "@element-plus/icons-vue";
+import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box, Setting } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
 import { getProductListApi, getProductCountryStatsApi, type Product } from "@/api/modules/product";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
@@ -309,9 +362,77 @@ import {
   createCategoryPageApi,
   updateCategoryPageApi,
   deleteCategoryPageApi,
+  getMarketingSettingsApi,
+  updateMarketingSettingsApi,
   type CategoryPage,
-  type CategoryPageItem
+  type CategoryPageItem,
+  type MarketingSettings
 } from "@/api/modules/categoryPage";
+
+// ==================== 营销元素开关 ====================
+// 分类页对所有访客一致，广告审核员看到的就是这个页面。
+// 出问题时在这里一键关闭，不用改代码、不用下线页面。
+const marketingVisible = ref(false);
+const marketingSaving = ref(false);
+const marketing = reactive<MarketingSettings>({
+  enabled: 1,
+  countdown: 1,
+  toast: 1,
+  viewers: 1,
+  hot_badge: 1,
+  scarcity: 1,
+  rating: 1,
+  trust: 1
+});
+
+const marketingOptions: { key: keyof MarketingSettings; label: string; tip: string }[] = [
+  { key: "toast", label: "最近购买弹窗", tip: "风险最高，审核有异议先关这个" },
+  { key: "countdown", label: "顶部倒计时", tip: "每位访客15分钟的限时优惠" },
+  { key: "viewers", label: "正在浏览人数", tip: "卡片上的“N人正在浏览”" },
+  { key: "scarcity", label: "库存与今日已售", tip: "“仅剩X件”和库存进度条" },
+  { key: "hot_badge", label: "热销角标", tip: "图片右上角的 🔥 最热销" },
+  { key: "rating", label: "评分与评价数", tip: "★★★★★ 4.8 (1243)" },
+  { key: "trust", label: "货到付款 / 免费配送", tip: "信任标签，风险最低，建议保留" }
+];
+
+const loadMarketing = async () => {
+  try {
+    const res = await getMarketingSettingsApi();
+    if (res.code === 200 && res.data) Object.assign(marketing, res.data);
+  } catch (e) {
+    console.error("获取营销开关失败:", e);
+  }
+};
+
+const openMarketing = async () => {
+  await loadMarketing();
+  marketingVisible.value = true;
+};
+
+const disableAllMarketing = () => {
+  (Object.keys(marketing) as (keyof MarketingSettings)[]).forEach(k => {
+    marketing[k] = 0;
+  });
+};
+
+const saveMarketing = async () => {
+  marketingSaving.value = true;
+  try {
+    const res = await updateMarketingSettingsApi({ ...marketing });
+    if (res.code === 200) {
+      if (res.data) Object.assign(marketing, res.data);
+      ElMessage.success(marketing.enabled ? "已保存" : "已关闭全部营销元素");
+      marketingVisible.value = false;
+    } else {
+      ElMessage.error(res.message || "保存失败");
+    }
+  } catch (e) {
+    console.error("保存营销开关失败:", e);
+    ElMessage.error("保存失败");
+  } finally {
+    marketingSaving.value = false;
+  }
+};
 
 // 商品卡点击率配色：越高说明落地页越吸引人
 const clickRateColor = (rate: number): "success" | "warning" | "info" | "danger" => {
@@ -602,6 +723,7 @@ const copyLink = (slug: string) => {
 onMounted(() => {
   loadData();
   loadCloakRules();
+  loadMarketing(); // 工具栏按钮要显示当前是开启还是已关闭
 });
 </script>
 
@@ -612,6 +734,9 @@ onMounted(() => {
 .stats-empty {
   color: var(--el-text-color-placeholder);
   font-size: 12px;
+}
+.toolbar-right {
+  margin-left: auto;
 }
 .search-card {
   margin-bottom: 12px;
