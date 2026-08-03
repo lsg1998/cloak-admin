@@ -25,6 +25,23 @@ export interface CategoryPage {
   item_count?: number;
   created_at?: string;
   updated_at?: string;
+  /**
+   * 访问/点击统计（存于 Redis，由列表接口补齐；见后端 CategoryPageStatsService）
+   * uv_click_rate 是按人数算的点击率，最能反映真实意向，列表主展示这个
+   * pass_rate 是点击后真正看到正品的比例，剩下的是被斗篷打回首页的
+   */
+  stats?: {
+    views: number;
+    uv: number;
+    clicks: number;
+    click_uv: number;
+    to_product: number;
+    to_home: number;
+    click_rate: number;
+    uv_click_rate: number;
+    pass_rate: number;
+    days: number;
+  } | null;
 }
 
 export interface CategoryPageListParams {

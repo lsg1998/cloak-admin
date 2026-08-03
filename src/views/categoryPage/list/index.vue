@@ -41,6 +41,44 @@
             <el-tag type="info" size="small">{{ row.item_count ?? (row.items ? row.items.length : 0) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="访客(UV)" width="100" align="center">
+          <template #default="{ row }">
+            <span v-if="row.stats">{{ row.stats.uv }}</span>
+            <span v-else class="stats-empty">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="点击人数" width="100" align="center">
+          <template #default="{ row }">
+            <span v-if="row.stats">{{ row.stats.click_uv }}</span>
+            <span v-else class="stats-empty">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="点击率" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.stats && row.stats.uv > 0"
+              size="small"
+              :type="clickRateColor(row.stats.uv_click_rate)"
+              :title="statsTitle(row.stats)"
+            >
+              {{ row.stats.uv_click_rate }}%
+            </el-tag>
+            <span v-else class="stats-empty">暂无数据</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="点击后看到正品" width="130" align="center">
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.stats && row.stats.clicks > 0"
+              size="small"
+              :type="row.stats.pass_rate >= 80 ? 'success' : row.stats.pass_rate >= 50 ? 'warning' : 'danger'"
+              :title="`跳真实商品 ${row.stats.to_product} 次 / 被斗篷打回首页 ${row.stats.to_home} 次`"
+            >
+              {{ row.stats.pass_rate }}%
+            </el-tag>
+            <span v-else class="stats-empty">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
@@ -274,6 +312,26 @@ import {
   type CategoryPage,
   type CategoryPageItem
 } from "@/api/modules/categoryPage";
+
+// 商品卡点击率配色：越高说明落地页越吸引人
+const clickRateColor = (rate: number): "success" | "warning" | "info" | "danger" => {
+  if (rate >= 20) return "success";
+  if (rate >= 10) return "warning";
+  if (rate > 0) return "info";
+  return "danger";
+};
+
+// 悬停显示统计明细
+const statsTitle = (s: any) => {
+  if (!s) return "";
+  return [
+    `统计范围：最近 ${s.days} 天`,
+    `落地页访问 ${s.views} 次 / 去重访客 ${s.uv} 人`,
+    `商品卡点击 ${s.clicks} 次 / 点击人数 ${s.click_uv} 人`,
+    `点击率(按人) ${s.uv_click_rate}%  点击率(按次) ${s.click_rate}%`,
+    `点击后：跳真实商品 ${s.to_product} 次，被斗篷打回首页 ${s.to_home} 次`
+  ].join("\n");
+};
 
 // 页面语言选项（每个国家/语言建独立分类页）
 const languageOptions = [
@@ -550,6 +608,10 @@ onMounted(() => {
 <style scoped>
 .category-page-container {
   padding: 0;
+}
+.stats-empty {
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
 }
 .search-card {
   margin-bottom: 12px;
