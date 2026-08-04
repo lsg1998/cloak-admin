@@ -734,11 +734,11 @@
                 落地页要求编写：含商家联系方式、配送时效、付款方式、退换货窗口及四类政策，
                 且不含倒计时、库存告急、销量数字等紧迫感元素。
                 <br />
-                <strong>留空 = 自动</strong>：按商品ID稳定分配一套，同一商品每次一致、不同商品自动分散风格
-                —— 全站仿品页长得一模一样本身就是可识别特征。
+                <strong>留空 = 自动</strong>：按商品ID稳定分配一套，同一商品每次一致、不同商品自动分散风格 ——
+                全站仿品页长得一模一样本身就是可识别特征。
                 <br />
-                <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或
-                cloak-shop / cloak-magazine / cloak-tech）即可单独查看。
+                <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或 cloak-shop / cloak-magazine /
+                cloak-tech）即可单独查看。
               </div>
             </el-form-item>
           </el-col>
