@@ -728,6 +728,8 @@
                 <el-option label="标准电商 (Shop)" value="cloak-shop" />
                 <el-option label="杂志目录 (Magazine)" value="cloak-magazine" />
                 <el-option label="科技深色 (Tech)" value="cloak-tech" />
+                <el-option label="现代主题风 (Dawn)" value="cloak-dawn" />
+                <el-option label="商城风 (Storefront)" value="cloak-storefront" />
               </el-select>
               <div class="form-tip">
                 被斗篷判定为非目标流量（含广告审核）时展示的页面。这些模板均按 Google Ads
@@ -738,7 +740,7 @@
                 全站仿品页长得一模一样本身就是可识别特征。
                 <br />
                 <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或 cloak-shop / cloak-magazine /
-                cloak-tech）即可单独查看。
+                cloak-tech / cloak-dawn / cloak-storefront）即可单独查看。
               </div>
             </el-form-item>
           </el-col>
