@@ -717,6 +717,33 @@
           </el-col>
         </el-row>
 
+        <!-- 仿品页模板：被斗篷判定为非目标流量时展示的页面 -->
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="仿品页模板" prop="cloak_template">
+              <el-select v-model="form.cloak_template" placeholder="自动（按商品分散风格）" clearable style="width: 100%">
+                <el-option label="自动（按商品分散风格）" value="" />
+                <el-option label="通用简洁 (Classic)" value="classic" />
+                <el-option label="极简白 (Minimal)" value="cloak-minimal" />
+                <el-option label="标准电商 (Shop)" value="cloak-shop" />
+                <el-option label="杂志目录 (Magazine)" value="cloak-magazine" />
+                <el-option label="科技深色 (Tech)" value="cloak-tech" />
+              </el-select>
+              <div class="form-tip">
+                被斗篷判定为非目标流量（含广告审核）时展示的页面。这些模板均按 Google Ads
+                落地页要求编写：含商家联系方式、配送时效、付款方式、退换货窗口及四类政策，
+                且不含倒计时、库存告急、销量数字等紧迫感元素。
+                <br />
+                <strong>留空 = 自动</strong>：按商品ID稳定分配一套，同一商品每次一致、不同商品自动分散风格
+                —— 全站仿品页长得一模一样本身就是可识别特征。
+                <br />
+                <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或
+                cloak-shop / cloak-magazine / cloak-tech）即可单独查看。
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 页面自定义设置 -->
         <el-row :gutter="20">
           <el-col :span="12">
@@ -2219,6 +2246,7 @@ const form = reactive({
   cloak_rule_id: null as number | null,
   country: "JA",
   template: "classic", // 模板类型：classic、shopline 或 standard
+  cloak_template: "", // 仿品页模板，留空=按商品ID自动分配风格
   page_primary_color: "#007d65", // 页面主要颜色
   head_w_marquee: "", // 头部跑马灯内容
   company_name: "", // 公司名称（页脚）
@@ -2533,6 +2561,7 @@ const handleAdd = () => {
     cloak_rule_id: null, // 重置斗篷规则
     country: "JA",
     template: "classic",
+    cloak_template: "",
     page_primary_color: "#007d65",
     head_w_marquee: "",
     company_name: "",

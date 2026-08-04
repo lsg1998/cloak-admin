@@ -17,6 +17,12 @@ export interface Product {
   b_page_product_id?: string; // 保留兼容性（旧格式）
   linked_original_ids?: string[]; // 新增：关联的正品ID数组
   country?: string;
+  /**
+   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   */
+  cloak_template?: string;
   company_name?: string;
   company_tagline?: string;
   company_address?: string;
@@ -86,6 +92,12 @@ export interface CreateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  /**
+   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   */
+  cloak_template?: string;
   company_name?: string;
   company_tagline?: string;
   company_address?: string;
@@ -111,6 +123,12 @@ export interface UpdateProductParams {
   product_type?: "original" | "fake";
   b_page_product_id?: string;
   country?: string;
+  /**
+   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   */
+  cloak_template?: string;
   company_name?: string;
   company_tagline?: string;
   company_address?: string;
