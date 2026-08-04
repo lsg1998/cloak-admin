@@ -35,8 +35,7 @@
         <template #title>分类落地页对所有访客显示同一份内容</template>
         <div style="font-size: 12px; line-height: 1.6">
           广告审核员看到的就是这个页面。过度的紧迫感元素有时会被判定为"误导性内容"，
-          审核出问题时可在这里一键关闭，无需改代码或下线页面。
-          关闭后商品图、标题、价格、折扣和订购按钮不受影响。
+          审核出问题时可在这里一键关闭，无需改代码或下线页面。 关闭后商品图、标题、价格、折扣和订购按钮不受影响。
         </div>
       </el-alert>
 
@@ -54,17 +53,8 @@
 
         <el-divider content-position="left">单项控制</el-divider>
 
-        <el-form-item
-          v-for="opt in marketingOptions"
-          :key="opt.key"
-          :label="opt.label"
-        >
-          <el-switch
-            v-model="marketing[opt.key]"
-            :active-value="1"
-            :inactive-value="0"
-            :disabled="!marketing.enabled"
-          />
+        <el-form-item v-for="opt in marketingOptions" :key="opt.key" :label="opt.label">
+          <el-switch v-model="marketing[opt.key]" :active-value="1" :inactive-value="0" :disabled="!marketing.enabled" />
           <span class="form-tip" style="margin-left: 10px">{{ opt.tip }}</span>
         </el-form-item>
       </el-form>
