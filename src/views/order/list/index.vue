@@ -1796,6 +1796,37 @@
           <div style="font-size: 12px; line-height: 1.7">{{ transitWarning }}</div>
         </el-alert>
 
+        <!-- 重复下单：同一手机号下过多单但只发一单，看那一单签收得怎么样 -->
+        <div class="logi-card" v-if="analytics?.by_repeat">
+          <div class="logi-card-title">
+            按重复下单次数
+            <span class="logi-card-sub">
+              可关联 {{ analytics.by_repeat.joined }} 笔 · 按手机号分组，下单次数含被标为重复而删除的订单
+            </span>
+          </div>
+          <el-empty v-if="!analytics.by_repeat.joined" description="导入的物流数据还没有对应上系统里的订单" :image-size="60" />
+          <el-table v-else :data="analytics.by_repeat.rows" size="small">
+            <el-table-column prop="name" label="下单次数" min-width="120" />
+            <el-table-column prop="total" label="发出单量" width="90" align="right" />
+            <el-table-column prop="delivered" label="签收" width="70" align="right" />
+            <el-table-column prop="returned" label="退件" width="70" align="right" />
+            <el-table-column label="签收率" width="150">
+              <template #default="{ row }">
+                <div class="logi-rate">
+                  <el-progress
+                    :percentage="row.rate"
+                    :stroke-width="10"
+                    :show-text="false"
+                    :color="rateColor(row.rate)"
+                    style="flex: 1"
+                  />
+                  <span class="logi-rate-num">{{ row.rate }}%</span>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
         <!-- 买家填写信息：需关联 orders 表，样本量单独标注 -->
         <div class="logi-card" v-if="analytics?.by_buyer_info">
           <div class="logi-card-title">

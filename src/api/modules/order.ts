@@ -467,6 +467,8 @@ export interface LogisticsAnalytics {
     joined: number;
     groups: { key: string; title: string; rows: LogisticsGroup[] }[];
   };
+  /** 重复下单 × 签收率。按手机号分组，分母含被标为重复而删除的订单 */
+  by_repeat: { joined: number; rows: LogisticsGroup[] };
   countries: string[];
   last_import: string | null;
 }
