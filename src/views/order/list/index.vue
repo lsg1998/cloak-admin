@@ -64,6 +64,12 @@
             <el-option v-for="(label, status) in OrderStatusLabels" :key="status" :label="label" :value="status" />
           </el-select>
         </el-form-item>
+        <el-form-item label="签收状态">
+          <el-select v-model="searchForm.delivery_status" placeholder="请选择" clearable style="width: 130px">
+            <el-option v-for="(label, k) in DeliveryStatusLabels" :key="k" :label="label" :value="k" />
+            <el-option label="尚无物流数据" value="__none__" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="下单时间">
           <el-date-picker
             v-model="dateRange"
@@ -135,6 +141,14 @@
             <el-tag type="info" size="small">{{ pagination.total }} 条记录</el-tag>
           </div>
           <div class="table-actions">
+            <el-button size="small" type="warning" @click="openLogisticsImport">
+              <el-icon><Upload /></el-icon>
+              导入物流状态
+            </el-button>
+            <el-button size="small" @click="openLogisticsAnalytics">
+              <el-icon><TrendCharts /></el-icon>
+              签收分析
+            </el-button>
             <el-button size="small" @click="handleExportDialog" :loading="exportLoading">
               <el-icon><Download /></el-icon>
               导出订单
@@ -1623,6 +1637,170 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- ========== 导入物流签收状态 ========== -->
+    <el-dialog v-model="logisticsVisible" title="导入物流签收状态" width="860px" :close-on-click-modal="false">
+      <el-alert type="info" :closable="false" show-icon style="margin-bottom: 16px">
+        <template #title>支持物流商导出的 xlsx / xls / csv，直接选原文件即可</template>
+        <div style="font-size: 12px; line-height: 1.7">
+          按<b>表头名称</b>识别列（参考单号、轨迹状态、退件状态…），列顺序变化不影响导入。<br />
+          用<b>参考单号</b>对应订单号；同一订单重复导入会覆盖为最新结果。
+        </div>
+      </el-alert>
+
+      <el-upload
+        v-if="!logisticsRows.length"
+        drag
+        action="#"
+        :auto-upload="false"
+        :show-file-list="false"
+        accept=".xlsx,.xls,.csv"
+        :on-change="handleLogisticsFile"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">把文件拖到这里，或<em>点击选择</em></div>
+      </el-upload>
+
+      <div v-else>
+        <el-descriptions :column="4" border size="small" style="margin-bottom: 14px">
+          <el-descriptions-item label="文件">{{ logisticsFileName }}</el-descriptions-item>
+          <el-descriptions-item label="识别行数">{{ logisticsRows.length }}</el-descriptions-item>
+          <el-descriptions-item label="单号异常">
+            <span :style="{ color: logisticsInvalid.length ? '#f56c6c' : '' }">{{ logisticsInvalid.length }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="待提交">{{ logisticsRows.length - logisticsInvalid.length }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="logisticsMissingCols.length" style="margin-bottom: 12px">
+          <el-alert type="warning" :closable="false" show-icon>
+            <template #title>以下列没找到，对应字段会留空</template>
+            <div style="font-size: 12px">{{ logisticsMissingCols.join("、") }}</div>
+          </el-alert>
+        </div>
+
+        <div class="logi-preview">
+          <div class="logi-preview-title">状态分布</div>
+          <el-tag
+            v-for="(n, k) in logisticsPreview"
+            :key="k"
+            :type="DeliveryStatusColors[k] || 'info'"
+            size="small"
+            style="margin: 0 8px 8px 0"
+          >
+            {{ DeliveryStatusLabels[k] || k }} {{ n }}
+          </el-tag>
+        </div>
+
+        <el-table :data="logisticsSample" size="small" border max-height="240" style="margin-top: 10px">
+          <el-table-column prop="order_number" label="参考单号" width="200" />
+          <el-table-column label="签收状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="DeliveryStatusColors[row.__status] || 'info'" size="small">
+                {{ DeliveryStatusLabels[row.__status] || row.__status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="country" label="国家" width="70" />
+          <el-table-column prop="carrier" label="派送商" width="90" />
+          <el-table-column prop="cod_amount" label="COD" width="90" />
+          <el-table-column prop="last_track_at" label="最新轨迹" min-width="150" show-overflow-tooltip />
+        </el-table>
+        <div class="logi-tip">仅预览前 10 行</div>
+
+        <el-progress v-if="logisticsImporting" :percentage="logisticsProgress" :stroke-width="14" style="margin-top: 14px" />
+      </div>
+
+      <template #footer>
+        <el-button v-if="logisticsRows.length" @click="resetLogistics">重新选择</el-button>
+        <el-button @click="logisticsVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!logisticsRows.length" :loading="logisticsImporting" @click="submitLogistics">
+          确认导入
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ========== 签收分析看板 ========== -->
+    <el-dialog v-model="analyticsVisible" title="签收分析" width="1000px" top="5vh">
+      <div v-loading="analyticsLoading">
+        <div class="logi-toolbar">
+          <el-select
+            v-model="analyticsCountry"
+            placeholder="全部国家"
+            clearable
+            size="small"
+            style="width: 140px"
+            @change="loadAnalytics"
+          >
+            <el-option v-for="c in analytics?.countries || []" :key="c" :label="c" :value="c" />
+          </el-select>
+          <span class="logi-updated" v-if="analytics?.last_import">最后导入：{{ analytics.last_import }}</span>
+        </div>
+
+        <el-row :gutter="12" style="margin-bottom: 16px">
+          <el-col :span="6">
+            <div class="logi-stat">
+              <div class="logi-stat-num">{{ analytics?.summary?.total ?? 0 }}</div>
+              <div class="logi-stat-lbl">已出结果</div>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="logi-stat logi-stat--ok">
+              <div class="logi-stat-num">{{ analytics?.summary?.delivered ?? 0 }}</div>
+              <div class="logi-stat-lbl">签收</div>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="logi-stat logi-stat--bad">
+              <div class="logi-stat-num">{{ analytics?.summary?.returned ?? 0 }}</div>
+              <div class="logi-stat-lbl">退件</div>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="logi-stat logi-stat--rate">
+              <div class="logi-stat-num">{{ analytics?.summary?.rate ?? 0 }}%</div>
+              <div class="logi-stat-lbl">签收率</div>
+            </div>
+          </el-col>
+        </el-row>
+
+        <el-alert type="info" :closable="false" style="margin-bottom: 16px">
+          <template #title>
+            另有 {{ analytics?.summary?.pending ?? 0 }} 单尚未出结果（运输中/派送中等），未计入以上统计
+          </template>
+        </el-alert>
+
+        <el-alert v-if="transitWarning" type="warning" :closable="false" show-icon style="margin-bottom: 16px">
+          <template #title>时效是最强的信号</template>
+          <div style="font-size: 12px; line-height: 1.7">{{ transitWarning }}</div>
+        </el-alert>
+
+        <el-row :gutter="14">
+          <el-col :span="12" v-for="dim in analyticsDims" :key="dim.key">
+            <div class="logi-card">
+              <div class="logi-card-title">{{ dim.title }}</div>
+              <el-table :data="(analytics as any)?.[dim.key] || []" size="small" :show-header="true">
+                <el-table-column prop="name" :label="dim.label" min-width="110" show-overflow-tooltip />
+                <el-table-column prop="total" label="单量" width="66" align="right" />
+                <el-table-column label="签收率" width="132">
+                  <template #default="{ row }">
+                    <div class="logi-rate">
+                      <el-progress
+                        :percentage="row.rate"
+                        :stroke-width="10"
+                        :show-text="false"
+                        :color="rateColor(row.rate)"
+                        style="flex: 1"
+                      />
+                      <span class="logi-rate-num">{{ row.rate }}%</span>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -1648,7 +1826,10 @@ import {
   Location,
   CircleClose,
   Star,
-  List
+  List,
+  Upload,
+  UploadFilled,
+  TrendCharts
 } from "@element-plus/icons-vue";
 import * as XLSX from "xlsx";
 import {
@@ -1670,7 +1851,13 @@ import {
   type OrderListParams,
   OrderStatus,
   OrderStatusLabels,
-  OrderStatusColors
+  OrderStatusColors,
+  DeliveryStatusLabels,
+  DeliveryStatusColors,
+  importLogisticsApi,
+  getLogisticsAnalyticsApi,
+  type LogisticsRow,
+  type LogisticsAnalytics
 } from "@/api/modules/order";
 import { sendArrivalReminderApi, sendReshipmentNoticeApi, sendCustomEmailApi, type CustomEmailParams } from "@/api/modules/email";
 import {
@@ -2233,7 +2420,8 @@ const searchForm = reactive({
   start_date: "",
   end_date: "",
   product_id: "",
-  country: "" // 国家筛选
+  country: "", // 国家筛选
+  delivery_status: "" // 物流签收状态，__none__ 表示尚无物流数据
 });
 
 // 日期范围
@@ -5834,7 +6022,8 @@ const loadData = async () => {
       start_date: searchForm.start_date || undefined,
       end_date: searchForm.end_date || undefined,
       product_id: searchForm.product_id || undefined,
-      country: searchForm.country || undefined
+      country: searchForm.country || undefined,
+      delivery_status: searchForm.delivery_status || undefined
     };
 
     const { data } = await getOrderListApi(params);
@@ -5965,6 +6154,287 @@ const handleProductCurrentChange = (current: number) => {
 };
 
 // 初始化
+// ==================== 物流签收状态：导入 ====================
+// xlsx/csv 在浏览器端用 SheetJS 解析（订单导出本来就在用这个库），
+// 后端只收映射好的 JSON，省掉 PHP 端的表格库依赖，预览也是即时的。
+
+/** 后端字段 → 物流商表头名。按表头名取列，列顺序变化不影响导入 */
+const LOGI_COLUMNS: Record<string, string> = {
+  order_number: "参考单号",
+  track_status_raw: "轨迹状态",
+  return_detail: "退件状态",
+  country: "国家",
+  province: "收件人省",
+  postal_code: "收件人邮编",
+  carrier: "末端派送商",
+  cod_amount: "cod",
+  cod_currency: "cod币种",
+  order_type: "订单类型",
+  product_name: "品名",
+  weight: "订单重量",
+  ship_out_at: "出库时间",
+  last_track_at: "最新轨迹时间",
+  sign_days: "签收时效",
+  return_reason: "退件备注",
+  tracking_no: "跟踪单号"
+};
+
+/** 与后端 OrderLogisticsService::STATUS_MAP 保持一致，仅用于预览 */
+const LOGI_STATUS_MAP: Record<string, string> = {
+  已签收: "delivered",
+  退件完成: "returned",
+  退件中: "returning",
+  派送异常: "exception",
+  派送中: "delivering",
+  转运中: "in_transit",
+  已出库: "shipped",
+  待分拣: "pending"
+};
+
+const logisticsVisible = ref(false);
+const logisticsImporting = ref(false);
+const logisticsProgress = ref(0);
+const logisticsFileName = ref("");
+const logisticsRows = ref<LogisticsRow[]>([]);
+const logisticsInvalid = ref<string[]>([]);
+const logisticsMissingCols = ref<string[]>([]);
+const logisticsPreview = ref<Record<string, number>>({});
+
+/** 预览用的状态判定，规则与后端一致：退件状态非空则强制归退件 */
+const previewStatus = (r: LogisticsRow) => {
+  const raw = String(r.track_status_raw || "").trim();
+  let st = LOGI_STATUS_MAP[raw] || "unknown";
+  if (String(r.return_detail || "").trim() && st !== "returned" && st !== "returning") {
+    st = "returned";
+  }
+  return st;
+};
+
+const logisticsSample = computed(() => logisticsRows.value.slice(0, 10).map(r => ({ ...r, __status: previewStatus(r) })));
+
+const resetLogistics = () => {
+  logisticsRows.value = [];
+  logisticsInvalid.value = [];
+  logisticsMissingCols.value = [];
+  logisticsPreview.value = {};
+  logisticsFileName.value = "";
+  logisticsProgress.value = 0;
+};
+
+const openLogisticsImport = () => {
+  resetLogistics();
+  logisticsVisible.value = true;
+};
+
+/** Excel 日期列 → 字符串。物流商导出的时间有时是 Date、有时是文本 */
+const excelDate = (v: any): string => {
+  if (v === null || v === undefined || v === "") return "";
+  if (v instanceof Date) {
+    const p = (n: number) => String(n).padStart(2, "0");
+    return (
+      v.getFullYear() +
+      "-" +
+      p(v.getMonth() + 1) +
+      "-" +
+      p(v.getDate()) +
+      " " +
+      p(v.getHours()) +
+      ":" +
+      p(v.getMinutes()) +
+      ":" +
+      p(v.getSeconds())
+    );
+  }
+  return String(v).trim();
+};
+
+const ORDER_NO_RE = /^ORD\d{18}$/;
+
+const handleLogisticsFile = (file: any) => {
+  const raw = file.raw || file;
+  logisticsFileName.value = raw.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      // cellDates：让 SheetJS 直接把日期列解析成 Date，避免拿到 45000 这种序列号
+      const wb = XLSX.read(new Uint8Array(e.target?.result as ArrayBuffer), { type: "array", cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+
+      if (!json.length) {
+        ElMessage.warning("文件里没有数据行");
+        return;
+      }
+
+      const headers = Object.keys(json[0]).map(h => String(h).trim());
+      const missing: string[] = [];
+      Object.keys(LOGI_COLUMNS).forEach(k => {
+        if (!headers.includes(LOGI_COLUMNS[k])) missing.push(LOGI_COLUMNS[k]);
+      });
+      logisticsMissingCols.value = missing;
+
+      if (missing.indexOf("参考单号") >= 0) {
+        ElMessage.error("没找到「参考单号」列，无法对应订单");
+        resetLogistics();
+        return;
+      }
+
+      const rows: LogisticsRow[] = [];
+      const invalid: string[] = [];
+      const dist: Record<string, number> = {};
+
+      json.forEach(r => {
+        const row: any = {};
+        Object.keys(LOGI_COLUMNS).forEach(k => {
+          const v = r[LOGI_COLUMNS[k]];
+          row[k] =
+            k === "ship_out_at" || k === "last_track_at" ? excelDate(v) : String(v === undefined || v === null ? "" : v).trim();
+        });
+
+        // 单号必须是 ORD+18位，异常的挑出来给用户看，不提交
+        if (!ORDER_NO_RE.test(row.order_number)) {
+          if (row.order_number) invalid.push(row.order_number);
+          return;
+        }
+
+        const st = previewStatus(row);
+        dist[st] = (dist[st] || 0) + 1;
+        rows.push(row);
+      });
+
+      logisticsRows.value = rows;
+      logisticsInvalid.value = invalid;
+      logisticsPreview.value = dist;
+
+      if (!rows.length) ElMessage.warning("没有解析出可导入的行，请检查「参考单号」列");
+    } catch (err) {
+      console.error("解析物流文件失败:", err);
+      ElMessage.error("文件解析失败，请确认是物流商导出的原始表格");
+      resetLogistics();
+    }
+  };
+  reader.readAsArrayBuffer(raw);
+};
+
+const submitLogistics = async () => {
+  if (!logisticsRows.value.length) return;
+
+  logisticsImporting.value = true;
+  logisticsProgress.value = 0;
+
+  // 分批提交：一次几千条会撞上 post_max_size / client_max_body_size
+  const SIZE = 500;
+  const chunks: LogisticsRow[][] = [];
+  for (let i = 0; i < logisticsRows.value.length; i += SIZE) {
+    chunks.push(logisticsRows.value.slice(i, i + SIZE));
+  }
+
+  const agg = { total: 0, matched: 0, unmatched: 0, updated: 0, invalid: 0 };
+  const unmatched: string[] = [];
+
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      const res = await importLogisticsApi(chunks[i]);
+      if (res.code !== 200) throw new Error(res.message || "导入失败");
+      const d = res.data;
+      agg.total += d.total;
+      agg.matched += d.matched;
+      agg.unmatched += d.unmatched;
+      agg.updated += d.updated;
+      agg.invalid += d.invalid;
+      if (unmatched.length < 200 && d.unmatched_list && d.unmatched_list.length) {
+        unmatched.push(...d.unmatched_list.slice(0, 200 - unmatched.length));
+      }
+      logisticsProgress.value = Math.round(((i + 1) / chunks.length) * 100);
+    }
+
+    logisticsVisible.value = false;
+
+    const lines = [
+      "写入 " + agg.updated + " 条",
+      "匹配到订单 " + agg.matched + " 笔",
+      agg.unmatched ? "未匹配 " + agg.unmatched + " 笔（已入库，但系统里没有对应订单）" : ""
+    ].filter(Boolean);
+
+    const detail = unmatched.length
+      ? '<div style="margin-top:10px;font-size:12px;color:#909399;max-height:160px;overflow:auto">未匹配单号：<br/>' +
+        unmatched.join("<br/>") +
+        "</div>"
+      : "";
+
+    ElMessageBox.alert(lines.join("<br/>") + detail, "导入完成", {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: "知道了"
+    });
+
+    loadData();
+  } catch (err: any) {
+    console.error("导入物流状态失败:", err);
+    ElMessage.error((err && err.message) || "导入失败");
+  } finally {
+    logisticsImporting.value = false;
+  }
+};
+
+// ==================== 物流签收状态：分析看板 ====================
+const analyticsVisible = ref(false);
+const analyticsLoading = ref(false);
+const analyticsCountry = ref("");
+const analytics = ref<LogisticsAnalytics | null>(null);
+
+const analyticsDims = [
+  { key: "by_transit", title: "按时效（出库→最新轨迹）", label: "天数区间" },
+  { key: "by_carrier", title: "按末端派送商", label: "派送商" },
+  { key: "by_country", title: "按国家", label: "国家" },
+  { key: "by_reship", title: "按是否退件重出", label: "类型" },
+  { key: "by_cod", title: "按 COD 金额", label: "金额区间" },
+  { key: "by_province", title: "按省份（样本≥8）", label: "省份" }
+];
+
+const rateColor = (rate: number) => (rate >= 60 ? "#67c23a" : rate >= 35 ? "#e6a23c" : "#f56c6c");
+
+/** 时效差异明显时给一句结论，省得自己看表 */
+const transitWarning = computed(() => {
+  const rows = (analytics.value && analytics.value.by_transit) || [];
+  if (rows.length < 2) return "";
+  const fast = rows[0];
+  const slow = rows[rows.length - 1];
+  if (!fast || !slow || fast.rate - slow.rate < 20) return "";
+  return (
+    fast.name +
+    "内的订单签收率 " +
+    fast.rate +
+    "%（" +
+    fast.total +
+    " 单），" +
+    slow.name +
+    "只有 " +
+    slow.rate +
+    "%（" +
+    slow.total +
+    " 单）。超时越久越难签收，建议对出库超过一周仍未签收的订单提前介入，而不是等退件。"
+  );
+});
+
+const loadAnalytics = async () => {
+  analyticsLoading.value = true;
+  try {
+    const res = await getLogisticsAnalyticsApi(analyticsCountry.value || undefined);
+    if (res.code === 200) analytics.value = res.data;
+  } catch (err) {
+    console.error("获取签收分析失败:", err);
+    ElMessage.error("获取签收分析失败");
+  } finally {
+    analyticsLoading.value = false;
+  }
+};
+
+const openLogisticsAnalytics = () => {
+  analyticsVisible.value = true;
+  if (!analytics.value) loadAnalytics();
+};
+
 onMounted(() => {
   loadData();
   loadCountryStats(); // 加载国家统计数据
@@ -5974,6 +6444,80 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ===== 物流签收：导入与分析 ===== */
+.logi-preview {
+  padding: 12px 14px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+}
+.logi-preview-title {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+}
+.logi-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+.logi-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.logi-updated {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+.logi-stat {
+  padding: 14px 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  text-align: center;
+}
+.logi-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.logi-stat-lbl {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+.logi-stat--ok .logi-stat-num {
+  color: var(--el-color-success);
+}
+.logi-stat--bad .logi-stat-num {
+  color: var(--el-color-danger);
+}
+.logi-stat--rate .logi-stat-num {
+  color: var(--el-color-primary);
+}
+.logi-card {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.logi-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.logi-rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logi-rate-num {
+  font-size: 12px;
+  width: 42px;
+  text-align: right;
+  flex: none;
+}
+
 .order-management {
   min-height: 100vh;
   padding: 20px;

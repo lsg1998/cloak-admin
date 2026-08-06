@@ -56,6 +56,8 @@ export interface Order {
   total_amount: number;
   currency: string;
   status: OrderStatus;
+  /** 物流签收状态，由物流数据导入回写；与 status(业务状态) 相互独立 */
+  delivery_status?: string | null;
   comments?: string;
   created_at: string;
   updated_at: string;
@@ -99,6 +101,8 @@ export interface Order {
 
 // 订单列表查询参数
 export interface OrderListParams {
+  /** 物流签收状态筛选；传 __none__ 表示筛「尚无物流数据」的订单 */
+  delivery_status?: string;
   page?: number;
   size?: number;
   order_number?: string;
@@ -374,4 +378,92 @@ export const exportCustomerMatchUrl = (params?: {
 
   const queryString = queryParams.toString();
   return `${baseURL}/admin/orders/export-customer-match${queryString ? "?" + queryString : ""}`;
+};
+
+// ==================== 物流签收状态 ====================
+// 数据来自物流商导出的订单清单，用「参考单号」对应 order_number。
+// xlsx/csv 在浏览器端用 SheetJS 解析，只把映射好的字段分批提交给后端。
+
+/** 物流签收状态。与 orders.status(业务状态) 相互独立 */
+export const DeliveryStatusLabels: Record<string, string> = {
+  delivered: "签收成功",
+  returned: "已退件",
+  returning: "退件中",
+  exception: "派送异常",
+  delivering: "派送中",
+  in_transit: "运输中",
+  shipped: "已出库",
+  pending: "待分拣",
+  unknown: "未知"
+};
+
+export const DeliveryStatusColors: Record<string, "success" | "warning" | "info" | "primary" | "danger"> = {
+  delivered: "success",
+  returned: "danger",
+  returning: "warning",
+  exception: "warning",
+  delivering: "primary",
+  in_transit: "primary",
+  shipped: "info",
+  pending: "info",
+  unknown: "info"
+};
+
+/** 提交给后端的单行。字段名与后端 OrderLogisticsService::normalizeRow 对应 */
+export interface LogisticsRow {
+  order_number: string;
+  track_status_raw: string;
+  return_detail?: string;
+  country?: string;
+  province?: string;
+  postal_code?: string;
+  carrier?: string;
+  cod_amount?: string | number;
+  cod_currency?: string;
+  order_type?: string;
+  product_name?: string;
+  weight?: string | number;
+  ship_out_at?: string;
+  last_track_at?: string;
+  sign_days?: string | number;
+  return_reason?: string;
+  tracking_no?: string;
+}
+
+export interface LogisticsImportResult {
+  total: number;
+  matched: number;
+  unmatched: number;
+  updated: number;
+  invalid: number;
+  unmatched_list: string[];
+}
+
+export const importLogisticsApi = (rows: LogisticsRow[]) => {
+  return http.post<LogisticsImportResult>(`/admin/orders/logistics/import`, { rows });
+};
+
+/** 分析看板：各维度的签收率 */
+export interface LogisticsGroup {
+  name: string;
+  total: number;
+  delivered: number;
+  returned: number;
+  rate: number;
+}
+
+export interface LogisticsAnalytics {
+  summary: { total: number; delivered: number; returned: number; rate: number; pending: number };
+  by_transit: LogisticsGroup[];
+  by_country: LogisticsGroup[];
+  by_carrier: LogisticsGroup[];
+  by_reship: LogisticsGroup[];
+  by_cod: LogisticsGroup[];
+  by_province: LogisticsGroup[];
+  countries: string[];
+  last_import: string | null;
+}
+
+export const getLogisticsAnalyticsApi = (country?: string) => {
+  return http.get<LogisticsAnalytics>(`/admin/orders/logistics/analytics`, country ? { country } : {});
 };
