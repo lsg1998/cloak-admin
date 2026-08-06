@@ -279,7 +279,16 @@
                 <span class="currency">{{ row.currency || "JPY" }}</span>
               </div>
               <div class="payment-method-info">
-                <el-tag size="small" type="info">{{ row.payment_method || "COD" }}</el-tag>
+                <!-- 物流签收状态：签收绿、退件红，尚无物流数据时灰底提示 -->
+                <el-tag
+                  v-if="row.delivery_status"
+                  size="small"
+                  :type="DeliveryStatusColors[row.delivery_status] || 'info'"
+                  :effect="row.delivery_status === 'delivered' || row.delivery_status === 'returned' ? 'dark' : 'light'"
+                >
+                  {{ DeliveryStatusLabels[row.delivery_status] || row.delivery_status }}
+                </el-tag>
+                <el-tag v-else size="small" type="info" effect="plain">未导入物流</el-tag>
                 <el-tag v-if="row.product_template" size="small" type="primary" style="margin-left: 4px">
                   {{ row.product_template }}
                 </el-tag>
@@ -530,6 +539,19 @@
           <el-descriptions-item label="支付方式">{{ currentOrder.payment_method }}</el-descriptions-item>
           <el-descriptions-item label="订单金额">
             {{ currentOrder.total_amount || currentOrder.product_price * currentOrder.quantity }} {{ currentOrder.currency }}
+          </el-descriptions-item>
+          <el-descriptions-item label="签收状态">
+            <el-tag
+              v-if="currentOrder.delivery_status"
+              size="small"
+              :type="DeliveryStatusColors[currentOrder.delivery_status] || 'info'"
+              :effect="
+                currentOrder.delivery_status === 'delivered' || currentOrder.delivery_status === 'returned' ? 'dark' : 'light'
+              "
+            >
+              {{ DeliveryStatusLabels[currentOrder.delivery_status] || currentOrder.delivery_status }}
+            </el-tag>
+            <span v-else class="text-gray-400">未导入物流数据</span>
           </el-descriptions-item>
         </el-descriptions>
 
