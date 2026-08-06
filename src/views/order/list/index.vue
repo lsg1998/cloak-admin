@@ -1796,6 +1796,44 @@
           <div style="font-size: 12px; line-height: 1.7">{{ transitWarning }}</div>
         </el-alert>
 
+        <!-- 买家填写信息：需关联 orders 表，样本量单独标注 -->
+        <div class="logi-card" v-if="analytics?.by_buyer_info">
+          <div class="logi-card-title">
+            按买家填写的信息
+            <span class="logi-card-sub">
+              可关联 {{ analytics.by_buyer_info.joined }} 笔（只统计能对应上系统订单的物流数据）
+            </span>
+          </div>
+          <el-empty
+            v-if="!analytics.by_buyer_info.joined"
+            description="导入的物流数据还没有对应上系统里的订单"
+            :image-size="60"
+          />
+          <el-row v-else :gutter="14">
+            <el-col :span="8" v-for="g in analytics.by_buyer_info.groups" :key="g.key">
+              <div class="logi-sub-title">{{ g.title }}</div>
+              <el-table :data="g.rows" size="small">
+                <el-table-column prop="name" label="" min-width="80" />
+                <el-table-column prop="total" label="单量" width="60" align="right" />
+                <el-table-column label="签收率" width="120">
+                  <template #default="{ row }">
+                    <div class="logi-rate">
+                      <el-progress
+                        :percentage="row.rate"
+                        :stroke-width="10"
+                        :show-text="false"
+                        :color="rateColor(row.rate)"
+                        style="flex: 1"
+                      />
+                      <span class="logi-rate-num">{{ row.rate }}%</span>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-col>
+          </el-row>
+        </div>
+
         <el-row :gutter="14">
           <el-col :span="12" v-for="dim in analyticsDims" :key="dim.key">
             <div class="logi-card">
@@ -6407,6 +6445,7 @@ const analytics = ref<LogisticsAnalytics | null>(null);
 
 const analyticsDims = [
   { key: "by_transit", title: "按时效（出库→最新轨迹）", label: "天数区间" },
+  { key: "by_weekday", title: "按出库星期", label: "星期" },
   { key: "by_carrier", title: "按末端派送商", label: "派送商" },
   { key: "by_country", title: "按国家", label: "国家" },
   { key: "by_reship", title: "按是否退件重出", label: "类型" },
@@ -6527,6 +6566,17 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 8px;
+}
+.logi-card-sub {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+  margin-left: 8px;
+}
+.logi-sub-title {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 6px;
 }
 .logi-rate {
   display: flex;

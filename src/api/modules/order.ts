@@ -460,6 +460,13 @@ export interface LogisticsAnalytics {
   by_reship: LogisticsGroup[];
   by_cod: LogisticsGroup[];
   by_province: LogisticsGroup[];
+  /** 按出库星期。周五出库要多压一个周末，可用来指导排单 */
+  by_weekday: LogisticsGroup[];
+  /** 买家填写信息 × 签收率。需关联 orders 表，joined 是可用样本数 */
+  by_buyer_info: {
+    joined: number;
+    groups: { key: string; title: string; rows: LogisticsGroup[] }[];
+  };
   countries: string[];
   last_import: string | null;
 }
