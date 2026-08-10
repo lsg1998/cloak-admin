@@ -284,6 +284,8 @@
                 <el-tag v-else-if="row.template === 'shopline-massager'" size="small" color="#0f3d2e">Massager</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics'" size="small" color="#ff3e3e">Stealth</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics---gen-7-thermal'" size="small" color="#ff3e3e">Gen-7</el-tag>
+                <el-tag v-else-if="row.template === 'thermal-tactical'" size="small" color="#3ddc6f">Tactical</el-tag>
+                <el-tag v-else-if="row.template === 'daylight-optics'" size="small" color="#22c55e">Daylight</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
                 <el-tag v-else type="info" size="small">Classic</el-tag>
               </div>
@@ -396,7 +398,9 @@
                     'shopline-massager',
                     'stealth-optics',
                     'stealth-optics---gen-7-thermal',
-                    'blood-glucose-meter'
+                    'blood-glucose-meter',
+                    'thermal-tactical',
+                    'daylight-optics'
                   ].includes(row.template)
                 "
                 class="action-row"
@@ -663,6 +667,18 @@
                     <span>战术热成像/望远镜 Gen-7 - 新版硬核 UI，保留 Shopline-Pro 全功能</span>
                   </div>
                 </el-option>
+                <el-option label="暗夜战术 (Thermal-Tactical)" value="thermal-tactical">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag style="background-color: #0a0a0d; color: #3ddc6f" size="small">Tactical</el-tag>
+                    <span>暗夜战术风格 - 全黑背景+荧光绿强调色，工业科技感一站式下单设计</span>
+                  </div>
+                </el-option>
+                <el-option label="晴日光学 (Daylight-Optics)" value="daylight-optics">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag color="#22c55e" size="small">Daylight</el-tag>
+                    <span>晴日光学风格 - 白底+战术绿点缀，Shopify 电商质感，双栏订单中心设计</span>
+                  </div>
+                </el-option>
                 <el-option label="电钻/起子机 (Shopline-Drill)" value="shopline-drill">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag style="background-color: #1565c0; border-color: #1565c0; color: white" size="small">Drill</el-tag>
@@ -704,6 +720,12 @@
                 <strong>Stealth-Optics:</strong> 🔭 战术望远镜/热成像专属模板，深色硬核风格，红色强调
                 <br />
                 <strong>Stealth-Optics-Gen7:</strong> 🔭 新版 Gen-7 战术望远镜 UI，继承 Shopline-Pro 一站式下单能力
+                <br />
+                <strong>Thermal-Tactical:</strong> 🌑 暗夜战术全新设计，全黑背景+荧光绿强调色，Inter/JetBrains Mono 字体，全新 DOM
+                结构与命名规则（与其他模板视觉及代码结构均不同），功能与 Shopline-Pro 一致（下单表单/地址选择/评论展示/像素追踪）
+                <br />
+                <strong>Daylight-Optics:</strong> ☀️ 晴日光学全新设计，白底+战术绿点缀，Shopify
+                风格电商质感，桌面端双栏订单中心（表单+安全侧栏），全新 DOM 结构与命名规则，功能与 Shopline-Pro 一致
                 <br />
                 <strong>Blood-Glucose-Meter:</strong> 🩺
                 血糖仪专属模板，医疗蓝配色，包含专业特性、使用说明、套装内容、安全提示等医疗产品必备模块
