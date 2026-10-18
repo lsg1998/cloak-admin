@@ -1049,6 +1049,25 @@
           <div class="section-header">
             <h3>SKU列表</h3>
             <div class="sku-actions">
+              <span v-if="selectedSkuRows.length" class="sku-selection-count">已选 {{ selectedSkuRows.length }} 个</span>
+              <el-button
+                type="primary"
+                plain
+                :disabled="!selectedSkuRows.length"
+                :loading="bulkSkuLoading"
+                @click="openBulkSkuPriceDialog"
+              >
+                批量改价
+              </el-button>
+              <el-button
+                type="danger"
+                plain
+                :disabled="!selectedSkuRows.length"
+                :loading="bulkSkuLoading"
+                @click="handleBatchDeleteSkus"
+              >
+                批量删除
+              </el-button>
               <el-button type="success" @click="handleBatchGenerateSku">
                 <el-icon><MagicStick /></el-icon>
                 批量生成SKU
@@ -1064,7 +1083,15 @@
             </div>
           </div>
 
-          <el-table :data="skuList" v-loading="skuLoading" stripe border style="width: 100%">
+          <el-table
+            :data="skuList"
+            v-loading="skuLoading"
+            stripe
+            border
+            style="width: 100%"
+            @selection-change="handleSkuSelectionChange"
+          >
+            <el-table-column type="selection" width="48" align="center" />
             <el-table-column label="图片" width="80" align="center">
               <template #default="{ row }">
                 <el-avatar :size="50" class="sku-avatar" v-if="row.main_image">
@@ -1116,6 +1143,30 @@
           </el-table>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- 批量修改SKU价格 -->
+    <el-dialog v-model="bulkSkuPriceDialogVisible" title="批量修改SKU售价" width="480px" :close-on-click-modal="false">
+      <el-alert
+        :title="`将统一修改已选的 ${selectedSkuRows.length} 个 SKU 售价`"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 18px"
+      />
+      <el-form label-width="110px">
+        <el-form-item label="统一售价">
+          <el-input-number v-model="bulkSkuSellPrice" :min="0" :precision="2" :step="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item>
+          <template #label>折扣</template>
+          <span>根据各 SKU 当前原价自动重新计算</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="bulkSkuPriceDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="bulkSkuLoading" @click="handleBatchUpdateSkuPrice">保存改价</el-button>
+      </template>
     </el-dialog>
 
     <!-- SKU排序对话框 -->
@@ -2253,6 +2304,10 @@ const skuSubmitLoading = ref(false);
 const skuFormRef = ref();
 const currentProduct = ref<Product | null>(null);
 const skuList = ref<ProductSku[]>([]);
+const selectedSkuRows = ref<ProductSku[]>([]);
+const bulkSkuLoading = ref(false);
+const bulkSkuPriceDialogVisible = ref(false);
+const bulkSkuSellPrice = ref<number | undefined>();
 // 简化的SKU规格数据
 const newSpecName = ref("");
 const newSpecValue = ref("");
@@ -3581,10 +3636,83 @@ const loadSkuData = async (productId: string) => {
   try {
     const { data } = await getProductSkusApi(productId);
     skuList.value = data;
+    selectedSkuRows.value = [];
   } catch (error) {
     ElMessage.error("获取SKU列表失败");
   } finally {
     skuLoading.value = false;
+  }
+};
+
+const handleSkuSelectionChange = (rows: ProductSku[]) => {
+  selectedSkuRows.value = rows;
+};
+
+const openBulkSkuPriceDialog = () => {
+  if (!selectedSkuRows.value.length) return;
+  bulkSkuSellPrice.value = undefined;
+  bulkSkuPriceDialogVisible.value = true;
+};
+
+const handleBatchUpdateSkuPrice = async () => {
+  const price = Number(bulkSkuSellPrice.value);
+  if (!Number.isFinite(price) || price < 0) {
+    ElMessage.warning("请输入有效的售价");
+    return;
+  }
+  const selected = [...selectedSkuRows.value];
+  if (!selected.length) return;
+
+  bulkSkuLoading.value = true;
+  try {
+    const results = await Promise.allSettled(
+      selected.map(sku => {
+        const originPrice = Number(sku.origin_price) || 0;
+        const discountPercent =
+          originPrice > 0 ? Math.max(0, Math.min(100, Math.round(((originPrice - price) / originPrice) * 100))) : 0;
+        return updateSkuApi(sku.id, { sell_price: price, discount_percent: discountPercent });
+      })
+    );
+    const successCount = results.filter(result => result.status === "fulfilled").length;
+    const failureCount = results.length - successCount;
+    if (successCount) await loadSkuData(currentProduct.value?.id || "");
+    if (failureCount) {
+      ElMessage.warning(`已修改 ${successCount} 个 SKU，${failureCount} 个失败`);
+    } else {
+      ElMessage.success(`已将 ${successCount} 个 SKU 的售价改为 ¥${price.toFixed(2)}`);
+    }
+    if (successCount) bulkSkuPriceDialogVisible.value = false;
+  } finally {
+    bulkSkuLoading.value = false;
+  }
+};
+
+const handleBatchDeleteSkus = async () => {
+  const selected = [...selectedSkuRows.value];
+  if (!selected.length) return;
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${selected.length} 个 SKU 吗？删除后无法恢复。`, "批量删除 SKU", {
+      confirmButtonText: "确定删除",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+  } catch {
+    return;
+  }
+
+  bulkSkuLoading.value = true;
+  try {
+    const results = await Promise.allSettled(selected.map(sku => deleteSkuApi(sku.id)));
+    const successCount = results.filter(result => result.status === "fulfilled").length;
+    const failureCount = results.length - successCount;
+    if (successCount) await loadSkuData(currentProduct.value?.id || "");
+    if (failureCount) {
+      ElMessage.warning(`已删除 ${successCount} 个 SKU，${failureCount} 个删除失败`);
+    } else {
+      ElMessage.success(`已删除 ${successCount} 个 SKU`);
+    }
+  } finally {
+    bulkSkuLoading.value = false;
   }
 };
 
