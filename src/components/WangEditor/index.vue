@@ -74,11 +74,20 @@ const emit = defineEmits<{
 }>();
 const valueHtml = computed({
   get() {
-    return props.value;
+    const html = props.value || "";
+    // Imported product descriptions can contain placeholder <img src=""> nodes.
+    // Slate cannot reliably track selections through these malformed image nodes.
+    if (!html || !/<img\b/i.test(html)) return html;
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("img").forEach(image => {
+      if (!(image.getAttribute("src") || "").trim()) image.remove();
+    });
+    return doc.body.innerHTML;
   },
   set(val: string) {
     // 防止富文本内容为空时，校验失败
-    if (editorRef.value.isEmpty()) val = "";
+    if (editorRef.value?.isEmpty?.()) val = "";
     emit("update:value", val);
   }
 });

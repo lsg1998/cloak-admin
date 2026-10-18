@@ -132,6 +132,10 @@
               <el-icon><Plus /></el-icon>
               添加商品
             </el-button>
+            <el-button type="success" @click="openImportDialog">
+              <el-icon><DocumentCopy /></el-icon>
+              粘贴导入
+            </el-button>
             <span>商品列表</span>
             <el-tag type="info" size="small">{{ pagination.total }} 条记录</el-tag>
           </div>
@@ -280,6 +284,8 @@
                 <el-tag v-else-if="row.template === 'shopline-watch'" type="danger" size="small">Watch</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-tool'" type="warning" size="small">Tool</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-fashion'" type="warning" size="small">Fashion</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-picdo'" type="success" size="small">Picdo</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-drill'" size="small" color="#1565c0">Drill</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-massager'" size="small" color="#0f3d2e">Massager</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics'" size="small" color="#ff3e3e">Stealth</el-tag>
@@ -649,6 +655,18 @@
                     <span>保健品 - 健康产品专属设计，蓝绿色调</span>
                   </div>
                 </el-option>
+                <el-option label="服装 (Shopline-Fashion)" value="shopline-fashion">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="warning" size="small">Fashion</el-tag>
+                    <span>服装商品 - 参考 Shopify 商品页布局、尺码推荐和 SKU 选择</span>
+                  </div>
+                </el-option>
+                <el-option label="护肤品 (Shopline-Picdo)" value="shopline-picdo">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="success" size="small">Picdo</el-tag>
+                    <span>护肤产品 - 参考 Picdo 商品页布局、组合规格和购买表单</span>
+                  </div>
+                </el-option>
                 <el-option label="野生动物相机 (Shopline-Wildlife)" value="shopline-wildlife">
                   <div style="display: flex; align-items: center; gap: 8px">
                     <el-tag style="background-color: #2d5016; border-color: #2d5016; color: white" size="small">Wildlife</el-tag>
@@ -969,6 +987,56 @@
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="submitLoading"> 确定 </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 粘贴导入外部系统商品 -->
+    <el-dialog v-model="importDialogVisible" title="粘贴导入商品" width="900px" :close-on-click-modal="false" destroy-on-close>
+      <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px">
+        粘贴来源系统的 SPU 分页 JSON。系统会展开其中的国家/语言商品记录，预览后再导入。来源库存为 -1 且开启联动时，会按 999999
+        库存导入；商品主价格为 0 时，使用最低有效 SKU 售价。
+      </el-alert>
+      <el-input
+        v-model="importJsonText"
+        type="textarea"
+        :rows="10"
+        resize="vertical"
+        placeholder="将完整 JSON 响应粘贴到这里"
+        :disabled="importing"
+      />
+      <div style="display: flex; gap: 8px; margin: 10px 0">
+        <el-button type="primary" :disabled="!importJsonText.trim() || importing" @click="parseImportJson">解析预览</el-button>
+        <el-button :disabled="importing" @click="clearImportText">清空</el-button>
+      </div>
+      <el-table v-if="importPreviewProducts.length" :data="importPreviewProducts" border max-height="360" row-key="_importKey">
+        <el-table-column width="55" align="center">
+          <template #header><el-checkbox v-model="importSelectAll" @change="toggleImportSelection" /></template>
+          <template #default="{ row }"><el-checkbox v-model="row._selected" /></template>
+        </el-table-column>
+        <el-table-column label="商品标题" min-width="300" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.title }}</template>
+        </el-table-column>
+        <el-table-column label="国家/语言" width="130" align="center">
+          <template #default="{ row }">{{ row.country?.code || "--" }} / {{ row.language?.code || "--" }}</template>
+        </el-table-column>
+        <el-table-column label="SKU数" width="90" align="center">
+          <template #default="{ row }">{{ row.specifications?.length || 0 }}</template>
+        </el-table-column>
+        <el-table-column label="图片" width="80" align="center">
+          <template #default="{ row }">{{ row._importImageCount }}</template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-else-if="importParsed" description="没有找到可导入的商品记录" />
+      <template #footer>
+        <div class="dialog-footer">
+          <span style="margin-right: auto; color: #909399">
+            已选择 {{ importSelectedCount }} / {{ importPreviewProducts.length }}
+          </span>
+          <el-button @click="importDialogVisible = false" :disabled="importing">关闭</el-button>
+          <el-button type="primary" :loading="importing" :disabled="importSelectedCount === 0" @click="runProductImport">
+            导入选中商品
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -2035,6 +2103,7 @@ import {
   assignFakeToOriginalApi,
   batchAssignFakeToOriginalsApi,
   updateProductCloakRuleApi,
+  importPastedProductApi,
   getProductCountryStatsApi,
   getProductRecommendationsApi,
   saveProductRecommendationsApi,
@@ -2063,6 +2132,109 @@ import { convertImageUrlToWebp, uploadBase64Img } from "@/api/modules/upload";
 const loading = ref(false);
 const submitLoading = ref(false);
 const dialogVisible = ref(false);
+const importDialogVisible = ref(false);
+const importJsonText = ref("");
+const importPreviewProducts = ref<any[]>([]);
+const importParsed = ref(false);
+const importSelectAll = ref(true);
+const importing = ref(false);
+const importSelectedCount = computed(() => importPreviewProducts.value.filter(item => item._selected).length);
+
+const openImportDialog = () => {
+  importJsonText.value = "";
+  importPreviewProducts.value = [];
+  importParsed.value = false;
+  importDialogVisible.value = true;
+};
+
+const clearImportText = () => {
+  importJsonText.value = "";
+  importPreviewProducts.value = [];
+  importParsed.value = false;
+};
+
+const parseImportJson = () => {
+  try {
+    const parsed = JSON.parse(importJsonText.value.trim());
+    if (parsed?.code !== undefined && String(parsed.code) !== "0" && Number(parsed.code) !== 200) {
+      throw new Error(parsed.msg || "来源接口返回失败");
+    }
+    let payload = parsed?.data ?? parsed;
+    if (Array.isArray(payload)) {
+      // pasted raw records
+    } else if (Array.isArray(payload?.list)) {
+      payload = payload.list;
+    } else if (Array.isArray(payload?.productList)) {
+      payload = [payload];
+    } else if (payload?.title) {
+      payload = [payload];
+    } else {
+      throw new Error("没有找到商品列表。请粘贴包含 data.list 的 SPU 响应，或单条商品 JSON。");
+    }
+
+    const products: any[] = [];
+    for (const item of payload) {
+      if (!item || typeof item !== "object") continue;
+      if (Array.isArray(item.productList)) products.push(...item.productList);
+      else if (item.title) products.push(item);
+    }
+    if (!products.length) throw new Error("响应中没有可导入的商品记录");
+    importPreviewProducts.value = products.map((product, index) => {
+      const detailImages = [...String(product.introduction || "").matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(
+        match => match[1]
+      );
+      const skuImages = (product.skuImages || []).map((image: any) => image?.absolutionPath).filter(Boolean);
+      const attributeImages = (product.specifications || []).flatMap((sku: any) =>
+        (sku.attributes || []).map((attribute: any) => attribute?.image?.absolutionPath).filter(Boolean)
+      );
+      return {
+        ...product,
+        _importKey: `${product.id || product.title}-${product.country?.code || ""}-${index}`,
+        _selected: true,
+        _importImageCount: new Set([...detailImages, ...skuImages, ...attributeImages]).size
+      };
+    });
+    importSelectAll.value = true;
+    importParsed.value = true;
+    ElMessage.success(`解析成功，共 ${products.length} 条商品记录`);
+  } catch (error: any) {
+    importPreviewProducts.value = [];
+    importParsed.value = true;
+    ElMessage.error(`解析失败：${error?.message || "JSON 格式不正确"}`);
+  }
+};
+
+const toggleImportSelection = (checked: string | number | boolean) => {
+  const selected = Boolean(checked);
+  importPreviewProducts.value.forEach(product => (product._selected = selected));
+};
+
+const runProductImport = async () => {
+  const selected = importPreviewProducts.value.filter(product => product._selected);
+  if (!selected.length) return;
+  importing.value = true;
+  let successCount = 0;
+  const failures: string[] = [];
+  try {
+    for (const product of selected) {
+      try {
+        await importPastedProductApi(product);
+        successCount++;
+      } catch (error: any) {
+        failures.push(`${product.title}: ${error?.message || "导入失败"}`);
+      }
+    }
+    if (successCount) await loadData();
+    if (failures.length) {
+      ElMessage.warning(`成功导入 ${successCount} 条，失败 ${failures.length} 条：${failures.slice(0, 3).join("；")}`);
+    } else {
+      ElMessage.success(`成功导入 ${successCount} 条商品`);
+      importDialogVisible.value = false;
+    }
+  } finally {
+    importing.value = false;
+  }
+};
 
 // 域名选择相关
 const viewDialogVisible = ref(false);

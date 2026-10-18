@@ -170,6 +170,11 @@ export const createProductApi = (data: CreateProductParams) => {
   return http.post("/admin/products", data);
 };
 
+// 从粘贴的 HTMall SPU 响应导入一个国家/语言商品记录
+export const importPastedProductApi = (product: Record<string, any>) => {
+  return http.post<{ id: string; spu_id: string; sku_count: number }>("/admin/products/import-pasted", { product });
+};
+
 // 更新商品
 export const updateProductApi = (id: string, data: UpdateProductParams) => {
   return http.put(`/admin/products/${id}`, data);
