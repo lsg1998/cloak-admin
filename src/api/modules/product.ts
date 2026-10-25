@@ -34,6 +34,8 @@ export interface Product {
   cloak_rule_mode?: string;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;
+  /** 正品页是否输出像素，默认 true */
+  original_pixel_enabled?: boolean;
   recommendation_count?: number; // 推荐产品数量
   created_at: string;
   updated_at: string;
@@ -107,6 +109,7 @@ export interface CreateProductParams {
   cloak_rule_id?: number;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;
+  original_pixel_enabled?: boolean | number;
 }
 
 export interface UpdateProductParams {
@@ -138,6 +141,7 @@ export interface UpdateProductParams {
   cloak_rule_id?: number;
   pixel_config?: PixelConfig;
   pixel_enabled?: boolean;
+  original_pixel_enabled?: boolean | number;
 }
 
 // 获取商品列表
@@ -201,6 +205,13 @@ export const updateProductPixelConfigApi = (id: string, pixelConfig: PixelConfig
   return http.put(`/admin/products/${id}/pixel`, {
     pixel_config: pixelConfig,
     pixel_enabled: pixelEnabled
+  });
+};
+
+// 只更新正品页像素开关
+export const updateOriginalPixelEnabledApi = (id: string, enabled: boolean) => {
+  return http.put(`/admin/products/${id}/original-pixel`, {
+    original_pixel_enabled: enabled
   });
 };
 

@@ -231,6 +231,16 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="正品像素" width="110" align="center">
+          <template #default="{ row }">
+            <el-switch
+              v-if="row.product_type === 'original'"
+              :model-value="row.original_pixel_enabled !== false"
+              @change="(val: boolean) => handleOriginalPixelChange(row, val)"
+            />
+            <span v-else style="color: #909399; font-size: 12px">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="关联状态" width="140" align="center">
           <template #default="{ row }">
             <!-- 正品显示关联的仿品数量 -->
@@ -286,14 +296,16 @@
                 <el-tag v-else-if="row.template === 'shopline-health'" type="success" size="small">Health</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-fashion'" type="warning" size="small">Fashion</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-picdo'" type="success" size="small">Picdo</el-tag>
+                <el-tag v-else-if="row.template === 'shopline-wildlife'" size="small" color="#2d5016">Wildlife</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-drill'" size="small" color="#1565c0">Drill</el-tag>
                 <el-tag v-else-if="row.template === 'shopline-massager'" size="small" color="#0f3d2e">Massager</el-tag>
+                <el-tag v-else-if="row.template === 'blood-glucose-meter'" size="small" color="#0066cc">Medical</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics'" size="small" color="#ff3e3e">Stealth</el-tag>
                 <el-tag v-else-if="row.template === 'stealth-optics---gen-7-thermal'" size="small" color="#ff3e3e">Gen-7</el-tag>
                 <el-tag v-else-if="row.template === 'thermal-tactical'" size="small" color="#3ddc6f">Tactical</el-tag>
                 <el-tag v-else-if="row.template === 'daylight-optics'" size="small" color="#22c55e">Daylight</el-tag>
                 <el-tag v-else-if="row.template === 'standard'" type="warning" size="small">Standard</el-tag>
-                <el-tag v-else type="info" size="small">Classic</el-tag>
+                <el-tag v-else type="info" size="small">{{ row.template || "Classic" }}</el-tag>
               </div>
               <div>
                 <el-tag :type="getStatusType(row.status)" size="small" effect="light">
@@ -781,6 +793,23 @@
                 <br />
                 <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或 cloak-shop / cloak-magazine /
                 cloak-tech / cloak-dawn / cloak-storefront）即可单独查看。
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row v-if="form.product_type === 'original'" :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="正品像素">
+              <el-switch
+                v-model="form.original_pixel_enabled"
+                :active-value="1"
+                :inactive-value="0"
+                active-text="开启"
+                inactive-text="关闭"
+              />
+              <div class="form-tip">
+                默认开启。关闭后，正品商品页和订单成功页不再输出 Google / Facebook / TikTok 等像素代码。仿品页不受影响。
               </div>
             </el-form-item>
           </el-col>
@@ -2154,6 +2183,7 @@ import {
   assignFakeToOriginalApi,
   batchAssignFakeToOriginalsApi,
   updateProductCloakRuleApi,
+  updateOriginalPixelEnabledApi,
   importPastedProductApi,
   getProductCountryStatsApi,
   getProductRecommendationsApi,
@@ -2498,6 +2528,7 @@ const form = reactive({
   country: "JA",
   template: "classic", // 模板类型：classic、shopline 或 standard
   cloak_template: "", // 仿品页模板，留空=按商品ID自动分配风格
+  original_pixel_enabled: 1, // 正品页像素，默认开启
   page_primary_color: "#007d65", // 页面主要颜色
   head_w_marquee: "", // 头部跑马灯内容
   company_name: "", // 公司名称（页脚）
@@ -2813,6 +2844,7 @@ const handleAdd = () => {
     country: "JA",
     template: "classic",
     cloak_template: "",
+    original_pixel_enabled: 1,
     page_primary_color: "#007d65",
     head_w_marquee: "",
     company_name: "",
@@ -3227,6 +3259,18 @@ const submitReviewForm = async () => {
 };
 // ==================== 评论管理结束 ====================
 
+const handleOriginalPixelChange = async (row: Product, enabled: boolean) => {
+  const previous = row.original_pixel_enabled !== false;
+  row.original_pixel_enabled = enabled;
+  try {
+    await updateOriginalPixelEnabledApi(row.id, enabled);
+    ElMessage.success(enabled ? "已开启正品像素" : "已关闭正品像素");
+  } catch (error) {
+    row.original_pixel_enabled = previous;
+    ElMessage.error("更新正品像素开关失败");
+  }
+};
+
 // 编辑
 const handleEdit = (row: Product) => {
   dialogTitle.value = "编辑商品";
@@ -3252,6 +3296,8 @@ const handleEdit = (row: Product) => {
           : [],
     country: row.country || "JA",
     template: row.template || "classic", // 确保模板字段被正确设置
+    cloak_template: row.cloak_template || "",
+    original_pixel_enabled: row.original_pixel_enabled === false || row.original_pixel_enabled === 0 ? 0 : 1,
     cloak_rule_id: row.cloak_rule_id || null, // 确保斗篷规则ID被正确设置
     company_name: row.company_name || "",
     company_tagline: row.company_tagline || "",
