@@ -134,7 +134,8 @@ export const visitorIpApi = {
 
   // 获取IP统计信息
   getIpStatistics: (params?: { timeRange?: string }) => {
-    return http.get("/admin/statistics/visitor-ips-stats", params);
+    // 统计数据可能需要扫描较多历史访客，不阻塞访客列表的全屏加载状态。
+    return http.get("/admin/statistics/visitor-ips-stats", params, { loading: false });
   },
 
   // 删除访客IP记录
