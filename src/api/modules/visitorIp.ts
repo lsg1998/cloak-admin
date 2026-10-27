@@ -55,6 +55,21 @@ export interface VisitorIp {
   domains_total?: number;
   user_agent?: string;
   referer?: string;
+  fp_visitor_id?: string;
+  fp_event_id?: string;
+  fp_bot?: string;
+  fp_bot_type?: string;
+  fp_suspect_score?: number | null;
+  fp_vpn?: number | null;
+  fp_proxy?: number | null;
+  fp_incognito?: number | null;
+  fp_tampering?: number | null;
+  fp_vm?: number | null;
+  fp_emulator?: number | null;
+  fp_confidence?: number | null;
+  fp_browser?: string;
+  fp_os?: string;
+  fp_device?: string;
   visit_count: number;
   first_visit: string;
   last_visit: string;
@@ -130,6 +145,11 @@ export const visitorIpApi = {
   // 获取单个访客IP详情
   getVisitorIp: (ip: string) => {
     return http.get("/admin/statistics/visitor-ips/detail", { ip });
+  },
+
+  // 点开详情才拉 OSS 里的完整识别结果
+  getFpEvent: (eventId: string) => {
+    return http.get("/admin/statistics/fp-event", { event_id: eventId });
   },
 
   // 获取IP统计信息

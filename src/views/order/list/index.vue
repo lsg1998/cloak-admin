@@ -357,7 +357,7 @@
                   <span v-if="row.ip_first_visit" class="first-visit-time">首访 {{ row.ip_first_visit }}</span>
                 </div>
                 <!-- 第3行：指纹 + 商品模板 -->
-                <div class="ip-tags-line" v-if="row.fingerprint || row.product_template">
+                <div class="ip-tags-line" v-if="row.fingerprint || row.product_template || row.fp_bot">
                   <el-tag
                     v-if="row.fingerprint"
                     size="small"
@@ -367,8 +367,21 @@
                     :title="isFingerprintDuplicate(row) ? `相同指纹有 ${getFingerprintDuplicateCount(row)} 个其他订单` : ''"
                     @click="handleViewFingerprintHistory(row)"
                   >
-                    FP: {{ row.fingerprint }}
+                    FP: {{ row.fingerprint }}{{ row.fp_event_id ? ` / ${row.fp_event_id}` : "" }}
                   </el-tag>
+                  <el-tag v-if="row.fp_bot === 'bad'" type="danger" size="small">
+                    机器人{{ row.fp_bot_type ? ` · ${row.fp_bot_type}` : "" }}
+                  </el-tag>
+                  <el-tag v-else-if="row.fp_bot === 'good'" type="info" size="small">
+                    好机器人{{ row.fp_bot_type ? ` · ${row.fp_bot_type}` : "" }}
+                  </el-tag>
+                  <el-tag v-else-if="row.fp_bot === 'not_detected'" type="success" size="small">非机器人</el-tag>
+                  <el-tag v-if="row.fp_suspect_score != null" type="info" size="small">可疑 {{ row.fp_suspect_score }}</el-tag>
+                  <el-tag v-if="row.fp_vpn == 1" type="danger" size="small">VPN</el-tag>
+                  <el-tag v-if="row.fp_proxy == 1" type="warning" size="small">代理</el-tag>
+                  <el-tag v-if="row.fp_incognito == 1" type="warning" size="small">无痕</el-tag>
+                  <el-tag v-if="row.fp_tampering == 1" type="danger" size="small">篡改</el-tag>
+                  <el-tag v-if="row.fp_vm == 1 || row.fp_emulator == 1" type="danger" size="small">虚拟机</el-tag>
                   <el-tag v-if="row.product_template" size="small" type="primary">
                     {{ row.product_template }}
                   </el-tag>
@@ -586,6 +599,26 @@
           </el-descriptions-item>
           <el-descriptions-item v-if="currentOrder.comments && currentOrder.comments.trim()" label="客户备注" :span="2">
             {{ currentOrder.comments }}
+          </el-descriptions-item>
+          <el-descriptions-item label="识别详情" :span="2">
+            <span v-if="fpDetailLoading" class="text-gray-400">正在读取...</span>
+            <span v-else-if="!currentOrder.fp_event_id" class="text-gray-400">这单没有事件</span>
+            <span v-else-if="!fpDetail" class="text-gray-400">原文还没归档</span>
+            <div v-else>
+              <div v-if="orderFpBrowser">浏览器: {{ orderFpBrowser }}</div>
+              <div v-if="orderFpOs">系统: {{ orderFpOs }}</div>
+              <div v-if="orderFpModel">机型: {{ orderFpModel }}</div>
+              <div v-if="orderFpScreen">屏幕: {{ orderFpScreen }}</div>
+              <div v-if="orderFpExtra">{{ orderFpExtra }}</div>
+              <el-collapse>
+                <el-collapse-item title="原始 JSON" name="raw">
+                  <pre class="fp-raw">{{ fpDetailText }}</pre>
+                </el-collapse-item>
+                <el-collapse-item v-if="fpDeviceText" title="自采设备" name="device">
+                  <pre class="fp-raw">{{ fpDeviceText }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -1960,6 +1993,7 @@ import {
   type CustomSmsParams
 } from "@/api/modules/sms";
 import { getProductListApi, type Product } from "@/api/modules/product";
+import { visitorIpApi } from "@/api/modules/visitorIp";
 import http from "@/api";
 
 // 响应式数据
@@ -1968,6 +2002,42 @@ const exportLoading = ref(false);
 const exportIPLoading = ref(false);
 const exportCustomerMatchLoading = ref(false);
 const detailDialogVisible = ref(false);
+const fpDetail = ref<any>(null);
+const fpDetailLoading = ref(false);
+const fpDetailText = computed(() => (fpDetail.value ? JSON.stringify(fpDetail.value, null, 2) : ""));
+const fpDeviceText = computed(() =>
+  fpDetail.value && fpDetail.value.device_profile ? JSON.stringify(fpDetail.value.device_profile, null, 2) : ""
+);
+const orderFpBrowser = computed(() => {
+  const browser = fpDetail.value?.browser_details;
+  return browser ? [browser.browser_name, browser.browser_full_version].filter(Boolean).join(" ") : "";
+});
+const orderFpOs = computed(() => {
+  const browser = fpDetail.value?.browser_details;
+  return browser ? [browser.os, browser.os_version, browser.device].filter(Boolean).join(" / ") : "";
+});
+const orderFpModel = computed(() => {
+  const raw = fpDetail.value?.raw_device_attributes;
+  return raw ? [raw.device_manufacturer, raw.device_model].filter(Boolean).join(" ") : "";
+});
+const orderFpScreen = computed(() => {
+  const screen = fpDetail.value?.raw_device_attributes?.screen_resolution;
+  return Array.isArray(screen) ? screen.join(" × ") : "";
+});
+const orderFpExtra = computed(() => {
+  const detail = fpDetail.value;
+  if (!detail) return "";
+  const raw = detail.raw_device_attributes || {};
+  return [
+    raw.touch_support?.max_touch_points != null ? `触屏 ${raw.touch_support.max_touch_points} 点` : "",
+    raw.timezone ? `时区 ${raw.timezone}` : "",
+    raw.webgl_basics?.renderer_unmasked ? `显卡 ${raw.webgl_basics.renderer_unmasked}` : "",
+    detail.ip_address ? `识别 IP ${detail.ip_address}` : "",
+    detail.vpn_origin_country ? `VPN 来源 ${detail.vpn_origin_country}` : ""
+  ]
+    .filter(Boolean)
+    .join("；");
+});
 const exportDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
 
@@ -2748,11 +2818,28 @@ const handleDateRangeChange = (dates: [string, string] | null) => {
 };
 
 // 查看详情
+const loadOrderFpDetail = async (eventId?: string) => {
+  fpDetail.value = null;
+  if (!eventId) return;
+  fpDetailLoading.value = true;
+  try {
+    const response = await visitorIpApi.getFpEvent(eventId);
+    if (response.code === 200) {
+      fpDetail.value = response.data;
+    }
+  } catch (error) {
+    fpDetail.value = null;
+  } finally {
+    fpDetailLoading.value = false;
+  }
+};
+
 const handleViewDetail = async (row: Order) => {
   try {
     const { data } = await getOrderDetailApi(row.id);
     currentOrder.value = data;
     detailDialogVisible.value = true;
+    loadOrderFpDetail(data?.fp_event_id);
   } catch (error) {
     ElMessage.error("获取订单详情失败");
   }
@@ -6536,6 +6623,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.fp-raw {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.4;
+}
 /* ===== 物流签收：导入与分析 ===== */
 .logi-preview {
   padding: 12px 14px;

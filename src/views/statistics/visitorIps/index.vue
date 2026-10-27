@@ -396,6 +396,39 @@
                     {{ row.user_agent || "-" }}
                   </span>
                 </div>
+                <div class="type-line">
+                  <span class="label">FP访客:</span>
+                  <span class="value referer" :title="row.fp_visitor_id || '-'">
+                    {{ row.fp_visitor_id || "-" }}
+                  </span>
+                </div>
+                <div class="type-line">
+                  <span class="label">FP事件:</span>
+                  <span class="value referer" :title="row.fp_event_id || '-'">
+                    {{ row.fp_event_id || "-" }}
+                  </span>
+                </div>
+                <div class="type-line" v-if="row.fp_bot || row.fp_browser">
+                  <span class="label">识别:</span>
+                  <span class="value">
+                    <el-tag v-if="row.fp_bot === 'bad'" type="danger" size="small">
+                      机器人{{ row.fp_bot_type ? ` · ${row.fp_bot_type}` : "" }}
+                    </el-tag>
+                    <el-tag v-else-if="row.fp_bot === 'good'" type="info" size="small">
+                      好机器人{{ row.fp_bot_type ? ` · ${row.fp_bot_type}` : "" }}
+                    </el-tag>
+                    <el-tag v-else-if="row.fp_bot === 'not_detected'" type="success" size="small">非机器人</el-tag>
+                    <el-tag v-if="row.fp_suspect_score != null" type="info" size="small">可疑 {{ row.fp_suspect_score }}</el-tag>
+                    <el-tag v-if="row.fp_vpn == 1" type="danger" size="small">VPN</el-tag>
+                    <el-tag v-if="row.fp_proxy == 1" type="warning" size="small">代理</el-tag>
+                    <el-tag v-if="row.fp_incognito == 1" type="warning" size="small">无痕</el-tag>
+                    <el-tag v-if="row.fp_tampering == 1" type="danger" size="small">篡改</el-tag>
+                    <el-tag v-if="row.fp_vm == 1 || row.fp_emulator == 1" type="danger" size="small">虚拟机</el-tag>
+                    <span v-if="row.fp_browser">{{ row.fp_browser }}</span>
+                    <span v-if="row.fp_os"> / {{ row.fp_os }}</span>
+                    <span v-if="row.fp_device"> / {{ row.fp_device }}</span>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -781,6 +814,61 @@
               </div>
               <span v-else class="text-gray-400">--</span>
             </el-descriptions-item>
+            <el-descriptions-item label="FP访客ID">
+              <span v-if="currentVisitorIp.fp_visitor_id">{{ currentVisitorIp.fp_visitor_id }}</span>
+              <span v-else class="text-gray-400">--</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="FP事件ID">
+              <span v-if="currentVisitorIp.fp_event_id">{{ currentVisitorIp.fp_event_id }}</span>
+              <span v-else class="text-gray-400">--</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="识别结果">
+              <template v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser">
+                <el-tag v-if="currentVisitorIp.fp_bot === 'bad'" type="danger" size="small">
+                  机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
+                </el-tag>
+                <el-tag v-else-if="currentVisitorIp.fp_bot === 'good'" type="info" size="small">
+                  好机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
+                </el-tag>
+                <el-tag v-else-if="currentVisitorIp.fp_bot === 'not_detected'" type="success" size="small">非机器人</el-tag>
+                <el-tag v-if="currentVisitorIp.fp_suspect_score != null" type="info" size="small">
+                  可疑 {{ currentVisitorIp.fp_suspect_score }}
+                </el-tag>
+                <el-tag v-if="currentVisitorIp.fp_vpn == 1" type="danger" size="small">VPN</el-tag>
+                <el-tag v-if="currentVisitorIp.fp_proxy == 1" type="warning" size="small">代理</el-tag>
+                <el-tag v-if="currentVisitorIp.fp_incognito == 1" type="warning" size="small">无痕</el-tag>
+                <el-tag v-if="currentVisitorIp.fp_tampering == 1" type="danger" size="small">篡改</el-tag>
+                <el-tag v-if="currentVisitorIp.fp_vm == 1 || currentVisitorIp.fp_emulator == 1" type="danger" size="small">
+                  虚拟机
+                </el-tag>
+                <span v-if="currentVisitorIp.fp_browser">{{ currentVisitorIp.fp_browser }}</span>
+                <span v-if="currentVisitorIp.fp_os"> / {{ currentVisitorIp.fp_os }}</span>
+                <span v-if="currentVisitorIp.fp_device"> / {{ currentVisitorIp.fp_device }}</span>
+                <span v-if="currentVisitorIp.fp_confidence != null">（置信度 {{ currentVisitorIp.fp_confidence }}）</span>
+              </template>
+              <span v-else class="text-gray-400">还没拉到，等队列跑完</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="识别详情">
+              <span v-if="fpDetailLoading" class="text-gray-400">正在读取...</span>
+              <span v-else-if="!currentVisitorIp.fp_event_id" class="text-gray-400">这次访问没有事件</span>
+              <span v-else-if="!fpDetail" class="text-gray-400">原文还没归档</span>
+              <div v-else class="fp-detail">
+                <div v-if="fpBrowserLine">浏览器: {{ fpBrowserLine }}</div>
+                <div v-if="fpOsLine">系统: {{ fpOsLine }}</div>
+                <div v-if="fpModelLine">机型: {{ fpModelLine }}</div>
+                <div v-if="fpScreenLine">屏幕: {{ fpScreenLine }}</div>
+                <div v-if="fpTouchLine">触屏: {{ fpTouchLine }}</div>
+                <div v-if="fpExtraLine">{{ fpExtraLine }}</div>
+                <el-collapse>
+                  <el-collapse-item title="原始 JSON" name="raw">
+                    <pre class="fp-raw">{{ fpDetailText }}</pre>
+                  </el-collapse-item>
+                  <el-collapse-item v-if="fpDeviceText" title="自采设备" name="device">
+                    <pre class="fp-raw">{{ fpDeviceText }}</pre>
+                  </el-collapse-item>
+                </el-collapse>
+              </div>
+            </el-descriptions-item>
             <el-descriptions-item label="来源页面">
               <div v-if="currentVisitorIp.referer" class="referer-info">
                 <el-link :href="currentVisitorIp.referer" target="_blank" type="primary" size="small">
@@ -877,7 +965,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 // import { ElMessageBox } from "element-plus"; // 暂时不用
 import {
@@ -907,6 +995,48 @@ const exportDialogVisible = ref(false);
 const exportDays = ref(7); // 默认7天
 const detailDialogVisible = ref(false);
 const currentVisitorIp = ref<VisitorIp | null>(null);
+const fpDetail = ref<any>(null);
+const fpDetailLoading = ref(false);
+const fpDetailText = computed(() => (fpDetail.value ? JSON.stringify(fpDetail.value, null, 2) : ""));
+const fpDeviceText = computed(() =>
+  fpDetail.value && fpDetail.value.device_profile ? JSON.stringify(fpDetail.value.device_profile, null, 2) : ""
+);
+const fpBrowserLine = computed(() => {
+  const browser = fpDetail.value?.browser_details;
+  if (!browser) return "";
+  return [browser.browser_name, browser.browser_full_version].filter(Boolean).join(" ");
+});
+const fpOsLine = computed(() => {
+  const browser = fpDetail.value?.browser_details;
+  if (!browser) return "";
+  return [browser.os, browser.os_version, browser.device].filter(Boolean).join(" / ");
+});
+const fpModelLine = computed(() => {
+  const raw = fpDetail.value?.raw_device_attributes;
+  if (!raw) return "";
+  return [raw.device_manufacturer, raw.device_model].filter(Boolean).join(" ");
+});
+const fpScreenLine = computed(() => {
+  const screen = fpDetail.value?.raw_device_attributes?.screen_resolution;
+  return Array.isArray(screen) ? screen.join(" × ") : "";
+});
+const fpTouchLine = computed(() => {
+  const touch = fpDetail.value?.raw_device_attributes?.touch_support;
+  if (!touch) return "";
+  return touch.max_touch_points != null ? `${touch.max_touch_points} 点` : "";
+});
+const fpExtraLine = computed(() => {
+  const detail = fpDetail.value;
+  if (!detail) return "";
+  const raw = detail.raw_device_attributes || {};
+  const parts = [
+    raw.timezone ? `时区 ${raw.timezone}` : "",
+    raw.webgl_basics?.renderer_unmasked ? `显卡 ${raw.webgl_basics.renderer_unmasked}` : "",
+    detail.ip_address ? `识别 IP ${detail.ip_address}` : "",
+    detail.vpn_origin_country ? `VPN 来源 ${detail.vpn_origin_country}` : ""
+  ].filter(Boolean);
+  return parts.join("；");
+});
 
 // 用户行为时间线相关 - 暂时不用
 // const timelineDialogVisible = ref(false);
@@ -1403,12 +1533,29 @@ const handleCurrentChange = (page: number) => {
 // };
 
 // 查看详情
+const loadFpDetail = async (eventId?: string) => {
+  fpDetail.value = null;
+  if (!eventId) return;
+  fpDetailLoading.value = true;
+  try {
+    const response = await visitorIpApi.getFpEvent(eventId);
+    if (response.code === 200) {
+      fpDetail.value = response.data;
+    }
+  } catch (error) {
+    fpDetail.value = null;
+  } finally {
+    fpDetailLoading.value = false;
+  }
+};
+
 const handleView = async (row: VisitorIp) => {
   try {
     const response = await visitorIpApi.getVisitorIp(row.ip_address);
     if (response.code === 200) {
       currentVisitorIp.value = response.data;
       detailDialogVisible.value = true;
+      loadFpDetail(response.data?.fp_event_id);
     }
   } catch (error) {
     console.error("获取IP详情失败:", error);
@@ -1602,6 +1749,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.fp-raw {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.4;
+}
 .visitor-ip-list {
   padding: 20px;
 }

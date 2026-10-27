@@ -72,6 +72,20 @@ export interface Order {
   ip_visit_count?: number; // 该IP的历史访问次数（来自 visitor_ips）
   ip_first_visit?: string; // 该IP的首次访问时间（来自 visitor_ips）
   fingerprint?: string;
+  fp_event_id?: string;
+  fp_bot?: string;
+  fp_bot_type?: string;
+  fp_suspect_score?: number | null;
+  fp_vpn?: number | null;
+  fp_proxy?: number | null;
+  fp_incognito?: number | null;
+  fp_tampering?: number | null;
+  fp_vm?: number | null;
+  fp_emulator?: number | null;
+  fp_confidence?: number | null;
+  fp_browser?: string;
+  fp_os?: string;
+  fp_device?: string;
   user_agent?: string;
   product_type?: "original" | "replica"; // 商品类型：正品/仿品
   shipped_email_sent?: boolean; // 是否已发送发货邮件
