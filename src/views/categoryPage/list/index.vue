@@ -410,14 +410,14 @@ import {
 const marketingVisible = ref(false);
 const marketingSaving = ref(false);
 const marketing = reactive<MarketingSettings>({
-  enabled: 1,
-  countdown: 1,
-  toast: 1,
-  viewers: 1,
-  hot_badge: 1,
-  scarcity: 1,
-  rating: 1,
-  trust: 1
+  enabled: 0,
+  countdown: 0,
+  toast: 0,
+  viewers: 0,
+  hot_badge: 0,
+  scarcity: 0,
+  rating: 0,
+  trust: 0
 });
 
 const marketingOptions: { key: keyof MarketingSettings; label: string; tip: string }[] = [
