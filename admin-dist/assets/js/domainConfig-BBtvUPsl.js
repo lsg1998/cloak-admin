@@ -1,1 +1,0 @@
-import{Z as o}from"./index-CFSFay9b.js";const a=()=>o.get("/admin/domain-configs"),t=n=>o.get("/admin/domain-configs/all",n),e=n=>o.post("/admin/domain-configs",n),s=n=>o.put(`/admin/domain-configs/${n.id}`,n),m=n=>o.delete(`/admin/domain-configs/${n}`);export{t as a,e as c,m as d,a as g,s as u};

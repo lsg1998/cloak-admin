@@ -221,7 +221,7 @@
           <div v-for="(item, index) in form.items" :key="index" class="item-row">
             <div class="item-index">{{ index + 1 }}</div>
 
-            <!-- 自定义展示图片 -->
+            <!-- 自定义展示图片：可上传，也可直接填图片地址 -->
             <div class="item-img-col">
               <el-upload
                 class="item-uploader"
@@ -235,6 +235,7 @@
                   <span>上传图片</span>
                 </div>
               </el-upload>
+              <el-button v-if="item.image" size="small" type="danger" link @click="item.image = ''">清除封面</el-button>
             </div>
 
             <div class="item-fields">
@@ -253,7 +254,12 @@
                   </el-button>
                 </template>
               </div>
-              <div class="form-tip">标题、价格、折扣自动取自该真实商品；图片不上传则用商品主图</div>
+              <el-input
+                v-model="item.image"
+                clearable
+                placeholder="封面图地址，如 https://example.com/cover.webp；留空则用商品主图"
+              />
+              <div class="form-tip">标题、价格、折扣自动取自该真实商品；封面可上传，或直接粘贴图片地址</div>
             </div>
 
             <div class="item-actions">
@@ -933,6 +939,10 @@ onMounted(() => {
 }
 .item-img-col {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 .item-img,
 .item-img-placeholder {
