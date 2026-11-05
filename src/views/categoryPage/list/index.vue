@@ -167,10 +167,11 @@
         <el-form-item label="名称" required>
           <el-input v-model="form.name" placeholder="内部名称，便于识别" />
         </el-form-item>
-        <el-form-item label="slug（链接）" required>
-          <el-input v-model="form.slug" placeholder="仅字母数字和连字符，如 hot-sale">
+        <el-form-item label="slug（链接）">
+          <el-input v-model="form.slug" placeholder="留空则按名称自动生成" @input="slugTouched = true">
             <template #prepend>/c/</template>
           </el-input>
+          <div class="form-tip">英文名称会转成链接；中文名称会生成一段随机链接，也可以自己改</div>
         </el-form-item>
         <el-form-item label="页面标题">
           <el-input v-model="form.title" placeholder="合集标题，同时作为页眉品牌名" />
@@ -384,7 +385,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box, Setting, Link } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
@@ -539,6 +540,40 @@ const defaultForm = (): EditForm => ({
   status: "active"
 });
 const form = reactive<EditForm>(defaultForm());
+const slugTouched = ref(false);
+
+const suggestSlug = (name: string) => {
+  const latin = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  if (latin) return latin;
+  return "p-" + Math.random().toString(36).slice(2, 10);
+};
+
+watch(
+  () => form.name,
+  name => {
+    if (form.id || slugTouched.value) return;
+    const latin = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60);
+    if (latin) {
+      form.slug = latin;
+      return;
+    }
+    if (!name.trim()) {
+      form.slug = "";
+      return;
+    }
+    if (!form.slug) form.slug = suggestSlug(name);
+  }
+);
 
 const loadData = async () => {
   loading.value = true;
@@ -563,6 +598,7 @@ const resetForm = () => {
 
 const handleAdd = () => {
   resetForm();
+  slugTouched.value = false;
   dialogVisible.value = true;
 };
 
@@ -700,9 +736,12 @@ const selectProduct = (p: Product) => {
 };
 
 const handleSubmit = async () => {
-  if (!form.name.trim() || !form.slug.trim()) {
-    ElMessage.warning("名称和 slug 不能为空");
+  if (!form.name.trim()) {
+    ElMessage.warning("名称不能为空");
     return;
+  }
+  if (!form.slug.trim()) {
+    form.slug = suggestSlug(form.name);
   }
   if (!form.cloak_rule_id) {
     ElMessage.warning("请选择斗篷规则（决定整页的地区等判断）");
