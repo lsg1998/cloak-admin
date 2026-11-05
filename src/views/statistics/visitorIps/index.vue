@@ -408,7 +408,11 @@
                     {{ row.fp_event_id || "-" }}
                   </span>
                 </div>
-                <div class="type-line" v-if="row.fp_bot || row.fp_browser">
+                <div class="type-line">
+                  <span class="label">FP分数:</span>
+                  <span class="value">{{ row.fp_suspect_score != null ? row.fp_suspect_score : "-" }}</span>
+                </div>
+                <div class="type-line" v-if="row.fp_bot || row.fp_browser || row.fp_suspect_score != null">
                   <span class="label">识别:</span>
                   <span class="value">
                     <el-tag v-if="row.fp_bot === 'bad'" type="danger" size="small">
@@ -822,8 +826,12 @@
               <span v-if="currentVisitorIp.fp_event_id">{{ currentVisitorIp.fp_event_id }}</span>
               <span v-else class="text-gray-400">--</span>
             </el-descriptions-item>
+            <el-descriptions-item label="FP分数">
+              <span v-if="currentVisitorIp.fp_suspect_score != null">{{ currentVisitorIp.fp_suspect_score }}</span>
+              <span v-else class="text-gray-400">--</span>
+            </el-descriptions-item>
             <el-descriptions-item label="识别结果">
-              <template v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser">
+              <template v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser || currentVisitorIp.fp_suspect_score != null">
                 <el-tag v-if="currentVisitorIp.fp_bot === 'bad'" type="danger" size="small">
                   机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
                 </el-tag>
@@ -851,7 +859,7 @@
             <el-descriptions-item label="识别详情">
               <span v-if="fpDetailLoading" class="text-gray-400">正在读取...</span>
               <span v-else-if="!currentVisitorIp.fp_event_id" class="text-gray-400">这次访问没有事件</span>
-              <span v-else-if="!fpDetail" class="text-gray-400">原文还没归档</span>
+              <span v-else-if="!fpDetail" class="text-gray-400">点开后向 Fingerprint 拉取，暂未读到</span>
               <div v-else class="fp-detail">
                 <div v-if="fpBrowserLine">浏览器: {{ fpBrowserLine }}</div>
                 <div v-if="fpOsLine">系统: {{ fpOsLine }}</div>
