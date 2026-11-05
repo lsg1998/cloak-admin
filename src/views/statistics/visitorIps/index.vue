@@ -831,7 +831,9 @@
               <span v-else class="text-gray-400">--</span>
             </el-descriptions-item>
             <el-descriptions-item label="识别结果">
-              <template v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser || currentVisitorIp.fp_suspect_score != null">
+              <template
+                v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser || currentVisitorIp.fp_suspect_score != null"
+              >
                 <el-tag v-if="currentVisitorIp.fp_bot === 'bad'" type="danger" size="small">
                   机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
                 </el-tag>
