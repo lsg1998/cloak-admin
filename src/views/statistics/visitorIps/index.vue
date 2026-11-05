@@ -570,324 +570,384 @@
     </el-dialog>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="IP详情" width="800px" :close-on-click-modal="false">
-      <div v-if="currentVisitorIp" class="ip-detail">
-        <!-- 基础信息 -->
-        <div class="detail-section">
-          <h4 class="section-title">基础信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item label="IP地址">{{ currentVisitorIp.ip_address }}</el-descriptions-item>
-            <el-descriptions-item label="主机名">
-              <span v-if="currentVisitorIp.hostname">{{ currentVisitorIp.hostname }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="访问次数">
-              <el-tag type="info">{{ currentVisitorIp.visit_count }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="产品类型">
-              <el-tag
-                v-if="currentVisitorIp.product_type"
-                :type="getProductTypeColor(currentVisitorIp.product_type)"
-                size="small"
-              >
-                {{ getProductTypeLabel(currentVisitorIp.product_type) }}
-              </el-tag>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="商品卡点击">
-              <el-tag
-                v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.count > 0"
-                :type="getCardClickColor(currentVisitorIp.card_click.status)"
-                size="small"
-                :title="cardClickTitle(currentVisitorIp.card_click)"
-              >
-                {{ currentVisitorIp.card_click.label }}
-              </el-tag>
-              <span v-else class="text-gray-400">未点击</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="最后点击时间">
-              <span v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.last_at">
-                {{ currentVisitorIp.card_click.last_at }}
-              </span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="首次访问">{{ formatDate(currentVisitorIp.first_visit) }}</el-descriptions-item>
-            <el-descriptions-item label="最后访问">{{ formatDate(currentVisitorIp.last_visit) }}</el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 地理位置信息 -->
-        <div class="detail-section">
-          <h4 class="section-title">地理位置信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item label="城市">
-              <span v-if="currentVisitorIp.city">{{ currentVisitorIp.city }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="地区">
-              <span v-if="currentVisitorIp.region">{{ currentVisitorIp.region }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="国家代码">
-              <span v-if="currentVisitorIp.country_code">{{ currentVisitorIp.country_code }}</span>
-              <span v-else-if="currentVisitorIp.country">{{ currentVisitorIp.country }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="大洲">
-              <span v-if="currentVisitorIp.continent">
-                {{ currentVisitorIp.continent }} ({{ currentVisitorIp.continent_code }})
-              </span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="邮编">
-              <span v-if="currentVisitorIp.postal_code">{{ currentVisitorIp.postal_code }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="时区">
-              <span v-if="currentVisitorIp.timezone">{{ currentVisitorIp.timezone }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="经纬度" :span="2">
-              <span v-if="currentVisitorIp.latitude && currentVisitorIp.longitude">
-                {{ currentVisitorIp.latitude }}, {{ currentVisitorIp.longitude }}
-              </span>
-              <span v-else-if="currentVisitorIp.location">{{ currentVisitorIp.location }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- AS (自治系统) 信息 -->
-        <div class="detail-section">
-          <h4 class="section-title">AS (自治系统) 信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item label="ASN">
-              <span v-if="currentVisitorIp.asn">{{ currentVisitorIp.asn }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="AS 类型">
-              <el-tag v-if="currentVisitorIp.as_type" size="small">{{ currentVisitorIp.as_type }}</el-tag>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="AS 组织名称" :span="2">
-              <span v-if="currentVisitorIp.as_name">{{ currentVisitorIp.as_name }}</span>
-              <span v-else-if="currentVisitorIp.organization">{{ currentVisitorIp.organization }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="AS 域名" :span="2">
-              <span v-if="currentVisitorIp.as_domain">{{ currentVisitorIp.as_domain }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="AS 路由" :span="2">
-              <span v-if="currentVisitorIp.asn_route">{{ currentVisitorIp.asn_route }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 隐私检测详情 (Premium API) -->
-        <div
-          v-if="currentVisitorIp.privacy_vpn !== undefined || currentVisitorIp.privacy_proxy !== undefined"
-          class="detail-section"
-        >
-          <h4 class="section-title">隐私检测详情 (Premium)</h4>
-          <el-descriptions :column="3" border size="default">
-            <el-descriptions-item label="VPN">
-              <el-tag v-if="currentVisitorIp.privacy_vpn" type="danger" size="small">是</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="代理">
-              <el-tag v-if="currentVisitorIp.privacy_proxy" type="danger" size="small">是</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="Tor">
-              <el-tag v-if="currentVisitorIp.privacy_tor" type="danger" size="small">是</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="中继">
-              <el-tag v-if="currentVisitorIp.privacy_relay" type="warning" size="small">是</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="托管服务">
-              <el-tag v-if="currentVisitorIp.privacy_hosting" type="warning" size="small">是</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="服务类型">
-              <span v-if="currentVisitorIp.privacy_service">{{ currentVisitorIp.privacy_service }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 公司/运营商信息 -->
-        <div v-if="currentVisitorIp.company_name || currentVisitorIp.carrier_name" class="detail-section">
-          <h4 class="section-title">公司/运营商信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item v-if="currentVisitorIp.company_name" label="公司名称">
-              {{ currentVisitorIp.company_name }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.company_domain" label="公司域名">
-              {{ currentVisitorIp.company_domain }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.company_type" label="公司类型">
-              <el-tag size="small">{{ currentVisitorIp.company_type }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.carrier_name" label="运营商">
-              {{ currentVisitorIp.carrier_name }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.carrier_mcc" label="MCC">
-              {{ currentVisitorIp.carrier_mcc }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.carrier_mnc" label="MNC">
-              {{ currentVisitorIp.carrier_mnc }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 滥用举报信息 -->
-        <div v-if="currentVisitorIp.abuse_email" class="detail-section">
-          <h4 class="section-title">滥用举报联系信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item v-if="currentVisitorIp.abuse_name" label="联系人">
-              {{ currentVisitorIp.abuse_name }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.abuse_email" label="邮箱">
-              <a :href="`mailto:${currentVisitorIp.abuse_email}`">{{ currentVisitorIp.abuse_email }}</a>
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.abuse_phone" label="电话">
-              {{ currentVisitorIp.abuse_phone }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.abuse_country" label="国家">
-              {{ currentVisitorIp.abuse_country }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.abuse_address" label="地址" :span="2">
-              {{ currentVisitorIp.abuse_address }}
-            </el-descriptions-item>
-            <el-descriptions-item v-if="currentVisitorIp.abuse_network" label="网络范围" :span="2">
-              {{ currentVisitorIp.abuse_network }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 其他信息 -->
-        <div v-if="currentVisitorIp.domains_total" class="detail-section">
-          <h4 class="section-title">其他信息</h4>
-          <el-descriptions :column="2" border size="default">
-            <el-descriptions-item label="关联域名总数">
-              {{ currentVisitorIp.domains_total }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- IP 特征标识 -->
-        <div class="detail-section">
-          <h4 class="section-title">IP 特征标识</h4>
-          <el-descriptions :column="3" border size="default">
-            <el-descriptions-item label="匿名 IP">
-              <el-tag v-if="currentVisitorIp.is_anonymous" type="danger" size="small">是 (VPN/Proxy)</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="托管 IP">
-              <el-tag v-if="currentVisitorIp.is_hosting" type="warning" size="small">是 (数据中心)</el-tag>
-              <el-tag v-else type="success" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="移动网络">
-              <el-tag v-if="currentVisitorIp.is_mobile" type="primary" size="small">是</el-tag>
-              <el-tag v-else type="info" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="任播 IP">
-              <el-tag v-if="currentVisitorIp.is_anycast" type="info" size="small">是</el-tag>
-              <el-tag v-else type="info" size="small">否</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="卫星网络">
-              <el-tag v-if="currentVisitorIp.is_satellite" type="info" size="small">是</el-tag>
-              <el-tag v-else type="info" size="small">否</el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <!-- 访问信息 -->
-        <div class="detail-section">
-          <h4 class="section-title">访问信息</h4>
-          <el-descriptions :column="1" border size="default">
-            <el-descriptions-item label="访问页面">
-              <div v-if="currentVisitorIp.access_address" class="referer-info">
-                <el-link :href="currentVisitorIp.access_address" target="_blank" type="primary" size="small">
-                  {{ currentVisitorIp.access_address }}
-                </el-link>
-              </div>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="FP访客ID">
-              <span v-if="currentVisitorIp.fp_visitor_id">{{ currentVisitorIp.fp_visitor_id }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="FP事件ID">
-              <span v-if="currentVisitorIp.fp_event_id">{{ currentVisitorIp.fp_event_id }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="FP分数">
-              <span v-if="currentVisitorIp.fp_suspect_score != null">{{ currentVisitorIp.fp_suspect_score }}</span>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="识别结果">
-              <template
-                v-if="currentVisitorIp.fp_bot || currentVisitorIp.fp_browser || currentVisitorIp.fp_suspect_score != null"
-              >
-                <el-tag v-if="currentVisitorIp.fp_bot === 'bad'" type="danger" size="small">
-                  机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="访客详情"
+      width="1200px"
+      class="visitor-detail-dialog"
+      :close-on-click-modal="false"
+    >
+      <div v-if="currentVisitorIp" class="detail-split">
+        <div class="detail-pane">
+          <div class="pane-title">IP 信息</div>
+          <!-- 基础信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">基础信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item label="IP地址">{{ currentVisitorIp.ip_address }}</el-descriptions-item>
+              <el-descriptions-item label="主机名">
+                <span v-if="currentVisitorIp.hostname">{{ currentVisitorIp.hostname }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="访问次数">
+                <el-tag type="info">{{ currentVisitorIp.visit_count }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="产品类型">
+                <el-tag
+                  v-if="currentVisitorIp.product_type"
+                  :type="getProductTypeColor(currentVisitorIp.product_type)"
+                  size="small"
+                >
+                  {{ getProductTypeLabel(currentVisitorIp.product_type) }}
                 </el-tag>
-                <el-tag v-else-if="currentVisitorIp.fp_bot === 'good'" type="info" size="small">
-                  好机器人{{ currentVisitorIp.fp_bot_type ? ` · ${currentVisitorIp.fp_bot_type}` : "" }}
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="商品卡点击">
+                <el-tag
+                  v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.count > 0"
+                  :type="getCardClickColor(currentVisitorIp.card_click.status)"
+                  size="small"
+                  :title="cardClickTitle(currentVisitorIp.card_click)"
+                >
+                  {{ currentVisitorIp.card_click.label }}
                 </el-tag>
-                <el-tag v-else-if="currentVisitorIp.fp_bot === 'not_detected'" type="success" size="small">非机器人</el-tag>
-                <el-tag v-if="currentVisitorIp.fp_suspect_score != null" type="info" size="small">
-                  可疑 {{ currentVisitorIp.fp_suspect_score }}
-                </el-tag>
-                <el-tag v-if="currentVisitorIp.fp_vpn == 1" type="danger" size="small">VPN</el-tag>
-                <el-tag v-if="currentVisitorIp.fp_proxy == 1" type="warning" size="small">代理</el-tag>
-                <el-tag v-if="currentVisitorIp.fp_incognito == 1" type="warning" size="small">无痕</el-tag>
-                <el-tag v-if="currentVisitorIp.fp_tampering == 1" type="danger" size="small">篡改</el-tag>
-                <el-tag v-if="currentVisitorIp.fp_vm == 1 || currentVisitorIp.fp_emulator == 1" type="danger" size="small">
-                  虚拟机
-                </el-tag>
-                <span v-if="currentVisitorIp.fp_browser">{{ currentVisitorIp.fp_browser }}</span>
-                <span v-if="currentVisitorIp.fp_os"> / {{ currentVisitorIp.fp_os }}</span>
-                <span v-if="currentVisitorIp.fp_device"> / {{ currentVisitorIp.fp_device }}</span>
-                <span v-if="currentVisitorIp.fp_confidence != null">（置信度 {{ currentVisitorIp.fp_confidence }}）</span>
-              </template>
-              <span v-else class="text-gray-400">还没拉到，等队列跑完</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="识别详情">
-              <span v-if="fpDetailLoading" class="text-gray-400">正在读取...</span>
-              <span v-else-if="!currentVisitorIp.fp_event_id" class="text-gray-400">这次访问没有事件</span>
-              <span v-else-if="!fpDetail" class="text-gray-400">点开后向 Fingerprint 拉取，暂未读到</span>
-              <div v-else class="fp-detail">
-                <div v-if="fpBrowserLine">浏览器: {{ fpBrowserLine }}</div>
-                <div v-if="fpOsLine">系统: {{ fpOsLine }}</div>
-                <div v-if="fpModelLine">机型: {{ fpModelLine }}</div>
-                <div v-if="fpScreenLine">屏幕: {{ fpScreenLine }}</div>
-                <div v-if="fpTouchLine">触屏: {{ fpTouchLine }}</div>
-                <div v-if="fpExtraLine">{{ fpExtraLine }}</div>
-                <el-collapse>
-                  <el-collapse-item title="原始 JSON" name="raw">
-                    <pre class="fp-raw">{{ fpDetailText }}</pre>
-                  </el-collapse-item>
-                  <el-collapse-item v-if="fpDeviceText" title="自采设备" name="device">
-                    <pre class="fp-raw">{{ fpDeviceText }}</pre>
-                  </el-collapse-item>
-                </el-collapse>
-              </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="来源页面">
-              <div v-if="currentVisitorIp.referer" class="referer-info">
-                <el-link :href="currentVisitorIp.referer" target="_blank" type="primary" size="small">
-                  {{ currentVisitorIp.referer }}
-                </el-link>
-              </div>
-              <span v-else class="text-gray-400">--</span>
-            </el-descriptions-item>
-          </el-descriptions>
+                <span v-else class="text-gray-400">未点击</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="最后点击时间">
+                <span v-if="currentVisitorIp.card_click && currentVisitorIp.card_click.last_at">
+                  {{ currentVisitorIp.card_click.last_at }}
+                </span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="首次访问">{{ formatDate(currentVisitorIp.first_visit) }}</el-descriptions-item>
+              <el-descriptions-item label="最后访问">{{ formatDate(currentVisitorIp.last_visit) }}</el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 地理位置信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">地理位置信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item label="城市">
+                <span v-if="currentVisitorIp.city">{{ currentVisitorIp.city }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="地区">
+                <span v-if="currentVisitorIp.region">{{ currentVisitorIp.region }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="国家代码">
+                <span v-if="currentVisitorIp.country_code">{{ currentVisitorIp.country_code }}</span>
+                <span v-else-if="currentVisitorIp.country">{{ currentVisitorIp.country }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="大洲">
+                <span v-if="currentVisitorIp.continent">
+                  {{ currentVisitorIp.continent }} ({{ currentVisitorIp.continent_code }})
+                </span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="邮编">
+                <span v-if="currentVisitorIp.postal_code">{{ currentVisitorIp.postal_code }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="时区">
+                <span v-if="currentVisitorIp.timezone">{{ currentVisitorIp.timezone }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="经纬度" :span="2">
+                <span v-if="currentVisitorIp.latitude && currentVisitorIp.longitude">
+                  {{ currentVisitorIp.latitude }}, {{ currentVisitorIp.longitude }}
+                </span>
+                <span v-else-if="currentVisitorIp.location">{{ currentVisitorIp.location }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- AS (自治系统) 信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">AS (自治系统) 信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item label="ASN">
+                <span v-if="currentVisitorIp.asn">{{ currentVisitorIp.asn }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="AS 类型">
+                <el-tag v-if="currentVisitorIp.as_type" size="small">{{ currentVisitorIp.as_type }}</el-tag>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="AS 组织名称" :span="2">
+                <span v-if="currentVisitorIp.as_name">{{ currentVisitorIp.as_name }}</span>
+                <span v-else-if="currentVisitorIp.organization">{{ currentVisitorIp.organization }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="AS 域名" :span="2">
+                <span v-if="currentVisitorIp.as_domain">{{ currentVisitorIp.as_domain }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="AS 路由" :span="2">
+                <span v-if="currentVisitorIp.asn_route">{{ currentVisitorIp.asn_route }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 隐私检测详情 (Premium API) -->
+          <div
+            v-if="currentVisitorIp.privacy_vpn !== undefined || currentVisitorIp.privacy_proxy !== undefined"
+            class="detail-section"
+          >
+            <h4 class="section-title">隐私检测详情 (Premium)</h4>
+            <el-descriptions :column="3" border size="default">
+              <el-descriptions-item label="VPN">
+                <el-tag v-if="currentVisitorIp.privacy_vpn" type="danger" size="small">是</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="代理">
+                <el-tag v-if="currentVisitorIp.privacy_proxy" type="danger" size="small">是</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="Tor">
+                <el-tag v-if="currentVisitorIp.privacy_tor" type="danger" size="small">是</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="中继">
+                <el-tag v-if="currentVisitorIp.privacy_relay" type="warning" size="small">是</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="托管服务">
+                <el-tag v-if="currentVisitorIp.privacy_hosting" type="warning" size="small">是</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="服务类型">
+                <span v-if="currentVisitorIp.privacy_service">{{ currentVisitorIp.privacy_service }}</span>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 公司/运营商信息 -->
+          <div v-if="currentVisitorIp.company_name || currentVisitorIp.carrier_name" class="detail-section">
+            <h4 class="section-title">公司/运营商信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item v-if="currentVisitorIp.company_name" label="公司名称">
+                {{ currentVisitorIp.company_name }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.company_domain" label="公司域名">
+                {{ currentVisitorIp.company_domain }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.company_type" label="公司类型">
+                <el-tag size="small">{{ currentVisitorIp.company_type }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.carrier_name" label="运营商">
+                {{ currentVisitorIp.carrier_name }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.carrier_mcc" label="MCC">
+                {{ currentVisitorIp.carrier_mcc }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.carrier_mnc" label="MNC">
+                {{ currentVisitorIp.carrier_mnc }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 滥用举报信息 -->
+          <div v-if="currentVisitorIp.abuse_email" class="detail-section">
+            <h4 class="section-title">滥用举报联系信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item v-if="currentVisitorIp.abuse_name" label="联系人">
+                {{ currentVisitorIp.abuse_name }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.abuse_email" label="邮箱">
+                <a :href="`mailto:${currentVisitorIp.abuse_email}`">{{ currentVisitorIp.abuse_email }}</a>
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.abuse_phone" label="电话">
+                {{ currentVisitorIp.abuse_phone }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.abuse_country" label="国家">
+                {{ currentVisitorIp.abuse_country }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.abuse_address" label="地址" :span="2">
+                {{ currentVisitorIp.abuse_address }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentVisitorIp.abuse_network" label="网络范围" :span="2">
+                {{ currentVisitorIp.abuse_network }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 其他信息 -->
+          <div v-if="currentVisitorIp.domains_total" class="detail-section">
+            <h4 class="section-title">其他信息</h4>
+            <el-descriptions :column="2" border size="default">
+              <el-descriptions-item label="关联域名总数">
+                {{ currentVisitorIp.domains_total }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- IP 特征标识 -->
+          <div class="detail-section">
+            <h4 class="section-title">IP 特征标识</h4>
+            <el-descriptions :column="3" border size="default">
+              <el-descriptions-item label="匿名 IP">
+                <el-tag v-if="currentVisitorIp.is_anonymous" type="danger" size="small">是 (VPN/Proxy)</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="托管 IP">
+                <el-tag v-if="currentVisitorIp.is_hosting" type="warning" size="small">是 (数据中心)</el-tag>
+                <el-tag v-else type="success" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="移动网络">
+                <el-tag v-if="currentVisitorIp.is_mobile" type="primary" size="small">是</el-tag>
+                <el-tag v-else type="info" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="任播 IP">
+                <el-tag v-if="currentVisitorIp.is_anycast" type="info" size="small">是</el-tag>
+                <el-tag v-else type="info" size="small">否</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="卫星网络">
+                <el-tag v-if="currentVisitorIp.is_satellite" type="info" size="small">是</el-tag>
+                <el-tag v-else type="info" size="small">否</el-tag>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 访问信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">访问信息</h4>
+            <el-descriptions :column="1" border size="default">
+              <el-descriptions-item label="访问页面">
+                <div v-if="currentVisitorIp.access_address" class="referer-info">
+                  <el-link :href="currentVisitorIp.access_address" target="_blank" type="primary" size="small">
+                    {{ currentVisitorIp.access_address }}
+                  </el-link>
+                </div>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="来源页面">
+                <div v-if="currentVisitorIp.referer" class="referer-info">
+                  <el-link :href="currentVisitorIp.referer" target="_blank" type="primary" size="small">
+                    {{ currentVisitorIp.referer }}
+                  </el-link>
+                </div>
+                <span v-else class="text-gray-400">--</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+        </div>
+
+        <div class="detail-pane detail-pane-fp">
+          <div class="pane-title">Fingerprint 识别</div>
+          <div v-if="fpDetailLoading" class="fp-empty">正在向 Fingerprint 拉取完整结果...</div>
+          <div v-else-if="!currentVisitorIp.fp_event_id" class="fp-empty">这次访问没有事件 ID</div>
+          <div v-else-if="!fpDetail" class="fp-empty">暂时读不到识别详情</div>
+          <div v-else class="fp-full">
+            <div class="detail-section">
+              <h4 class="section-title">识别摘要</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="访客 ID">{{ fpVisitorId || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="事件 ID">{{ fpEventId || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="可疑分数">
+                  <span v-if="fpScore != null">{{ fpScore }}</span>
+                  <span v-else>--</span>
+                </el-descriptions-item>
+                <el-descriptions-item label="置信度">
+                  <span v-if="fpConfidence != null">{{ fpConfidence }}</span>
+                  <span v-else>--</span>
+                </el-descriptions-item>
+                <el-descriptions-item label="机器人">{{ fpBotText || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="识别时间">{{ formatFpTime(fpDetail.timestamp) }}</el-descriptions-item>
+                <el-descriptions-item label="是否见过">
+                  {{ fpIdentification.visitor_found == null ? "--" : fpIdentification.visitor_found ? "是" : "否" }}
+                </el-descriptions-item>
+                <el-descriptions-item label="回放请求">
+                  <el-tag v-if="isFpOn(fpDetail.replayed)" type="danger" size="small">是</el-tag>
+                  <el-tag v-else type="success" size="small">否</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="SDK">
+                  {{ fpSdkText || "--" }}
+                </el-descriptions-item>
+                <el-descriptions-item label="浏览器">{{ fpBrowserLine || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="系统 / 设备">{{ fpOsLine || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="机型">{{ fpModelLine || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="首次见到">{{ formatFpTime(fpIdentification.first_seen_at) }}</el-descriptions-item>
+                <el-descriptions-item label="最近见到">{{ formatFpTime(fpIdentification.last_seen_at) }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <div class="detail-section">
+              <h4 class="section-title">Smart Signals</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item v-for="item in fpSignalItems" :key="item.label" :label="item.label">
+                  <el-tag :type="item.on ? (item.danger ? 'danger' : 'warning') : 'success'" size="small">
+                    {{ item.on ? "是" : "否" }}
+                  </el-tag>
+                  <span v-if="item.extra" class="fp-extra">{{ item.extra }}</span>
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <div v-if="fpGeo" class="detail-section">
+              <h4 class="section-title">Fingerprint IP</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="识别 IP">{{ fpDetail.ip_address || fpGeo.address || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="城市">{{ fpGeo.geolocation?.city_name || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="国家">
+                  {{ fpGeo.geolocation?.country_name || fpGeo.geolocation?.country_code || "--" }}
+                </el-descriptions-item>
+                <el-descriptions-item label="时区">{{ fpGeo.geolocation?.timezone || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="ASN">{{ fpGeo.asn_name || fpGeo.asn || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="数据中心">
+                  <el-tag v-if="fpGeo.datacenter_result" type="warning" size="small">
+                    {{ fpGeo.datacenter_name || "是" }}
+                  </el-tag>
+                  <el-tag v-else type="success" size="small">否</el-tag>
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <div class="detail-section">
+              <h4 class="section-title">访问环境</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="页面 URL">{{ fpDetail.url || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="来源">{{ fpDetail.client_referrer || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="UA">{{ fpDetail.user_agent || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="屏幕">{{ fpScreenLine || "--" }}</el-descriptions-item>
+                <el-descriptions-item label="触屏">{{ fpTouchLine || "--" }}</el-descriptions-item>
+                <el-descriptions-item v-if="fpExtraLine" label="其它">{{ fpExtraLine }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <div v-if="fpVelocity" class="detail-section">
+              <h4 class="section-title">活跃速度</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="5 分钟事件">{{ fpVelocity.events?.["5_minutes"] ?? "--" }}</el-descriptions-item>
+                <el-descriptions-item label="1 小时事件">{{ fpVelocity.events?.["1_hour"] ?? "--" }}</el-descriptions-item>
+                <el-descriptions-item label="24 小时事件">{{ fpVelocity.events?.["24_hours"] ?? "--" }}</el-descriptions-item>
+                <el-descriptions-item label="24 小时不同 IP">
+                  {{ fpVelocity.distinct_ip?.["24_hours"] ?? "--" }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <el-collapse>
+              <el-collapse-item title="全部返回字段" name="all">
+                <el-descriptions :column="1" border size="small">
+                  <el-descriptions-item v-for="row in fpAllRows" :key="row.key" :label="row.key">
+                    {{ row.value }}
+                  </el-descriptions-item>
+                </el-descriptions>
+              </el-collapse-item>
+              <el-collapse-item title="原始 JSON" name="raw">
+                <pre class="fp-raw">{{ fpDetailText }}</pre>
+              </el-collapse-item>
+              <el-collapse-item v-if="fpDeviceText" title="自采设备" name="device">
+                <pre class="fp-raw">{{ fpDeviceText }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -1011,18 +1071,46 @@ const fpDetailText = computed(() => (fpDetail.value ? JSON.stringify(fpDetail.va
 const fpDeviceText = computed(() =>
   fpDetail.value && fpDetail.value.device_profile ? JSON.stringify(fpDetail.value.device_profile, null, 2) : ""
 );
+const fpIdentification = computed(() => fpDetail.value?.identification || {});
+const fpVisitorId = computed(() => fpIdentification.value.visitor_id || fpDetail.value?.visitor_id || "");
+const fpEventId = computed(() => fpDetail.value?.event_id || currentVisitorIp.value?.fp_event_id || "");
+const fpScore = computed(() => {
+  const score = fpDetail.value?.suspect_score;
+  if (score == null) return currentVisitorIp.value?.fp_suspect_score ?? null;
+  if (typeof score === "number") return score;
+  if (typeof score === "object" && score.result != null) return score.result;
+  return score;
+});
+const fpConfidence = computed(() => {
+  const confidence = fpIdentification.value.confidence;
+  if (confidence == null) return currentVisitorIp.value?.fp_confidence ?? null;
+  if (typeof confidence === "number") return confidence;
+  return confidence.score ?? null;
+});
+const fpBotText = computed(() => {
+  const bot = fpDetail.value?.bot;
+  if (bot == null) return currentVisitorIp.value?.fp_bot || "";
+  if (typeof bot === "string") {
+    const type = fpDetail.value?.bot_type;
+    return type ? `${bot} · ${type}` : bot;
+  }
+  if (typeof bot === "object") {
+    return [bot.result, bot.type].filter(Boolean).join(" · ");
+  }
+  return String(bot);
+});
 const fpBrowserLine = computed(() => {
   const browser = fpDetail.value?.browser_details;
-  if (!browser) return "";
+  if (!browser) return [fpDetail.value?.os, fpDetail.value?.device].filter(Boolean).join(" / ");
   return [browser.browser_name, browser.browser_full_version].filter(Boolean).join(" ");
 });
 const fpOsLine = computed(() => {
   const browser = fpDetail.value?.browser_details;
-  if (!browser) return "";
+  if (!browser) return [fpDetail.value?.os, fpDetail.value?.os_version, fpDetail.value?.device].filter(Boolean).join(" / ");
   return [browser.os, browser.os_version, browser.device].filter(Boolean).join(" / ");
 });
 const fpModelLine = computed(() => {
-  const raw = fpDetail.value?.raw_device_attributes;
+  const raw = fpDetail.value?.raw_device_attributes || fpDetail.value?.device_details;
   if (!raw) return "";
   return [raw.device_manufacturer, raw.device_model].filter(Boolean).join(" ");
 });
@@ -1041,12 +1129,98 @@ const fpExtraLine = computed(() => {
   const raw = detail.raw_device_attributes || {};
   const parts = [
     raw.timezone ? `时区 ${raw.timezone}` : "",
-    raw.webgl_basics?.renderer_unmasked ? `显卡 ${raw.webgl_basics.renderer_unmasked}` : "",
-    detail.ip_address ? `识别 IP ${detail.ip_address}` : "",
-    detail.vpn_origin_country ? `VPN 来源 ${detail.vpn_origin_country}` : ""
+    raw.webgl_basics?.renderer_unmasked ? `显卡 ${raw.webgl_basics.renderer_unmasked}` : ""
   ].filter(Boolean);
   return parts.join("；");
 });
+const fpSdkText = computed(() => {
+  const sdk = fpDetail.value?.sdk;
+  if (!sdk) return "";
+  return [sdk.platform, sdk.version].filter(Boolean).join(" ");
+});
+const fpAllRows = computed(() => {
+  if (!fpDetail.value) return [];
+  const rows: { key: string; value: string }[] = [];
+  const walk = (value: any, path: string) => {
+    if (value == null || value === "") return;
+    if (path === "device_profile") return;
+    if (Array.isArray(value)) {
+      if (!value.length) return;
+      if (value.every(item => item == null || typeof item !== "object")) {
+        rows.push({ key: path, value: value.join(", ") });
+        return;
+      }
+      value.forEach((item, index) => walk(item, `${path}[${index}]`));
+      return;
+    }
+    if (typeof value === "object") {
+      Object.keys(value).forEach(key => walk(value[key], path ? `${path}.${key}` : key));
+      return;
+    }
+    rows.push({ key: path, value: String(value) });
+  };
+  walk(fpDetail.value, "");
+  return rows;
+});
+const fpGeo = computed(() => fpDetail.value?.ip_info?.v4 || fpDetail.value?.ip_info?.v6 || null);
+const fpVelocity = computed(() => fpDetail.value?.velocity || null);
+const isFpOn = (value: any) => value === true || value === 1 || value === "true" || value === "bad";
+const fpJoin = (parts: any[]) =>
+  parts.filter(item => item !== undefined && item !== null && item !== "" && item !== false).join(" · ");
+const fpSignalItems = computed(() => {
+  const detail = fpDetail.value;
+  if (!detail) return [];
+  const block = detail.ip_blocklist || {};
+  return [
+    {
+      label: "VPN",
+      on: isFpOn(detail.vpn),
+      danger: true,
+      extra: fpJoin([
+        detail.vpn_confidence,
+        detail.vpn_origin_country ? `来源 ${detail.vpn_origin_country}` : "",
+        detail.vpn_origin_timezone
+      ])
+    },
+    {
+      label: "代理",
+      on: isFpOn(detail.proxy),
+      danger: true,
+      extra: fpJoin([detail.proxy_confidence, detail.proxy_details?.proxy_type, detail.proxy_details?.provider])
+    },
+    { label: "无痕", on: isFpOn(detail.incognito), danger: false, extra: "" },
+    {
+      label: "篡改",
+      on: isFpOn(detail.tampering),
+      danger: true,
+      extra: fpJoin([detail.tampering_confidence, detail.tampering_details?.anti_detect_browser ? "反检测浏览器" : ""])
+    },
+    { label: "虚拟机", on: isFpOn(detail.virtual_machine), danger: true, extra: "" },
+    { label: "模拟器", on: isFpOn(detail.emulator) || isFpOn(detail.simulator), danger: true, extra: "" },
+    { label: "开发者工具", on: isFpOn(detail.developer_tools), danger: false, extra: "" },
+    { label: "中间人攻击", on: isFpOn(detail.mitm_attack), danger: true, extra: "" },
+    { label: "位置伪造", on: isFpOn(detail.location_spoofing), danger: true, extra: "" },
+    { label: "隐私设置", on: isFpOn(detail.privacy_settings), danger: false, extra: "" },
+    { label: "Root / 越狱", on: isFpOn(detail.root_apps) || isFpOn(detail.jailbroken), danger: true, extra: "" },
+    { label: "Frida", on: isFpOn(detail.frida), danger: true, extra: "" },
+    { label: "克隆应用", on: isFpOn(detail.cloned_app), danger: true, extra: "" },
+    { label: "高活跃设备", on: isFpOn(detail.high_activity_device), danger: true, extra: "" },
+    { label: "请求回放", on: isFpOn(detail.replayed), danger: true, extra: "" },
+    {
+      label: "IP 拉黑",
+      on: !!(block.email_spam || block.attack_source || block.tor_node),
+      danger: true,
+      extra: fpJoin([block.tor_node ? "Tor" : "", block.email_spam ? "垃圾邮件" : "", block.attack_source ? "攻击源" : ""])
+    }
+  ];
+});
+const formatFpTime = (value: any) => {
+  if (value == null || value === "") return "--";
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return String(value);
+  const ms = number < 1e12 ? number * 1000 : number;
+  return formatDate(new Date(ms).toISOString());
+};
 
 // 用户行为时间线相关 - 暂时不用
 // const timelineDialogVisible = ref(false);
@@ -1765,6 +1939,51 @@ onMounted(() => {
   white-space: pre-wrap;
   font-size: 12px;
   line-height: 1.4;
+}
+.detail-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  max-height: 72vh;
+}
+.detail-pane {
+  min-width: 0;
+  max-height: 72vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+.detail-pane-fp {
+  border-left: 1px solid #ebeef5;
+  padding-left: 20px;
+}
+.pane-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
+  margin-bottom: 16px;
+}
+.fp-empty {
+  color: #909399;
+  font-size: 13px;
+  padding: 24px 0;
+}
+.fp-extra {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+@media (max-width: 1100px) {
+  .detail-split {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+  .detail-pane,
+  .detail-pane-fp {
+    max-height: none;
+    border-left: 0;
+    padding-left: 0;
+  }
 }
 .visitor-ip-list {
   padding: 20px;

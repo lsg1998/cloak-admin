@@ -74,8 +74,8 @@
           <template #default="{ row }">
             <div class="link-cell">
               <span class="link-text">/c/{{ row.slug }}</span>
-              <el-button size="small" type="primary" link @click="previewLink(row.slug)">预览</el-button>
-              <el-button size="small" type="primary" link @click="copyLink(row.slug)">复制</el-button>
+              <el-button size="small" type="primary" link @click="openDomainDialog(row)">预览</el-button>
+              <el-button size="small" type="primary" link @click="openDomainDialog(row, 'copy')">复制</el-button>
             </div>
           </template>
         </el-table-column>
@@ -336,16 +336,61 @@
         />
       </div>
     </el-dialog>
+
+    <el-dialog v-model="domainDialogVisible" title="选择预览域名" width="500px" :close-on-click-modal="false">
+      <div v-if="currentLinkPage" class="domain-select-dialog">
+        <div class="page-info">
+          <h4>{{ currentLinkPage.name }}</h4>
+          <p>/c/{{ currentLinkPage.slug }}</p>
+        </div>
+        <el-radio-group v-model="selectedDomain" class="domain-options">
+          <el-radio v-for="domain in domainConfigs" :key="domain.id" :value="domain" class="domain-option">
+            <div class="domain-card">
+              <div class="domain-header">
+                <span class="domain-name">{{ domain.name }}</span>
+                <el-tag :type="domain.is_active ? 'success' : 'info'" size="small">
+                  {{ domain.is_active ? "启用" : "禁用" }}
+                </el-tag>
+                <el-tag v-if="domain.is_wildcard" type="warning" size="small">通配符域名</el-tag>
+              </div>
+              <div class="domain-url">
+                <el-icon><Link /></el-icon>
+                <span>{{ buildPageUrl(currentLinkPage, domain) }}</span>
+              </div>
+              <div v-if="domain.description" class="domain-description">{{ domain.description }}</div>
+            </div>
+          </el-radio>
+        </el-radio-group>
+      </div>
+      <template #footer>
+        <el-button @click="domainDialogVisible = false">取消</el-button>
+        <el-button
+          :type="domainDialogAction === 'copy' ? 'primary' : 'default'"
+          :disabled="!selectedDomain"
+          @click="confirmCopyLink"
+        >
+          复制链接
+        </el-button>
+        <el-button
+          :type="domainDialogAction === 'preview' ? 'primary' : 'default'"
+          :disabled="!selectedDomain"
+          @click="confirmPreviewLink"
+        >
+          预览
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box, Setting } from "@element-plus/icons-vue";
+import { Search, Plus, Edit, Delete, ArrowUp, ArrowDown, Box, Setting, Link } from "@element-plus/icons-vue";
 import { uploadImg } from "@/api/modules/upload";
 import { getProductListApi, getProductCountryStatsApi, type Product } from "@/api/modules/product";
 import { cloakRuleApi, type CloakRule } from "@/api/modules/cloakRule";
+import { getDomainConfigs, type DomainConfig } from "@/api/modules/domainConfig";
 import {
   getCategoryPageListApi,
   getCategoryPageApi,
@@ -698,16 +743,88 @@ const handleSubmit = async () => {
   }
 };
 
-const previewLink = (slug: string) => {
-  window.open(`${location.origin}/c/${slug}`, "_blank");
+const domainDialogVisible = ref(false);
+const domainConfigs = ref<DomainConfig[]>([]);
+const selectedDomain = ref<DomainConfig | null>(null);
+const currentLinkPage = ref<CategoryPage | null>(null);
+const domainDialogAction = ref<"preview" | "copy">("preview");
+
+const buildPageUrl = (page: CategoryPage, domain: DomainConfig) => {
+  let host = domain.domain;
+  if (domain.is_wildcard && page.language) {
+    host = `${String(page.language).toLowerCase()}.${domain.domain}`;
+  }
+  return `${domain.protocol}://${host}/c/${page.slug}`;
 };
 
-const copyLink = (slug: string) => {
-  const url = `${location.origin}/c/${slug}`;
-  navigator.clipboard
-    .writeText(url)
-    .then(() => ElMessage.success(`已复制：${url}`))
-    .catch(() => ElMessage.warning(url));
+const openDomainDialog = async (row: CategoryPage, action: "preview" | "copy" = "preview") => {
+  currentLinkPage.value = row;
+  domainDialogAction.value = action;
+  try {
+    const response = await getDomainConfigs();
+    domainConfigs.value = response.data || [];
+    selectedDomain.value = domainConfigs.value[0] || null;
+  } catch (error) {
+    console.error("加载域名配置失败:", error);
+    ElMessage.error("加载域名配置失败");
+    return;
+  }
+  if (!domainConfigs.value.length) {
+    ElMessage.warning("还没有配置可预览的域名");
+    return;
+  }
+  domainDialogVisible.value = true;
+};
+
+const currentPageUrl = () => {
+  if (!currentLinkPage.value || !selectedDomain.value) {
+    return "";
+  }
+  return buildPageUrl(currentLinkPage.value, selectedDomain.value);
+};
+
+const confirmPreviewLink = () => {
+  const url = currentPageUrl();
+  if (!url) {
+    ElMessage.warning("请选择域名");
+    return;
+  }
+  window.open(url, "_blank");
+  ElMessage.success("正在打开分类落地页");
+  domainDialogVisible.value = false;
+};
+
+const writeClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    const input = document.createElement("textarea");
+    input.value = text;
+    input.setAttribute("readonly", "readonly");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.appendChild(input);
+    input.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(input);
+    return ok;
+  }
+};
+
+const confirmCopyLink = async () => {
+  const url = currentPageUrl();
+  if (!url) {
+    ElMessage.warning("请选择域名");
+    return;
+  }
+  const ok = await writeClipboard(url);
+  if (ok) {
+    ElMessage.success(`已复制：${url}`);
+    domainDialogVisible.value = false;
+  } else {
+    ElMessage.warning(`复制失败，请手动复制：${url}`);
+  }
 };
 
 onMounted(() => {
@@ -881,5 +998,82 @@ onMounted(() => {
 .picker-id {
   color: #909399;
   font-size: 11px;
+}
+.domain-select-dialog {
+  padding: 8px 0 4px;
+}
+.page-info {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+.page-info h4 {
+  margin: 0 0 6px;
+  color: #303133;
+  font-size: 16px;
+}
+.page-info p {
+  margin: 0;
+  color: #409eff;
+  font-family: monospace;
+  font-size: 13px;
+}
+.domain-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.domain-option {
+  width: 100%;
+  margin: 0;
+}
+.domain-option :deep(.el-radio__input) {
+  display: none;
+}
+.domain-option :deep(.el-radio__label) {
+  width: 100%;
+  padding: 0;
+}
+.domain-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.domain-option:hover .domain-card {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+.domain-option.is-checked .domain-card {
+  border-color: #409eff;
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+.domain-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.domain-name {
+  font-weight: 600;
+  color: #303133;
+  font-size: 14px;
+}
+.domain-url {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #606266;
+  font-size: 13px;
+  word-break: break-all;
+}
+.domain-description {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 </style>
