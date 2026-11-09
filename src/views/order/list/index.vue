@@ -1071,6 +1071,8 @@
     <!-- 物流公司导出对话框 -->
     <el-dialog
       v-model="exportDialogVisible"
+      :width="shopifyImportMode ? '92vw' : '800px'"
+      top="3vh"
       :title="
         exportConfig.logisticsCompany === 'huaxi'
           ? '导出华熙订单'
@@ -1086,11 +1088,57 @@
                     ? '导出跨速达订单（西班牙）'
                     : '导出跨速达订单（匈牙利）'
       "
-      width="600px"
       :close-on-click-modal="false"
     >
-      <div class="export-config">
+      <div class="export-config" :class="{ 'is-shopify': shopifyImportMode }">
         <el-form :model="exportConfig" label-width="120px">
+          <el-form-item v-if="canSwitchExportSource" label="数据来源">
+            <el-radio-group v-model="exportDataSource" @change="handleExportDataSourceChange">
+              <el-radio-button label="local">本地订单列表</el-radio-button>
+              <el-radio-button label="shopify">Shopify 响应</el-radio-button>
+            </el-radio-group>
+            <div class="form-tip">导出模板不变，只换订单数据从哪来</div>
+          </el-form-item>
+
+          <el-form-item v-if="shopifyImportMode" label="Shopify JSON">
+            <el-input
+              v-model="shopifyJsonText"
+              type="textarea"
+              :rows="8"
+              placeholder="粘贴 Shopify 订单列表接口响应 JSON"
+              style="width: 100%"
+              @blur="() => parseShopifyJson(true)"
+            />
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+              <el-button size="small" type="primary" @click="() => parseShopifyJson()">解析</el-button>
+              <el-button size="small" @click="clearShopifyJson">清空</el-button>
+              <el-tag v-if="shopifyParsedOrders.length" type="success">{{ shopifyParsedOrders.length }} 条</el-tag>
+              <el-tag v-if="shopifyParseSkipped" type="warning">跳过 {{ shopifyParseSkipped }} 条</el-tag>
+            </div>
+            <el-table
+              v-if="shopifyParsedOrders.length"
+              :data="shopifyParsedOrders"
+              size="small"
+              max-height="360"
+              border
+              stripe
+              style="margin-top: 8px"
+            >
+              <el-table-column prop="order_number" label="参考单号" width="150" />
+              <el-table-column prop="product_title" label="Shopify单号" width="110" />
+              <el-table-column prop="customer_name" label="收件人" width="120" show-overflow-tooltip />
+              <el-table-column prop="phone" label="电话" width="130" />
+              <el-table-column label="国家" width="60">
+                <template #default="{ row }">{{ row.language_code || "-" }}</template>
+              </el-table-column>
+              <el-table-column prop="city" label="城市" width="110" show-overflow-tooltip />
+              <el-table-column prop="address" label="地址" min-width="160" show-overflow-tooltip />
+              <el-table-column label="金额" width="100">
+                <template #default="{ row }">{{ row.total_amount }} {{ row.currency }}</template>
+              </el-table-column>
+            </el-table>
+          </el-form-item>
+
           <el-form-item label="物流公司">
             <el-select v-model="exportConfig.logisticsCompany" placeholder="请选择物流公司" style="width: 300px">
               <el-option label="跨速达（匈牙利发货）" value="kuasuoda" />
@@ -1111,7 +1159,7 @@
             </el-radio-group>
           </el-form-item>
 
-          <el-form-item label="导出筛选" v-if="!singleOrderExportMode">
+          <el-form-item label="导出筛选" v-if="!singleOrderExportMode && !shopifyImportMode">
             <div style="display: flex; flex-direction: column; gap: 8px">
               <el-checkbox v-model="exportConfig.onlyUnshipped">只导出未发货的订单</el-checkbox>
               <el-checkbox v-model="exportConfig.filterByCountry" :disabled="!!searchForm.country">按国家筛选</el-checkbox>
@@ -1145,7 +1193,7 @@
             </div>
           </el-form-item>
 
-          <el-form-item label="导出数量">
+          <el-form-item label="导出数量" v-if="!shopifyImportMode">
             <el-input-number
               v-model="exportConfig.exportLimit"
               :min="1"
@@ -1159,7 +1207,7 @@
             <div class="form-tip" v-else>最多可导出 10000 条</div>
           </el-form-item>
 
-          <el-form-item label="导出后操作">
+          <el-form-item label="导出后操作" v-if="!shopifyImportMode">
             <div style="display: flex; flex-direction: column; gap: 8px">
               <el-checkbox v-model="exportConfig.updateShippedStatus">更新订单状态为"已发货"</el-checkbox>
               <el-checkbox v-model="exportConfig.sendShippedEmail">发送发货通知邮件给客户</el-checkbox>
@@ -1481,7 +1529,10 @@
                 </span>
               </p>
               <ul>
-                <li v-if="singleOrderExportMode">📦 本次导出：1 条订单（订单号：{{ singleOrderToExport?.order_number }}）</li>
+                <li v-if="shopifyImportMode">📦 本次导出：{{ shopifyParsedOrders.length }} 条 Shopify 订单</li>
+                <li v-else-if="singleOrderExportMode">
+                  📦 本次导出：1 条订单（订单号：{{ singleOrderToExport?.order_number }}）
+                </li>
                 <li v-else>
                   📦 本次导出：最多 {{ exportConfig.exportLimit }} 条订单
                   <el-tag v-if="exportConfig.onlyUnshipped" type="warning" size="small" style="margin-left: 8px">
@@ -1491,13 +1542,14 @@
                     仅 {{ countryCodeMap[exportConfig.selectedCountry] }}
                   </el-tag>
                 </li>
-                <li v-if="!singleOrderExportMode">✅ 可选择只导出未发货的订单</li>
-                <li v-if="!singleOrderExportMode">✅ 可按国家筛选导出（例如：只导出斯洛伐克或捷克订单）</li>
-                <li>
+                <li v-if="!singleOrderExportMode && !shopifyImportMode">✅ 可选择只导出未发货的订单</li>
+                <li v-if="!singleOrderExportMode && !shopifyImportMode">✅ 可按国家筛选导出（例如：只导出斯洛伐克或捷克订单）</li>
+                <li v-if="!shopifyImportMode">
                   ✅ 导出后可选操作：
                   <span v-if="exportConfig.updateShippedStatus" style="color: #67c23a; margin-left: 8px">更新为已发货</span>
                   <span v-if="exportConfig.sendShippedEmail" style="color: #67c23a; margin-left: 8px">发送邮件通知</span>
                 </li>
+                <li v-else>✅ Shopify 订单只导出物流表格，不改本地订单、不发站内邮件</li>
                 <li>✅ 国家代码自动映射（SK→斯洛伐克等）</li>
                 <li>✅ 运输方式自动填充</li>
                 <li>✅ 配货名称和配货信息自动去除表情和特殊字符</li>
@@ -2266,11 +2318,18 @@ const extractEmParameter = (url: string): string | null => {
   }
 };
 
+const isIsoCountryCode = (code: string): boolean => /^[A-Z]{2}$/.test(code);
+
 const getCountryCode = (order: Order): string => {
+  const productCountry = (order.product_country || "").toUpperCase();
+  if (isIsoCountryCode(productCountry)) {
+    return productCountry;
+  }
+
   // 优先使用language_code字段（如果存在且是有效的国家代码）
   if (order.language_code) {
     const upperCode = order.language_code.toUpperCase();
-    if (countryCodeMap[upperCode]) {
+    if (countryCodeMap[upperCode] || isIsoCountryCode(upperCode)) {
       return upperCode;
     }
   }
@@ -2282,6 +2341,20 @@ const getCountryCode = (order: Order): string => {
 
   // 默认返回SK
   return "SK";
+};
+
+const formatSloveniaSingleName = (name: string, countryCode?: string): string => {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "";
+  if ((countryCode || "").toUpperCase() !== "SI") return trimmed;
+  if (/^(mr|mrs|ms|miss|mister)\.?\s+/i.test(trimmed)) return trimmed;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return `Mr ${trimmed}`;
+  return trimmed;
+};
+
+const formatRecipientName = (order: Order): string => {
+  return formatSloveniaSingleName(order.customer_name || "", getCountryCode(order));
 };
 
 // 根据国家获取运输方式
@@ -2997,6 +3070,12 @@ const handleDelete = (row: Order) => {
 // 批量导出
 const batchExportMode = ref(false); // 是否为批量导出模式
 const batchExportOrders = ref<Order[]>([]); // 批量导出的订单列表
+const shopifyImportMode = ref(false);
+const exportDataSource = ref<"local" | "shopify">("local");
+const shopifyJsonText = ref("");
+const shopifyParsedOrders = ref<Order[]>([]);
+const shopifyParseSkipped = ref(0);
+const canSwitchExportSource = computed(() => !singleOrderExportMode.value && (!batchExportMode.value || shopifyImportMode.value));
 
 const handleBatchExport = (logisticsCompany: string) => {
   if (selectedOrders.value.length === 0) {
@@ -3639,6 +3718,7 @@ const getUnshippedCountInCurrentPage = (): number => {
 const handleExportDialog = () => {
   // 从缓存加载上次的配置
   loadExportConfigFromCache();
+  resetExportDataSource();
 
   // 设置默认导出数量为当前页未发货的数量
   const unshippedCount = getUnshippedCountInCurrentPage();
@@ -3710,6 +3790,178 @@ const handleExportCustomerMatch = async () => {
   }
 };
 
+const cleanShopifyPersonName = (first?: string | null, last?: string | null): string => {
+  return [first, last]
+    .map(part => (part || "").trim())
+    .filter(part => part && part !== "-")
+    .join(" ");
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const generateShopifyReferenceNumber = (node: any, index: number): string => {
+  const created = node?.createdAt || node?.processedAt;
+  const parsed = created ? new Date(created) : new Date();
+  const d = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const ymdHis =
+    String(d.getFullYear()).slice(-2) +
+    pad2(d.getMonth() + 1) +
+    pad2(d.getDate()) +
+    pad2(d.getHours()) +
+    pad2(d.getMinutes()) +
+    pad2(d.getSeconds());
+  const numericId = String(node?.id || "").match(/Order\/(\d+)/)?.[1] || "";
+  const suffix = (numericId.slice(-3) || String(100 + (index % 900))).padStart(3, "0");
+  return ymdHis + suffix;
+};
+
+const extractShopifyEdges = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    if (payload.length && payload[0]?.node) return payload;
+    if (payload.length && (payload[0]?.id || payload[0]?.name)) {
+      return payload.map(node => ({ node }));
+    }
+    return [];
+  }
+  const list = payload?.data?.ordersList || payload?.data?.orders || payload?.ordersList || payload?.orders || payload;
+  if (Array.isArray(list?.edges)) return list.edges;
+  if (Array.isArray(list?.nodes)) return list.nodes.map((node: any) => ({ node }));
+  if (Array.isArray(list)) {
+    return list.map((item: any) => (item?.node ? item : { node: item }));
+  }
+  if (list?.id || list?.name) return [{ node: list }];
+  return [];
+};
+
+const mapShopifyNodeToOrder = (node: any, index: number): Order | null => {
+  if (!node || node.cancelledAt) return null;
+  const addr = node.shippingAddress || {};
+  if (!addr.address1 && !addr.city && !addr.zip) return null;
+
+  const customer = node.purchasingEntity || {};
+  const money = node.currentTotalPriceSet?.shopMoney || node.currentTotalPriceSet?.presentmentMoney || {};
+  const qty = Number(node.currentSubtotalLineItemsQuantity || 1) || 1;
+  const amount = Number(money.amount || 0);
+  const country = String(addr.countryCodeV2 || "").toUpperCase();
+  const address = [addr.address1, addr.address2].filter(Boolean).join(" ");
+  const orderName = String(node.name || "").trim();
+
+  return {
+    id: 0,
+    order_number: generateShopifyReferenceNumber(node, index),
+    customer_name: formatSloveniaSingleName(
+      cleanShopifyPersonName(addr.firstName, addr.lastName) || cleanShopifyPersonName(customer.firstName, customer.lastName),
+      country
+    ),
+    phone: addr.phone || "",
+    email: node.email || customer.email || "",
+    province: addr.provinceCode || "",
+    city: addr.city || "",
+    district: addr.city || "",
+    address,
+    postal_code: addr.zip || "",
+    payment_method: "cod",
+    quantity: qty,
+    total_amount: amount,
+    currency: money.currencyCode || "EUR",
+    status: OrderStatus.CONFIRMED,
+    comments: node.note || "",
+    created_at: node.createdAt || "",
+    updated_at: node.processedAt || node.createdAt || "",
+    language_code: country,
+    product_country: country,
+    product_title: orderName || "Shopify 订单",
+    product_price: qty > 0 ? Number((amount / qty).toFixed(2)) : amount
+  };
+};
+
+const parseShopifyJson = (silent = false): boolean => {
+  shopifyParsedOrders.value = [];
+  shopifyParseSkipped.value = 0;
+  const raw = shopifyJsonText.value.trim();
+  if (!raw) {
+    if (!silent) ElMessage.warning("请先粘贴 Shopify 订单 JSON");
+    return false;
+  }
+
+  let payload: any;
+  try {
+    payload = JSON.parse(raw);
+  } catch (error) {
+    ElMessage.error("JSON 解析失败，请检查是否粘贴完整");
+    return false;
+  }
+
+  const edges = extractShopifyEdges(payload);
+  if (!edges.length) {
+    ElMessage.error("没有找到订单数据，请确认是订单列表接口的响应");
+    return false;
+  }
+
+  const mapped: Order[] = [];
+  let skipped = 0;
+  edges.forEach((edge, index) => {
+    const order = mapShopifyNodeToOrder(edge?.node || edge, index);
+    if (order) {
+      mapped.push(order);
+    } else {
+      skipped += 1;
+    }
+  });
+
+  shopifyParsedOrders.value = mapped;
+  shopifyParseSkipped.value = skipped;
+  if (!mapped.length) {
+    ElMessage.warning("没有可发货的订单（可能都已取消或缺少收件地址）");
+    return false;
+  }
+  if (!silent) ElMessage.success(`已解析 ${mapped.length} 条 Shopify 订单`);
+  return true;
+};
+
+const clearShopifyJson = () => {
+  shopifyJsonText.value = "";
+  shopifyParsedOrders.value = [];
+  shopifyParseSkipped.value = 0;
+};
+
+const resetExportDataSource = () => {
+  exportDataSource.value = "local";
+  shopifyImportMode.value = false;
+};
+
+const handleExportDataSourceChange = (source: "local" | "shopify") => {
+  shopifyImportMode.value = source === "shopify";
+  if (source === "shopify") {
+    exportConfig.updateShippedStatus = false;
+    exportConfig.sendShippedEmail = false;
+    exportConfig.onlyUnshipped = false;
+    exportConfig.filterByCountry = false;
+    if (shopifyJsonText.value.trim()) parseShopifyJson(true);
+  } else if (batchExportMode.value) {
+    batchExportMode.value = false;
+    batchExportOrders.value = [];
+  }
+};
+
+const applyShopifyAsExportSource = (): boolean => {
+  if (!shopifyParsedOrders.value.length && !parseShopifyJson()) {
+    return false;
+  }
+  if (!shopifyParsedOrders.value.length) return false;
+
+  shopifyImportMode.value = true;
+  batchExportMode.value = true;
+  batchExportOrders.value = [...shopifyParsedOrders.value];
+  exportConfig.updateShippedStatus = false;
+  exportConfig.sendShippedEmail = false;
+  exportConfig.onlyUnshipped = false;
+  exportConfig.filterByCountry = false;
+  exportConfig.exportLimit = shopifyParsedOrders.value.length;
+  return true;
+};
+
 // 取消导出，重置单个订单导出模式
 const handleCancelExport = () => {
   exportDialogVisible.value = false;
@@ -3721,10 +3973,19 @@ const handleCancelExport = () => {
     // 恢复默认导出数量
     exportConfig.exportLimit = 100;
   }
+  if (shopifyImportMode.value) {
+    shopifyImportMode.value = false;
+    batchExportMode.value = false;
+    batchExportOrders.value = [];
+  }
+  exportDataSource.value = "local";
 };
 
 // 根据物流公司选择导出
 const handleExportByCompany = async () => {
+  if (shopifyImportMode.value && !applyShopifyAsExportSource()) {
+    return;
+  }
   // 盈派转寄订单验证
   if (exportConfig.logisticsCompany === "yingpai" && exportConfig.yingpaiOrderType === "forward") {
     if (!exportConfig.yingpaiReturnOrderNumber || !exportConfig.yingpaiReturnOrderNumber.trim()) {
@@ -3815,16 +4076,21 @@ const handleExportByCompany = async () => {
     }
   }
   exportDialogVisible.value = false;
+  shopifyImportMode.value = false;
 };
 
 // 异步处理订单状态更新和发送邮件
 const handlePostExportActions = async (orders: Order[]) => {
+  const localOrders = orders.filter(order => order.id > 0);
+  if (!localOrders.length) {
+    return;
+  }
   if (!exportConfig.updateShippedStatus && !exportConfig.sendShippedEmail) {
     return;
   }
 
   ElMessage.info({
-    message: `正在后台处理 ${orders.length} 个订单的发货操作...`,
+    message: `正在后台处理 ${localOrders.length} 个订单的发货操作...`,
     duration: 3000
   });
 
@@ -3836,7 +4102,7 @@ const handlePostExportActions = async (orders: Order[]) => {
   try {
     // 批量更新订单状态为已发货
     if (exportConfig.updateShippedStatus) {
-      const orderIds = orders.map(order => order.id);
+      const orderIds = localOrders.map(order => order.id);
       await batchUpdateOrderStatusApi({
         ids: orderIds,
         status: OrderStatus.SHIPPED
@@ -3851,7 +4117,7 @@ const handlePostExportActions = async (orders: Order[]) => {
   // 发送发货通知邮件（仅发送给有邮箱的订单）
   let noEmailCount = 0;
   if (exportConfig.sendShippedEmail) {
-    for (const order of orders) {
+    for (const order of localOrders) {
       if (order.email && order.email.trim()) {
         try {
           await sendShippedNotificationEmailApi(order.id);
@@ -3872,7 +4138,7 @@ const handlePostExportActions = async (orders: Order[]) => {
   const messages: string[] = [];
   if (exportConfig.updateShippedStatus) {
     if (statusUpdateSuccess) {
-      messages.push(`成功批量更新 ${orders.length} 个订单状态`);
+      messages.push(`成功批量更新 ${localOrders.length} 个订单状态`);
     } else {
       messages.push(`订单状态更新失败`);
     }
@@ -4091,7 +4357,7 @@ const handleKuasuodaSpainExport = async () => {
       row.push(countryName);
 
       // 收件人姓名
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 邮箱 - 如果为空，自动填充
       let email = order.email || "";
@@ -4420,7 +4686,7 @@ const handleExportConfirm = async () => {
       row.push(countryName);
 
       // 收件人姓名
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 功能6：邮箱 - 如果为空，自动填充testN@gmail.com
       let email = order.email || "";
@@ -4720,7 +4986,7 @@ const handleYingpaiForwardExport = async () => {
       row.push(order.total_amount || order.product_price * order.quantity || 0);
 
       // 收件人姓名（必填）
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 收件人公司（选填）
       row.push("");
@@ -4973,7 +5239,7 @@ const handleHuaxiExport = async () => {
       row.push(countryName);
 
       // 收件人姓名
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 州,省
       row.push(order.province || "");
@@ -5256,7 +5522,7 @@ const handleHuaxiLingxingExport = async () => {
       row.push("");
 
       // RecipientName/收件人
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // Recipient Phone/电话 - 去除空格
       row.push((order.phone || "").replace(/\s+/g, ""));
@@ -5496,7 +5762,7 @@ const handleYingpaiExport = async () => {
       row.push(order.total_amount || order.product_price * order.quantity || 0);
 
       // 收件人姓名（必填）
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 收件人公司（选填）
       row.push("");
@@ -5813,7 +6079,7 @@ const handleShenghongExport = async () => {
       row.push(order.currency || "EUR");
 
       // 8. 收件人名称
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
 
       // 9. 收件电话
       row.push(order.phone || "");
@@ -6073,7 +6339,7 @@ const handleRuitongExport = async () => {
       // 9. 收件人税号
       row.push("");
       // 10. 收件人姓名
-      row.push(order.customer_name || "");
+      row.push(formatRecipientName(order));
       // 11. 收件人州省
       row.push(order.province || "");
       // 12. 收件人城市
@@ -7304,6 +7570,14 @@ onMounted(() => {
 
 /* 导出配置对话框样式 */
 .export-config {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  padding-right: 4px;
+
+  &.is-shopify {
+    max-height: calc(100vh - 160px);
+  }
+
   .form-tip {
     font-size: 12px;
     color: #909399;
