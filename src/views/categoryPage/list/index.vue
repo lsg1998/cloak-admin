@@ -215,7 +215,7 @@
           />
         </el-form-item>
 
-        <el-divider content-position="left">商品项（真人点击跳对应真实商品，仿品跳首页）</el-divider>
+        <el-divider content-position="left">商品项（第一张用大图卡片，其余用缩略图链接；封面自己上传）</el-divider>
 
         <div class="items-editor">
           <div v-for="(item, index) in form.items" :key="index" class="item-row">
@@ -259,7 +259,7 @@
                 clearable
                 placeholder="封面图地址，如 https://example.com/cover.webp；留空则用商品主图"
               />
-              <div class="form-tip">标题、价格、折扣自动取自该真实商品；封面可上传，或直接粘贴图片地址</div>
+              <div class="form-tip">标题取自真实商品。第 1 项是大图卡片，后面是缩略图链接；封面请自己上传。</div>
             </div>
 
             <div class="item-actions">
