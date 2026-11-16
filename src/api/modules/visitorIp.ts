@@ -37,6 +37,8 @@ export interface VisitorIp {
   is_hosting?: boolean;
   is_mobile?: boolean;
   is_satellite?: boolean;
+  is_place?: boolean | null;
+  privacy_res_proxy?: boolean | null;
   privacy_vpn?: boolean;
   privacy_proxy?: boolean;
   privacy_tor?: boolean;

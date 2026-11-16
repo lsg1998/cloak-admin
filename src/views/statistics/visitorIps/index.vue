@@ -460,35 +460,28 @@
               </div>
             </div>
 
-            <!-- Privacy 隐私检测 -->
             <div class="ip-section">
-              <div class="section-title">Privacy 隐私检测</div>
+              <div class="section-title">隐私与网络检测</div>
               <div class="privacy-tags">
-                <span class="privacy-item">
-                  <span class="privacy-label">VPN:</span>
-                  <el-tag v-if="row.privacy_vpn || row.is_anonymous" type="danger" size="small">是</el-tag>
-                  <el-tag v-else type="success" size="small">否</el-tag>
+                <span v-for="flag in networkFlags" :key="flag.key" class="privacy-item">
+                  <span class="privacy-label">{{ flag.label }}：</span>
+                  <el-tag
+                    :type="
+                      networkFlagValue(row, flag.key) == null
+                        ? 'info'
+                        : networkFlagValue(row, flag.key)
+                          ? flag.block
+                            ? 'danger'
+                            : 'primary'
+                          : 'success'
+                    "
+                    size="small"
+                  >
+                    {{ networkFlagValue(row, flag.key) == null ? "未检测" : networkFlagValue(row, flag.key) ? "是" : "否" }}
+                  </el-tag>
                 </span>
-                <span class="privacy-item">
-                  <span class="privacy-label">Proxy:</span>
-                  <el-tag v-if="row.privacy_proxy" type="danger" size="small">是</el-tag>
-                  <el-tag v-else type="success" size="small">否</el-tag>
-                </span>
-                <span class="privacy-item">
-                  <span class="privacy-label">Tor:</span>
-                  <el-tag v-if="row.privacy_tor" type="danger" size="small">是</el-tag>
-                  <el-tag v-else type="success" size="small">否</el-tag>
-                </span>
-                <span class="privacy-item">
-                  <span class="privacy-label">托管:</span>
-                  <el-tag v-if="row.privacy_hosting || row.is_hosting" type="warning" size="small">是</el-tag>
-                  <el-tag v-else type="success" size="small">否</el-tag>
-                </span>
-                <span class="privacy-item">
-                  <span class="privacy-label">移动:</span>
-                  <el-tag v-if="row.is_mobile || row.carrier_name" type="primary" size="small">是</el-tag>
-                  <el-tag v-else type="info" size="small">否</el-tag>
-                </span>
+                <div class="network-reason">命中拦截项：{{ proxyHits(row) }}</div>
+                <div class="network-reason">访问判定原因：{{ row.cloak_reason || "未记录" }}</div>
               </div>
             </div>
 
@@ -693,37 +686,35 @@
             </el-descriptions>
           </div>
 
-          <!-- 隐私检测详情 (Premium API) -->
-          <div
-            v-if="currentVisitorIp.privacy_vpn !== undefined || currentVisitorIp.privacy_proxy !== undefined"
-            class="detail-section"
-          >
-            <h4 class="section-title">隐私检测详情 (Premium)</h4>
+          <div class="detail-section">
+            <h4 class="section-title">隐私与网络检测</h4>
             <el-descriptions :column="3" border size="default">
-              <el-descriptions-item label="VPN">
-                <el-tag v-if="currentVisitorIp.privacy_vpn" type="danger" size="small">是</el-tag>
-                <el-tag v-else type="success" size="small">否</el-tag>
+              <el-descriptions-item v-for="flag in networkFlags" :key="flag.key" :label="flag.label">
+                <el-tag
+                  :type="
+                    networkFlagValue(currentVisitorIp, flag.key) == null
+                      ? 'info'
+                      : networkFlagValue(currentVisitorIp, flag.key)
+                        ? flag.block
+                          ? 'danger'
+                          : 'primary'
+                        : 'success'
+                  "
+                  size="small"
+                >
+                  {{
+                    networkFlagValue(currentVisitorIp, flag.key) == null
+                      ? "未检测"
+                      : networkFlagValue(currentVisitorIp, flag.key)
+                        ? "是"
+                        : "否"
+                  }}
+                </el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="代理">
-                <el-tag v-if="currentVisitorIp.privacy_proxy" type="danger" size="small">是</el-tag>
-                <el-tag v-else type="success" size="small">否</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="Tor">
-                <el-tag v-if="currentVisitorIp.privacy_tor" type="danger" size="small">是</el-tag>
-                <el-tag v-else type="success" size="small">否</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="中继">
-                <el-tag v-if="currentVisitorIp.privacy_relay" type="warning" size="small">是</el-tag>
-                <el-tag v-else type="success" size="small">否</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="托管服务">
-                <el-tag v-if="currentVisitorIp.privacy_hosting" type="warning" size="small">是</el-tag>
-                <el-tag v-else type="success" size="small">否</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="服务类型">
-                <span v-if="currentVisitorIp.privacy_service">{{ currentVisitorIp.privacy_service }}</span>
-                <span v-else class="text-gray-400">--</span>
-              </el-descriptions-item>
+              <el-descriptions-item label="命中拦截项" :span="3">{{ proxyHits(currentVisitorIp) }}</el-descriptions-item>
+              <el-descriptions-item label="访问判定原因" :span="3">{{
+                currentVisitorIp.cloak_reason || "未记录"
+              }}</el-descriptions-item>
             </el-descriptions>
           </div>
 
@@ -1065,6 +1056,30 @@ const exportDialogVisible = ref(false);
 const exportDays = ref(7); // 默认7天
 const detailDialogVisible = ref(false);
 const currentVisitorIp = ref<VisitorIp | null>(null);
+const networkFlags: { key: keyof VisitorIp; label: string; block: boolean }[] = [
+  { key: "privacy_vpn", label: "虚拟专用网络（VPN）", block: true },
+  { key: "privacy_proxy", label: "开放代理", block: true },
+  { key: "privacy_res_proxy", label: "住宅代理", block: true },
+  { key: "privacy_relay", label: "匿名中继", block: true },
+  { key: "privacy_tor", label: "洋葱网络（Tor）", block: true },
+  { key: "is_anonymous", label: "匿名网络", block: true },
+  { key: "is_hosting", label: "托管网络", block: true },
+  { key: "is_place", label: "公共场所网络", block: false },
+  { key: "is_anycast", label: "任播网络", block: false },
+  { key: "is_mobile", label: "移动网络", block: false },
+  { key: "is_satellite", label: "卫星网络", block: false }
+];
+const networkFlagValue = (row: VisitorIp, key: keyof VisitorIp): boolean | null => {
+  const value: unknown = row[key];
+  if (key === "is_hosting" && (row.is_hosting === true || row.privacy_hosting === true)) return true;
+  return value == null ? null : value === true || value === 1 || value === "1";
+};
+const proxyHits = (row: VisitorIp): string =>
+  networkFlags
+    .filter(flag => flag.block && networkFlagValue(row, flag.key) === true)
+    .map(flag => flag.label)
+    .join("、") || "无已知命中项";
+
 const fpDetail = ref<any>(null);
 const fpDetailLoading = ref(false);
 const fpDetailText = computed(() => (fpDetail.value ? JSON.stringify(fpDetail.value, null, 2) : ""));
@@ -2305,6 +2320,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.network-reason {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .privacy-label {
