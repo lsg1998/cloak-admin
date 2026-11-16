@@ -9,6 +9,10 @@ export interface VisitorIp {
   em_param?: string;
   product_type?: "original" | "fake";
   cloak_reason?: string;
+  ip_check_status?: "clean" | "risk" | "failed" | null;
+  ip_check_reason?: string | null;
+  ip_checked_at?: string | null;
+  ip_check_flags?: string | Record<string, boolean> | null;
   hostname?: string;
   city?: string;
   region?: string;
@@ -177,7 +181,7 @@ export const visitorIpApi = {
 
   // 重新识别单个IP
   refreshIpInfo: (ip: string) => {
-    return http.post("/admin/statistics/visitor-ips/refresh", { ip });
+    return http.post<{ status: "clean" | "risk" | "failed"; reason: string }>("/admin/statistics/visitor-ips/refresh", { ip });
   }
 };
 

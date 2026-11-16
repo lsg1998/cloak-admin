@@ -480,8 +480,11 @@
                     {{ networkFlagValue(row, flag.key) == null ? "未检测" : networkFlagValue(row, flag.key) ? "是" : "否" }}
                   </el-tag>
                 </span>
-                <div class="network-reason">命中拦截项：{{ proxyHits(row) }}</div>
-                <div class="network-reason">访问判定原因：{{ row.cloak_reason || "未记录" }}</div>
+                <div class="network-reason">本次IP检测结果：{{ ipCheckLabel(row) }}</div>
+                <div class="network-reason">本次检测原因：{{ row.ip_check_reason || "尚未执行重新检测" }}</div>
+                <div class="network-reason">检测时间：{{ row.ip_checked_at || "—" }}</div>
+                <div class="network-reason">当前风险标记：{{ proxyHits(row) }}</div>
+                <div class="network-reason">历史访问判定原因：{{ row.cloak_reason || "未记录" }}</div>
               </div>
             </div>
 
@@ -711,8 +714,13 @@
                   }}
                 </el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="命中拦截项" :span="3">{{ proxyHits(currentVisitorIp) }}</el-descriptions-item>
-              <el-descriptions-item label="访问判定原因" :span="3">{{
+              <el-descriptions-item label="本次IP检测结果" :span="3">{{ ipCheckLabel(currentVisitorIp) }}</el-descriptions-item>
+              <el-descriptions-item label="本次检测原因" :span="3">{{
+                currentVisitorIp.ip_check_reason || "尚未执行重新检测"
+              }}</el-descriptions-item>
+              <el-descriptions-item label="检测时间" :span="3">{{ currentVisitorIp.ip_checked_at || "—" }}</el-descriptions-item>
+              <el-descriptions-item label="当前风险标记" :span="3">{{ proxyHits(currentVisitorIp) }}</el-descriptions-item>
+              <el-descriptions-item label="历史访问判定原因" :span="3">{{
                 currentVisitorIp.cloak_reason || "未记录"
               }}</el-descriptions-item>
             </el-descriptions>
@@ -1070,15 +1078,39 @@ const networkFlags: { key: keyof VisitorIp; label: string; block: boolean }[] = 
   { key: "is_satellite", label: "卫星网络", block: false }
 ];
 const networkFlagValue = (row: VisitorIp, key: keyof VisitorIp): boolean | null => {
+  if (row.ip_check_status) {
+    if (row.ip_check_status === "failed") return null;
+    try {
+      const flags = typeof row.ip_check_flags === "string" ? JSON.parse(row.ip_check_flags) : row.ip_check_flags;
+      return typeof flags?.[key] === "boolean" ? flags[key] : null;
+    } catch {
+      return null;
+    }
+  }
+  if (!row.country && !row.country_code) return null;
   const value: unknown = row[key];
   if (key === "is_hosting" && (row.is_hosting === true || row.privacy_hosting === true)) return true;
   return value == null ? null : value === true || value === 1 || value === "1";
 };
+const ipCheckLabel = (row: VisitorIp): string => {
+  switch (row.ip_check_status) {
+    case "clean":
+      return "未命中IP风险标记";
+    case "risk":
+      return "命中IP风险标记";
+    case "failed":
+      return "识别失败";
+    default:
+      return "未执行重新检测";
+  }
+};
 const proxyHits = (row: VisitorIp): string =>
-  networkFlags
-    .filter(flag => flag.block && networkFlagValue(row, flag.key) === true)
-    .map(flag => flag.label)
-    .join("、") || "无已知命中项";
+  row.ip_check_status === "failed"
+    ? "识别失败，无法判定"
+    : networkFlags
+        .filter(flag => flag.block && networkFlagValue(row, flag.key) === true)
+        .map(flag => flag.label)
+        .join("、") || "无已知命中项";
 
 const fpDetail = ref<any>(null);
 const fpDetailLoading = ref(false);
@@ -1840,15 +1872,19 @@ const handleRefreshIp = async (row: VisitorIp) => {
     ElMessage.info(`正在重新识别 IP: ${row.ip_address}...`);
     const response = await visitorIpApi.refreshIpInfo(row.ip_address);
     if (response.code === 200) {
-      ElMessage.success("IP信息已重新识别并更新");
+      if (response.data?.status === "failed") ElMessage.error(response.data.reason);
+      else if (response.data?.status === "risk") ElMessage.warning(response.data.reason);
+      else ElMessage.success(response.data?.reason || "本次IP风险检测完成");
       // 刷新列表
       await getVisitorIps();
     } else {
       ElMessage.error(response.message || "重新识别失败");
+      await getVisitorIps();
     }
   } catch (error) {
     console.error("重新识别IP失败:", error);
     ElMessage.error("重新识别IP失败");
+    await getVisitorIps();
   }
 };
 
