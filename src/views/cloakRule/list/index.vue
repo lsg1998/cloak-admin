@@ -365,7 +365,8 @@ const countryOptions = [
   { label: "拉脱维亚", value: "LV" },
   { label: "克罗地亚", value: "HR" },
   { label: "奥地利", value: "AT" },
-  { label: "德国", value: "DE" }
+  { label: "德国", value: "DE" },
+  { label: "美国", value: "US" }
 ];
 
 // 时区选项
@@ -385,8 +386,10 @@ const timezoneOptions = [
   { label: "欧洲/里加 (拉脱维亚)", value: "Europe/Riga" },
   { label: "欧洲/萨格勒布 (克罗地亚)", value: "Europe/Zagreb" },
   { label: "欧洲/维也纳 (奥地利)", value: "Europe/Vienna" },
+  { label: "美国全部时区 (America/*)", value: "America/*" },
   { label: "美国/纽约 (美国东部)", value: "America/New_York" },
   { label: "美国/洛杉矶 (美国西部)", value: "America/Los_Angeles" },
+  { label: "太平洋/火奴鲁鲁 (夏威夷)", value: "Pacific/Honolulu" },
   { label: "欧洲/巴黎 (法国)", value: "Europe/Paris" },
   { label: "欧洲/柏林 (德国)", value: "Europe/Berlin" },
   { label: "亚洲/首尔 (韩国)", value: "Asia/Seoul" },
@@ -411,7 +414,8 @@ const countryToTimezoneMap = {
   LV: "Europe/Riga",
   HR: "Europe/Zagreb",
   AT: "Europe/Vienna",
-  DE: "Europe/Berlin"
+  DE: "Europe/Berlin",
+  US: ["America/*", "Pacific/Honolulu"]
 };
 
 // 搜索表单
@@ -660,10 +664,13 @@ const handleCountryChange = (selectedCountries: string[]) => {
   const recommendedTimezones: string[] = [];
 
   selectedCountries.forEach(country => {
-    const timezone = countryToTimezoneMap[country];
-    if (timezone && !recommendedTimezones.includes(timezone)) {
-      recommendedTimezones.push(timezone);
-    }
+    const timezone = countryToTimezoneMap[country as keyof typeof countryToTimezoneMap];
+    const list = Array.isArray(timezone) ? timezone : timezone ? [timezone] : [];
+    list.forEach(item => {
+      if (item && !recommendedTimezones.includes(item)) {
+        recommendedTimezones.push(item);
+      }
+    });
   });
 
   // 如果当前时区列表为空，或者用户没有手动选择过时区，则自动设置推荐的时区

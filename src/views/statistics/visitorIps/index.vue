@@ -397,6 +397,16 @@
                   </span>
                 </div>
                 <div class="type-line">
+                  <span class="label">请求头分:</span>
+                  <span v-if="row.request_headers" class="value" :title="headerSignalText(row.request_headers)">
+                    {{ row.request_headers.score ?? 0 }}
+                    <template v-if="headerSignalText(row.request_headers)">
+                      （{{ headerSignalText(row.request_headers) }}）
+                    </template>
+                  </span>
+                  <span v-else class="value">未记录</span>
+                </div>
+                <div class="type-line">
                   <span class="label">FP访客:</span>
                   <span class="value referer" :title="row.fp_visitor_id || '-'">
                     {{ row.fp_visitor_id || "-" }}
@@ -835,6 +845,38 @@
               </el-descriptions-item>
             </el-descriptions>
           </div>
+
+          <div class="detail-section">
+            <h4 class="section-title">请求头评分</h4>
+            <div v-if="!currentVisitorIp.request_headers" class="text-gray-400">这 7 天内没有记录到请求头</div>
+            <el-descriptions v-else :column="2" border size="small">
+              <el-descriptions-item label="分数">{{ currentVisitorIp.request_headers.score ?? 0 }}</el-descriptions-item>
+              <el-descriptions-item label="记录时间">{{
+                currentVisitorIp.request_headers.saved_at || "--"
+              }}</el-descriptions-item>
+              <el-descriptions-item label="命中信号" :span="2">
+                {{ headerSignalText(currentVisitorIp.request_headers) || "无" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="打开页面">{{
+                currentVisitorIp.request_headers.is_page ? "是" : "否"
+              }}</el-descriptions-item>
+              <el-descriptions-item label="HTTPS">{{
+                currentVisitorIp.request_headers.https ? "是" : "否"
+              }}</el-descriptions-item>
+              <el-descriptions-item label="协议">{{ currentVisitorIp.request_headers.protocol || "--" }}</el-descriptions-item>
+              <el-descriptions-item label="解析结果">{{
+                headerClientText(currentVisitorIp.request_headers)
+              }}</el-descriptions-item>
+              <el-descriptions-item
+                v-for="item in headerFieldRows(currentVisitorIp.request_headers)"
+                :key="item.label"
+                :label="item.label"
+                :span="2"
+              >
+                <span class="referer-info">{{ item.value || "--" }}</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
         </div>
 
         <div class="detail-pane detail-pane-fp">
@@ -1054,6 +1096,39 @@ import {
 import { visitorIpApi, exportVisitorIPsUrl, type VisitorIp, type IpStatistics } from "@/api/modules/visitorIp";
 // import { userBehaviorApi, type UserBehaviorTimeline } from "@/api/modules/userBehavior"; // 暂时不用
 import { getProductListApi } from "@/api/modules/product";
+
+const headerFieldLabels: { key: string; label: string }[] = [
+  { key: "user-agent", label: "User-Agent" },
+  { key: "accept", label: "Accept" },
+  { key: "accept-language", label: "Accept-Language" },
+  { key: "accept-encoding", label: "Accept-Encoding" },
+  { key: "referer", label: "Referer" },
+  { key: "upgrade-insecure-requests", label: "Upgrade-Insecure-Requests" },
+  { key: "sec-ch-ua", label: "Sec-CH-UA" },
+  { key: "sec-ch-ua-platform", label: "Sec-CH-UA-Platform" },
+  { key: "sec-ch-ua-mobile", label: "Sec-CH-UA-Mobile" },
+  { key: "sec-fetch-mode", label: "Sec-Fetch-Mode" },
+  { key: "sec-fetch-dest", label: "Sec-Fetch-Dest" },
+  { key: "sec-fetch-site", label: "Sec-Fetch-Site" }
+];
+
+const headerSignalText = (snapshot?: VisitorIp["request_headers"]) => (snapshot?.signals || []).join(" / ");
+
+const headerClientText = (snapshot?: VisitorIp["request_headers"]) => {
+  const client = snapshot?.client;
+  if (!client) return "--";
+  const parts = [client.browser || "other", client.os || "other"];
+  if (client.major) parts.push("Chrome " + client.major);
+  if (client.mobile) parts.push("手机");
+  if (client.webview) parts.push("WebView");
+  return parts.join(" / ");
+};
+
+const headerFieldRows = (snapshot?: VisitorIp["request_headers"]) =>
+  headerFieldLabels.map(item => ({
+    label: item.label,
+    value: snapshot?.headers?.[item.key] || ""
+  }));
 
 // 响应式数据
 const loading = ref(false);

@@ -89,6 +89,25 @@ export interface VisitorIp {
     };
   };
   /**
+   * 最近一次打开页面时的请求头和评分，存在 Redis，7 天后过期。
+   */
+  request_headers?: {
+    saved_at?: string;
+    is_page?: boolean;
+    https?: boolean;
+    protocol?: string;
+    score?: number;
+    signals?: string[];
+    client?: {
+      browser?: string;
+      major?: number;
+      os?: string;
+      mobile?: boolean;
+      webview?: boolean;
+    };
+    headers?: Record<string, string>;
+  } | null;
+  /**
    * 分类落地页"商品卡点击"记录（存于 Redis，主表无此字段，由接口补齐）
    * status: none=未点击 / passed=点了看到正品 / blocked=点了却被打回首页 / mixed=两者都有
    */
