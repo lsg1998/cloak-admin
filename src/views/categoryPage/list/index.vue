@@ -202,8 +202,8 @@
             <el-option v-for="l in languageOptions" :key="l.value" :label="l.label" :value="l.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="仿品跳转URL">
-          <el-input v-model="form.home_redirect_url" placeholder="判定为仿品流量时跳转的地址，留空则回本站根 /" />
+        <el-form-item label="蜜罐跳转URL">
+          <el-input v-model="form.home_redirect_url" placeholder="判定为蜜罐流量时跳转的地址，留空则回本站根 /" />
         </el-form-item>
         <el-form-item label="状态">
           <el-switch

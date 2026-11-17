@@ -87,7 +87,7 @@ export interface Order {
   fp_os?: string;
   fp_device?: string;
   user_agent?: string;
-  product_type?: "original" | "replica"; // 商品类型：正品/仿品
+  product_type?: "original" | "replica"; // 商品类型：正品/蜜罐
   shipped_email_sent?: boolean; // 是否已发送发货邮件
   sms_sent?: boolean; // 是否已发送短信
   sms_sent_count?: number; // 已发送短信数量

@@ -340,7 +340,7 @@
                     type="danger"
                     link
                     @click="handleBlacklistIP(row)"
-                    title="拉黑此IP，该IP只能看到仿品页面"
+                    title="拉黑此IP，该IP只能看到蜜罐页面"
                   >
                     <el-icon><CircleClose /></el-icon>
                   </el-button>
@@ -875,7 +875,7 @@
                   currentIPInfo.visit.product_type === "original"
                     ? "正品"
                     : currentIPInfo.visit.product_type === "fake"
-                      ? "仿品"
+                      ? "蜜罐"
                       : "--"
                 }}
               </el-tag>
@@ -3018,7 +3018,7 @@ const handleBlacklistIP = (row: Order) => {
     return;
   }
 
-  ElMessageBox.confirm(`确定要拉黑IP "${row.ip_address}" 吗？\n\n拉黑后，该IP地址的用户将只能访问到仿品页面。`, "拉黑IP确认", {
+  ElMessageBox.confirm(`确定要拉黑IP "${row.ip_address}" 吗？\n\n拉黑后，该IP地址的用户将只能访问到蜜罐页面。`, "拉黑IP确认", {
     confirmButtonText: "确定拉黑",
     cancelButtonText: "取消",
     type: "warning",
@@ -6490,7 +6490,7 @@ const getAddressString = (province: string, city: string, district: string): str
 const getProductTypeLabel = (type: string): string => {
   const labels = {
     original: "正品",
-    replica: "仿品"
+    replica: "蜜罐"
   };
   return labels[type as keyof typeof labels] || type;
 };
@@ -6531,7 +6531,7 @@ const loadProducts = async () => {
       page: productPagination.current,
       size: productPagination.size,
       title: productSearchKeyword.value || undefined,
-      product_type: "original" // 只显示正品，排除仿品
+      product_type: "original" // 只显示正品，排除蜜罐
     };
 
     const response = await getProductListApi(params);

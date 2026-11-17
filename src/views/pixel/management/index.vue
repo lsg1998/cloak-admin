@@ -473,7 +473,7 @@ const openProductPixelConfig = () => {
 const loadData = async () => {
   loading.value = true;
   try {
-    // 并行获取商品列表和全局像素配置（只获取正品，过滤掉仿品）
+    // 并行获取商品列表和全局像素配置（只获取正品，过滤掉蜜罐）
     const [productsResponse, pixelResponse] = await Promise.all([
       getProductListApi({
         page: pagination.current,

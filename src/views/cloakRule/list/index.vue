@@ -287,7 +287,7 @@
                 <el-radio :label="0">未开启</el-radio>
                 <el-radio :label="1">开启</el-radio>
               </el-radio-group>
-              <div class="form-tip">开启后，无referer的访问将显示仿品</div>
+              <div class="form-tip">开启后，无referer的访问将显示蜜罐</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -303,10 +303,10 @@
           />
           <div class="form-tip" style="color: #e6a23c; margin-top: 8px">
             <el-icon><InfoFilled /></el-icon>
-            当URL包含em参数时，前N次访问强制显示仿品页。计数存储在Redis，10天过期。设置为0或留空则不启用此功能。
+            当URL包含em参数时，前N次访问强制显示蜜罐页。计数存储在Redis，10天过期。设置为0或留空则不启用此功能。
           </div>
           <div class="form-tip" style="color: #909399; margin-top: 4px">
-            示例：设置为10，则 em=ChenmSonwBaol 的前10次访问都显示仿品页，第11次开始按正常斗篷规则判断。
+            示例：设置为10，则 em=ChenmSonwBaol 的前10次访问都显示蜜罐页，第11次开始按正常斗篷规则判断。
           </div>
         </el-form-item>
 

@@ -28,7 +28,7 @@
     <!-- 说明 -->
     <el-alert
       class="tip-alert"
-      title="被拉黑的 em 参数，访问时将永久只看到仿品页面（与谷歌/机器人同口径）。可随时添加或移除。"
+      title="被拉黑的 em 参数，访问时将永久只看到蜜罐页面（与谷歌/机器人同口径）。可随时添加或移除。"
       type="info"
       :closable="false"
       show-icon

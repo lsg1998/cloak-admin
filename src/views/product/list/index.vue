@@ -83,8 +83,8 @@
             <el-option label="正品" value="original">
               <el-tag type="success" size="small">正品</el-tag>
             </el-option>
-            <el-option label="仿品" value="fake">
-              <el-tag type="warning" size="small">仿品</el-tag>
+            <el-option label="蜜罐" value="fake">
+              <el-tag type="warning" size="small">蜜罐</el-tag>
             </el-option>
           </el-select>
         </el-form-item>
@@ -142,7 +142,7 @@
           <div class="table-actions">
             <el-button size="small" type="success" :disabled="selectedOriginals.length === 0" @click="handleBatchBindFake">
               <el-icon><Link /></el-icon>
-              批量绑定仿品{{ selectedOriginals.length > 0 ? ` (${selectedOriginals.length})` : "" }}
+              批量绑定蜜罐{{ selectedOriginals.length > 0 ? ` (${selectedOriginals.length})` : "" }}
             </el-button>
             <el-button size="small" type="warning" :disabled="selectedOriginals.length === 0" @click="handleBatchUnbindFake">
               <el-icon><Close /></el-icon>
@@ -227,7 +227,7 @@
         <el-table-column prop="product_type" label="类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.product_type === 'original' ? 'success' : 'warning'" size="default">
-              {{ row.product_type === "original" ? "正品" : "仿品" }}
+              {{ row.product_type === "original" ? "正品" : "蜜罐" }}
             </el-tag>
           </template>
         </el-table-column>
@@ -243,19 +243,19 @@
         </el-table-column>
         <el-table-column label="关联状态" width="140" align="center">
           <template #default="{ row }">
-            <!-- 正品显示关联的仿品数量 -->
+            <!-- 正品显示关联的蜜罐数量 -->
             <div v-if="row.product_type === 'original'">
               <div v-if="row.children && row.children.length > 0">
                 <el-tag type="success" size="default">
                   <el-icon style="margin-right: 4px"><Link /></el-icon>
-                  {{ row.children.length }} 个仿品
+                  {{ row.children.length }} 个蜜罐
                 </el-tag>
               </div>
               <div v-else>
                 <span style="color: #909399; font-size: 13px">-</span>
               </div>
             </div>
-            <!-- 仿品显示关联正品提示 -->
+            <!-- 蜜罐显示关联正品提示 -->
             <div v-else>
               <div
                 v-if="
@@ -386,7 +386,7 @@
                   @click="handleSetFakeProduct(row)"
                 >
                   <el-icon><Plus /></el-icon>
-                  仿品
+                  蜜罐
                 </el-button>
                 <el-button size="small" type="warning" link @click="handleSetRecommendations(row)">
                   <el-icon><Star /></el-icon>
@@ -541,11 +541,11 @@
                   正品商品
                 </el-radio>
                 <el-radio value="fake">
-                  <el-tag type="warning" size="small">仿品</el-tag>
-                  仿品商品
+                  <el-tag type="warning" size="small">蜜罐</el-tag>
+                  蜜罐商品
                 </el-radio>
               </el-radio-group>
-              <div class="form-tip">正品：用户默认看到的商品；仿品：替代展示的商品</div>
+              <div class="form-tip">正品：用户默认看到的商品；蜜罐：替代展示的商品</div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -574,7 +574,7 @@
                   </div>
                 </el-option>
               </el-select>
-              <div class="form-tip">选择这个仿品对应的正品商品</div>
+              <div class="form-tip">选择这个蜜罐对应的正品商品</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -769,10 +769,10 @@
           </el-col>
         </el-row>
 
-        <!-- 仿品页模板：被斗篷判定为非目标流量时展示的页面 -->
+        <!-- 蜜罐页模板：被斗篷判定为非目标流量时展示的页面 -->
         <el-row :gutter="20">
           <el-col :span="24">
-            <el-form-item label="仿品页模板" prop="cloak_template">
+            <el-form-item label="蜜罐页模板" prop="cloak_template">
               <el-select v-model="form.cloak_template" placeholder="自动（按商品分散风格）" clearable style="width: 100%">
                 <el-option label="自动（按商品分散风格）" value="" />
                 <el-option label="通用简洁 (Classic)" value="classic" />
@@ -789,7 +789,7 @@
                 且不含倒计时、库存告急、销量数字等紧迫感元素。
                 <br />
                 <strong>留空 = 自动</strong>：按商品ID稳定分配一套，同一商品每次一致、不同商品自动分散风格 ——
-                全站仿品页长得一模一样本身就是可识别特征。
+                全站蜜罐页长得一模一样本身就是可识别特征。
                 <br />
                 <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或 cloak-shop / cloak-magazine /
                 cloak-tech / cloak-dawn / cloak-storefront）即可单独查看。
@@ -809,7 +809,7 @@
                 inactive-text="关闭"
               />
               <div class="form-tip">
-                默认开启。关闭后，正品商品页和订单成功页不再输出 Google / Facebook / TikTok 等像素代码。仿品页不受影响。
+                默认开启。关闭后，正品商品页和订单成功页不再输出 Google / Facebook / TikTok 等像素代码。蜜罐页不受影响。
               </div>
             </el-form-item>
           </el-col>
@@ -1664,10 +1664,10 @@
       </template>
     </el-dialog>
 
-    <!-- 关联仿品对话框 -->
+    <!-- 关联蜜罐对话框 -->
     <el-dialog
       v-model="fakeProductDialogVisible"
-      :title="fakeDialogBatchMode ? '批量绑定仿品' : '选择关联仿品'"
+      :title="fakeDialogBatchMode ? '批量绑定蜜罐' : '选择关联蜜罐'"
       width="1000px"
       :close-on-click-modal="false"
       destroy-on-close
@@ -1680,7 +1680,7 @@
           </template>
           <div v-if="fakeDialogBatchMode" class="product-summary">
             <el-tag type="success" size="default">
-              已选中 {{ selectedOriginals.length }} 个正品，将统一绑定到下方选中的仿品
+              已选中 {{ selectedOriginals.length }} 个正品，将统一绑定到下方选中的蜜罐
             </el-tag>
           </div>
           <div v-else-if="currentOriginalProduct" class="product-summary">
@@ -1702,14 +1702,14 @@
           </div>
         </el-card>
 
-        <!-- 仿品选择区域 -->
+        <!-- 蜜罐选择区域 -->
         <el-card class="fake-selection-card" shadow="never">
           <template #header>
             <div style="display: flex; align-items: center; justify-content: space-between">
-              <span style="font-weight: 600">选择要关联的仿品</span>
+              <span style="font-weight: 600">选择要关联的蜜罐</span>
               <el-button type="primary" size="small" @click="handleCreateNewFake">
                 <el-icon><Plus /></el-icon>
-                创建新仿品
+                创建新蜜罐
               </el-button>
             </div>
           </template>
@@ -1718,7 +1718,7 @@
           <div class="search-section">
             <el-input
               v-model="fakeSearchKeyword"
-              placeholder="搜索仿品商品..."
+              placeholder="搜索蜜罐商品..."
               clearable
               @input="searchFakeProducts"
               style="width: 300px"
@@ -1729,7 +1729,7 @@
             </el-input>
           </div>
 
-          <!-- 仿品列表 -->
+          <!-- 蜜罐列表 -->
           <div v-loading="fakeProductsLoading" class="fake-products-grid">
             <div
               v-for="product in fakeProducts"
@@ -1746,7 +1746,7 @@
               <div class="card-content">
                 <div class="card-title">{{ product.title }}</div>
                 <div class="card-price">¥{{ product.sell_price }}</div>
-                <el-tag type="warning" size="small" style="padding: 1px 4px; font-size: 10px">仿品</el-tag>
+                <el-tag type="warning" size="small" style="padding: 1px 4px; font-size: 10px">蜜罐</el-tag>
               </div>
               <div class="card-check">
                 <el-radio :value="product.id" v-model="selectedFakeProductId"></el-radio>
@@ -1755,7 +1755,7 @@
 
             <!-- 空状态 -->
             <div v-if="!fakeProductsLoading && fakeProducts.length === 0" class="empty-state">
-              <el-empty description="暂无可关联的仿品商品" />
+              <el-empty description="暂无可关联的蜜罐商品" />
             </div>
           </div>
 
@@ -2425,10 +2425,10 @@ const sortedCountryOptions = computed(() => {
   };
 });
 
-// el-table 的 row-key：树形子节点用复合key(正品id-仿品id)，避免共享仿品挂在多个正品下时 row-key 冲突
+// el-table 的 row-key：树形子节点用复合key(正品id-蜜罐id)，避免共享蜜罐挂在多个正品下时 row-key 冲突
 const getRowKey = (row: any) => row._rowKey || row.id;
 
-// 一条仿品覆盖(关联)了多少个正品
+// 一条蜜罐覆盖(关联)了多少个正品
 const getLinkedOriginalCount = (row: any): number => {
   if (row.linked_original_ids && Array.isArray(row.linked_original_ids)) {
     return row.linked_original_ids.length;
@@ -2452,9 +2452,9 @@ const uniqueById = (arr: Product[]) => {
   });
 };
 
-// 转换为树形结构的数据（仅显示正品，仿品作为子节点）
+// 转换为树形结构的数据（仅显示正品，蜜罐作为子节点）
 const displayTableData = computed(() => {
-  // 如果有搜索条件或筛选仿品，返回扁平数据（去重，避免重复行）
+  // 如果有搜索条件或筛选蜜罐，返回扁平数据（去重，避免重复行）
   if (searchForm.title || searchForm.status || searchForm.product_type === "fake") {
     return uniqueById(tableData.value);
   }
@@ -2464,13 +2464,13 @@ const displayTableData = computed(() => {
     return tableData.value.filter(p => p.product_type === "original");
   }
 
-  // 分离正品和仿品
+  // 分离正品和蜜罐
   const originals = tableData.value.filter(p => p.product_type === "original");
   const fakes = tableData.value.filter(p => p.product_type === "fake");
 
   // 为每个正品构建树形结构
   const treeData = originals.map(original => {
-    // 查找该正品关联的所有仿品
+    // 查找该正品关联的所有蜜罐
     const relatedFakes = fakes.filter(fake => {
       // 支持新格式（linked_original_ids 数组）
       if (fake.linked_original_ids && Array.isArray(fake.linked_original_ids)) {
@@ -2480,12 +2480,12 @@ const displayTableData = computed(() => {
       return fake.b_page_product_id === original.id;
     });
 
-    // 如果有仿品，添加children属性
+    // 如果有蜜罐，添加children属性
     if (relatedFakes.length > 0) {
       return {
         ...original,
-        // 克隆子节点并赋复合 rowKey：共享仿品会挂在多个正品下，若沿用同一 id 作 row-key
-        // 会污染 el-table 的树内部状态，导致该仿品被重复渲染。复合 key 保证每个位置唯一。
+        // 克隆子节点并赋复合 rowKey：共享蜜罐会挂在多个正品下，若沿用同一 id 作 row-key
+        // 会污染 el-table 的树内部状态，导致该蜜罐被重复渲染。复合 key 保证每个位置唯一。
         children: relatedFakes.map(fake => ({ ...fake, _rowKey: `${original.id}-${fake.id}` })),
         hasChildren: true
       };
@@ -2494,7 +2494,7 @@ const displayTableData = computed(() => {
     return original;
   });
 
-  // 将未关联的仿品也显示出来（放在最后）
+  // 将未关联的蜜罐也显示出来（放在最后）
   const unlinkedFakes = fakes.filter(fake => {
     if (fake.linked_original_ids && Array.isArray(fake.linked_original_ids)) {
       return fake.linked_original_ids.length === 0;
@@ -2527,7 +2527,7 @@ const form = reactive({
   cloak_rule_id: null as number | null,
   country: "JA",
   template: "classic", // 模板类型：classic、shopline 或 standard
-  cloak_template: "", // 仿品页模板，留空=按商品ID自动分配风格
+  cloak_template: "", // 蜜罐页模板，留空=按商品ID自动分配风格
   original_pixel_enabled: 1, // 正品页像素，默认开启
   page_primary_color: "#007d65", // 页面主要颜色
   head_w_marquee: "", // 头部跑马灯内容
@@ -2554,11 +2554,11 @@ const presetColors = ref([
   "#3f51b5" // 深邃靛
 ]);
 
-// 正品商品列表（供仿品选择）
+// 正品商品列表（供蜜罐选择）
 const originalProducts = ref<Product[]>([]);
 const originalProductsLoading = ref(false);
 
-// 仿品关联对话框相关
+// 蜜罐关联对话框相关
 const fakeProductDialogVisible = ref(false);
 // 对话框是否处于"批量绑定"模式（true=给多个选中正品统一绑定；false=单个正品）
 const fakeDialogBatchMode = ref(false);
@@ -2568,7 +2568,7 @@ const fakeProductsLoading = ref(false);
 const selectedFakeProductId = ref("");
 const fakeSearchKeyword = ref("");
 
-// 仿品列表分页
+// 蜜罐列表分页
 const fakePagination = reactive({
   current: 1,
   size: 12,
@@ -3340,10 +3340,10 @@ const handleEdit = (row: Product) => {
 
 // 表格勾选
 const selectedProducts = ref<Product[]>([]);
-// 选中的正品（批量绑定/解绑仿品只针对正品）
+// 选中的正品（批量绑定/解绑蜜罐只针对正品）
 const selectedOriginals = computed(() => selectedProducts.value.filter(p => p.product_type === "original"));
 const handleSelectionChange = (rows: Product[]) => {
-  // 树形视图里共享仿品会挂在多个正品下、id 相同，这里按 id 去重，避免重复删除
+  // 树形视图里共享蜜罐会挂在多个正品下、id 相同，这里按 id 去重，避免重复删除
   const seen = new Set<string>();
   selectedProducts.value = rows.filter(r => {
     if (seen.has(r.id)) return false;
@@ -3359,7 +3359,7 @@ const handleBatchDelete = () => {
 
   const fakeCount = rows.filter(r => r.product_type === "fake").length;
   const originalCount = rows.length - fakeCount;
-  const detail = `（正品 ${originalCount} 个，仿品 ${fakeCount} 个）`;
+  const detail = `（正品 ${originalCount} 个，蜜罐 ${fakeCount} 个）`;
 
   ElMessageBox.confirm(`确定要删除选中的 ${rows.length} 个商品吗${detail}？删除后无法恢复！`, "批量删除确认", {
     confirmButtonText: "确定删除",
@@ -3987,7 +3987,7 @@ const handleProductTypeChange = (value: string) => {
     // 如果改为正品，清空关联的正品ID
     form.b_page_product_id = [];
   } else if (value === "fake") {
-    // 如果改为仿品，且当前没有关联的正品，才加载正品商品列表
+    // 如果改为蜜罐，且当前没有关联的正品，才加载正品商品列表
     if (!form.b_page_product_id || form.b_page_product_id.length === 0) {
       loadOriginalProducts();
     }
@@ -4438,11 +4438,11 @@ const loadOriginalProducts = async () => {
   }
 };
 
-// 关联仿品商品
+// 关联蜜罐商品
 const handleSetFakeProduct = (originalProduct: Product) => {
   fakeDialogBatchMode.value = false;
   currentOriginalProduct.value = originalProduct;
-  // 预选中该正品当前使用的仿品（从已加载数据里找哪条仿品的关联串包含它），方便看到现状
+  // 预选中该正品当前使用的蜜罐（从已加载数据里找哪条蜜罐的关联串包含它），方便看到现状
   const currentFake = tableData.value.find(p => {
     if (p.product_type !== "fake") return false;
     if (p.linked_original_ids && Array.isArray(p.linked_original_ids)) {
@@ -4454,10 +4454,10 @@ const handleSetFakeProduct = (originalProduct: Product) => {
   fakeSearchKeyword.value = "";
   fakePagination.current = 1;
   fakeProductDialogVisible.value = true;
-  loadFakeProducts(); // 加载可选的仿品商品
+  loadFakeProducts(); // 加载可选的蜜罐商品
 };
 
-// 加载仿品商品列表
+// 加载蜜罐商品列表
 const loadFakeProducts = async () => {
   fakeProductsLoading.value = true;
   try {
@@ -4469,47 +4469,47 @@ const loadFakeProducts = async () => {
     };
 
     const { data } = await getProductListApi(params);
-    // 小仿品库：同一条仿品可被多个正品共用，这里不再过滤"已被使用"的仿品
+    // 小蜜罐库：同一条蜜罐可被多个正品共用，这里不再过滤"已被使用"的蜜罐
     fakeProducts.value = data.list;
     fakePagination.total = data.total;
   } catch (error) {
-    ElMessage.error("加载仿品商品列表失败");
+    ElMessage.error("加载蜜罐商品列表失败");
   } finally {
     fakeProductsLoading.value = false;
   }
 };
 
-// 搜索仿品商品
+// 搜索蜜罐商品
 const searchFakeProducts = () => {
   fakePagination.current = 1;
   loadFakeProducts();
 };
 
-// 仿品分页大小改变
+// 蜜罐分页大小改变
 const handleFakeSizeChange = (size: number) => {
   fakePagination.size = size;
   loadFakeProducts();
 };
 
-// 仿品当前页改变
+// 蜜罐当前页改变
 const handleFakeCurrentChange = (current: number) => {
   fakePagination.current = current;
   loadFakeProducts();
 };
 
-// 确认仿品关联
+// 确认蜜罐关联
 const handleConfirmFakeLink = async () => {
   if (!selectedFakeProductId.value) {
     return;
   }
 
-  // 批量模式：给所有选中的正品统一绑定这条仿品
+  // 批量模式：给所有选中的正品统一绑定这条蜜罐
   if (fakeDialogBatchMode.value) {
     const ids = selectedOriginals.value.map(p => p.id);
     if (ids.length === 0) return;
     try {
       await batchAssignFakeToOriginalsApi(ids, selectedFakeProductId.value);
-      ElMessage.success(`已为 ${ids.length} 个正品绑定仿品`);
+      ElMessage.success(`已为 ${ids.length} 个正品绑定蜜罐`);
       fakeProductDialogVisible.value = false;
       selectedProducts.value = [];
       loadData(true);
@@ -4523,17 +4523,17 @@ const handleConfirmFakeLink = async () => {
     return;
   }
   try {
-    // 产品端指派：给这个正品指派它使用的仿品（仿品可被多个正品共用）
+    // 产品端指派：给这个正品指派它使用的蜜罐（蜜罐可被多个正品共用）
     await assignFakeToOriginalApi(currentOriginalProduct.value.id, selectedFakeProductId.value);
-    ElMessage.success("仿品关联成功");
+    ElMessage.success("蜜罐关联成功");
     fakeProductDialogVisible.value = false;
     loadData(); // 刷新列表
   } catch (error) {
-    ElMessage.error("仿品关联失败");
+    ElMessage.error("蜜罐关联失败");
   }
 };
 
-// 批量绑定仿品：打开仿品选择对话框（批量模式）
+// 批量绑定蜜罐：打开蜜罐选择对话框（批量模式）
 const handleBatchBindFake = () => {
   if (selectedOriginals.value.length === 0) return;
   fakeDialogBatchMode.value = true;
@@ -4545,12 +4545,12 @@ const handleBatchBindFake = () => {
   loadFakeProducts();
 };
 
-// 批量解绑仿品：解除所有选中正品的仿品关联
+// 批量解绑蜜罐：解除所有选中正品的蜜罐关联
 const handleBatchUnbindFake = () => {
   const ids = selectedOriginals.value.map(p => p.id);
   if (ids.length === 0) return;
 
-  ElMessageBox.confirm(`确定要解除选中的 ${ids.length} 个正品的仿品关联吗？`, "批量解绑确认", {
+  ElMessageBox.confirm(`确定要解除选中的 ${ids.length} 个正品的蜜罐关联吗？`, "批量解绑确认", {
     confirmButtonText: "确定解绑",
     cancelButtonText: "取消",
     type: "warning"
@@ -4566,14 +4566,14 @@ const handleBatchUnbindFake = () => {
   });
 };
 
-// 取消该正品的仿品关联（只解除这一个正品，不影响该仿品关联的其他正品）
+// 取消该正品的蜜罐关联（只解除这一个正品，不影响该蜜罐关联的其他正品）
 const handleUnassignFake = async () => {
   if (!currentOriginalProduct.value) {
     return;
   }
   try {
     await assignFakeToOriginalApi(currentOriginalProduct.value.id, null);
-    ElMessage.success("已取消仿品关联");
+    ElMessage.success("已取消蜜罐关联");
     fakeProductDialogVisible.value = false;
     loadData();
   } catch (error) {
@@ -4581,10 +4581,10 @@ const handleUnassignFake = async () => {
   }
 };
 
-// 取消仿品关联
+// 取消蜜罐关联
 const handleCancelAssociation = async (row: Product) => {
   try {
-    await ElMessageBox.confirm(`确定要取消仿品 "${row.title}" 的关联吗？取消后该仿品将不再关联任何正品。`, "取消关联确认", {
+    await ElMessageBox.confirm(`确定要取消蜜罐 "${row.title}" 的关联吗？取消后该蜜罐将不再关联任何正品。`, "取消关联确认", {
       confirmButtonText: "确定取消",
       cancelButtonText: "取消",
       type: "warning",
@@ -4592,7 +4592,7 @@ const handleCancelAssociation = async (row: Product) => {
     });
 
     // 调用API取消关联
-    console.log("取消仿品关联，商品ID:", row.id);
+    console.log("取消蜜罐关联，商品ID:", row.id);
     await updateProductFakeLinkApi(row.id, null);
     ElMessage.success("取消关联成功");
     loadData(); // 刷新列表
@@ -4629,19 +4629,19 @@ const handleCancelCloakRule = async (row: Product) => {
   }
 };
 
-// 创建新仿品（从关联对话框触发）
+// 创建新蜜罐（从关联对话框触发）
 const handleCreateNewFake = () => {
   if (!currentOriginalProduct.value) return;
 
   fakeProductDialogVisible.value = false;
 
-  // 使用原来的快速创建仿品逻辑
-  dialogTitle.value = "基于正品创建仿品";
+  // 使用原来的快速创建蜜罐逻辑
+  dialogTitle.value = "基于正品创建蜜罐";
 
   Object.assign(form, {
     id: null,
     spu_id: "", // 后端自动生成
-    title: `${currentOriginalProduct.value.title} - 仿品版`,
+    title: `${currentOriginalProduct.value.title} - 蜜罐版`,
     sell_price: Math.round((currentOriginalProduct.value.sell_price || 0) * 0.6), // 默认60%的价格
     origin_price: currentOriginalProduct.value.sell_price || 0,
     discount: 40, // 默认40%折扣
@@ -4674,7 +4674,7 @@ const handleCreateNewFake = () => {
 
   dialogVisible.value = true;
 
-  ElMessage.success(`已基于正品"${currentOriginalProduct.value.title}"创建仿品，请修改相关信息后保存`);
+  ElMessage.success(`已基于正品"${currentOriginalProduct.value.title}"创建蜜罐，请修改相关信息后保存`);
 };
 
 // ==================== 产品推荐相关方法 ====================
@@ -4924,7 +4924,7 @@ onMounted(() => {
   background-color: #f5f7fa !important;
 }
 
-/* 仿品行样式 */
+/* 蜜罐行样式 */
 :deep(.el-table__row--level-1) {
   background-color: #fafafa !important;
   border-left: 3px solid #e6a23c !important;
@@ -4961,7 +4961,7 @@ onMounted(() => {
   color: #ffffff !important;
 }
 
-/* 仿品行内容缩进 */
+/* 蜜罐行内容缩进 */
 :deep(.el-table__row--level-1 .product-info) {
   padding-left: 20px;
 }
@@ -4983,7 +4983,7 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 仿品行标题 */
+/* 蜜罐行标题 */
 :deep(.el-table__row--level-1 .product-title) {
   font-size: 13px;
   color: #606266;
@@ -5472,7 +5472,7 @@ onMounted(() => {
   border-top: 1px solid #dcdfe6;
 }
 
-/* 仿品关联对话框样式 */
+/* 蜜罐关联对话框样式 */
 .fake-product-selection {
   display: flex;
   flex-direction: column;

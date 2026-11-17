@@ -114,7 +114,7 @@
         <el-card class="stat-card fake">
           <div class="stat-content">
             <div class="stat-value">{{ statistics.fakeCount }}</div>
-            <div class="stat-label">访问仿品</div>
+            <div class="stat-label">访问蜜罐</div>
           </div>
           <div class="stat-icon">
             <el-icon><Warning /></el-icon>

@@ -18,8 +18,8 @@ export interface Product {
   linked_original_ids?: string[]; // 新增：关联的正品ID数组
   country?: string;
   /**
-   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
-   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
    * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
    */
   cloak_template?: string;
@@ -95,8 +95,8 @@ export interface CreateProductParams {
   b_page_product_id?: string;
   country?: string;
   /**
-   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
-   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
    * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
    */
   cloak_template?: string;
@@ -127,8 +127,8 @@ export interface UpdateProductParams {
   b_page_product_id?: string;
   country?: string;
   /**
-   * 仿品页模板（斗篷判定为非目标流量时展示，含广告审核）
-   * 留空 = 按商品ID自动分配，避免全站仿品页长得一模一样
+   * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
+   * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
    * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
    */
   cloak_template?: string;
@@ -194,7 +194,7 @@ export const copyProductApi = (id: string) => {
   return http.post(`/admin/products/${id}/copy`);
 };
 
-// 获取正品商品列表（供仿品选择）
+// 获取正品商品列表（供蜜罐选择）
 export const getOriginalProductsApi = (search?: string) => {
   const params = search ? { search } : {};
   return http.get<Product[]>("/admin/products/original/list", params);
@@ -224,7 +224,7 @@ export const updateProductCloakRuleApi = (id: string, cloakRuleId: string | null
   return http.put(`/admin/products/${id}/cloak-rule`, data);
 };
 
-// 只更新商品仿品关联（支持多个正品）
+// 只更新商品蜜罐关联（支持多个正品）
 export const updateProductFakeLinkApi = (id: string, originalProductIds: string[] | string | null) => {
   // 兼容旧格式和新格式
   let data: any;
@@ -240,19 +240,19 @@ export const updateProductFakeLinkApi = (id: string, originalProductIds: string[
     data = { original_product_ids: [originalProductIds] };
   }
 
-  console.log("发送仿品关联更新请求:", { id, data });
+  console.log("发送蜜罐关联更新请求:", { id, data });
   return http.put(`/admin/products/${id}/fake-link`, data);
 };
 
-// 【产品端指派】给某个正品指派它使用的仿品（小仿品库，可复用同一条仿品）
-// fakeProductId 传 null 表示取消该正品的仿品关联
+// 【产品端指派】给某个正品指派它使用的蜜罐（小蜜罐库，可复用同一条蜜罐）
+// fakeProductId 传 null 表示取消该正品的蜜罐关联
 export const assignFakeToOriginalApi = (originalId: string, fakeProductId: string | null) => {
   return http.put(`/admin/products/${originalId}/assign-fake`, {
     fake_product_id: fakeProductId
   });
 };
 
-// 【批量指派】给多个正品统一绑定/解绑同一条仿品；fakeProductId 传 null 为批量解绑
+// 【批量指派】给多个正品统一绑定/解绑同一条蜜罐；fakeProductId 传 null 为批量解绑
 export const batchAssignFakeToOriginalsApi = (originalIds: string[], fakeProductId: string | null) => {
   return http.post(`/admin/products/batch-assign-fake`, {
     original_ids: originalIds,
