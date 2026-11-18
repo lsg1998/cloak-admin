@@ -782,17 +782,18 @@
                 <el-option label="科技深色 (Tech)" value="cloak-tech" />
                 <el-option label="现代主题风 (Dawn)" value="cloak-dawn" />
                 <el-option label="商城风 (Storefront)" value="cloak-storefront" />
+                <el-option label="科技资讯博客 (Technologies · 纯文章白页)" value="cloak-technologies" />
               </el-select>
               <div class="form-tip">
-                被斗篷判定为非目标流量（含广告审核）时展示的页面。这些模板均按 Google Ads
+                被斗篷判定为非目标流量（含广告审核）时展示的页面。商品类模板均按 Google Ads
                 落地页要求编写：含商家联系方式、配送时效、付款方式、退换货窗口及四类政策，
-                且不含倒计时、库存告急、销量数字等紧迫感元素。
+                且不含倒计时、库存告急、销量数字等紧迫感元素；“科技资讯博客 (Technologies)”为纯静态文章白页，仅手动选择时生效。
                 <br />
-                <strong>留空 = 自动</strong>：按商品ID稳定分配一套，同一商品每次一致、不同商品自动分散风格 ——
+                <strong>留空 = 自动</strong>：按商品ID在前7套商品模板中稳定分配一套，同一商品每次一致、不同商品自动分散风格 ——
                 全站蜜罐页长得一模一样本身就是可识别特征。
                 <br />
                 <strong>预览</strong>：商品页 URL 加 <code>?template=cloak-minimal</code>（或 cloak-shop / cloak-magazine /
-                cloak-tech / cloak-dawn / cloak-storefront）即可单独查看。
+                cloak-tech / cloak-dawn / cloak-storefront / cloak-technologies）即可单独查看。
               </div>
             </el-form-item>
           </el-col>

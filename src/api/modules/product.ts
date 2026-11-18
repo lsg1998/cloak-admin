@@ -20,7 +20,7 @@ export interface Product {
   /**
    * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
    * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
-   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech / cloak-dawn / cloak-storefront / cloak-technologies
    */
   cloak_template?: string;
   company_name?: string;
@@ -97,7 +97,7 @@ export interface CreateProductParams {
   /**
    * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
    * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
-   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech / cloak-dawn / cloak-storefront / cloak-technologies
    */
   cloak_template?: string;
   company_name?: string;
@@ -129,7 +129,7 @@ export interface UpdateProductParams {
   /**
    * 蜜罐页模板（斗篷判定为非目标流量时展示，含广告审核）
    * 留空 = 按商品ID自动分配，避免全站蜜罐页长得一模一样
-   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech
+   * 可选：classic / cloak-minimal / cloak-shop / cloak-magazine / cloak-tech / cloak-dawn / cloak-storefront / cloak-technologies
    */
   cloak_template?: string;
   company_name?: string;
