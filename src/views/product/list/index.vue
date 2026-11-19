@@ -2687,7 +2687,13 @@ const skuForm = reactive({
 
 // 表单验证规则
 const rules = {
-  custom_path: [{ pattern: /^$|^(?:https?:\/\/[^/]+)?\/?[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/?$/, message: "请输入 abc 或 post/10 这类路径", trigger: "blur" }],
+  custom_path: [
+    {
+      pattern: /^$|^(?:https?:\/\/[^/]+)?\/?[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/?$/,
+      message: "请输入 abc 或 post/10 这类路径",
+      trigger: "blur"
+    }
+  ],
   title: [
     { required: true, message: "请输入商品标题", trigger: "blur" },
     { min: 2, max: 500, message: "商品标题长度在 2 到 500 个字符", trigger: "blur" }
