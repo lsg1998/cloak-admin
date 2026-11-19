@@ -3,6 +3,7 @@ import http from "@/api";
 // 商品管理接口
 export interface Product {
   id: string;
+  custom_path?: string | null;
   spu_id: string;
   title: string;
   sell_price?: number;
@@ -81,6 +82,7 @@ export interface ProductListResponse {
 }
 
 export interface CreateProductParams {
+  custom_path?: string | null;
   spu_id?: string;
   title: string;
   sell_price?: number;
@@ -113,6 +115,7 @@ export interface CreateProductParams {
 }
 
 export interface UpdateProductParams {
+  custom_path?: string | null;
   spu_id?: string;
   title?: string;
   sell_price?: number;

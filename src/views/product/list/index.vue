@@ -464,6 +464,10 @@
         <el-form-item label="商品标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入商品标题" />
         </el-form-item>
+        <el-form-item label="自定义链接" prop="custom_path">
+          <el-input v-model="form.custom_path" placeholder="例如 abc 或 post/10" clearable />
+          <div class="form-tip">可填 abc、post/10 或完整链接；留空使用默认商品链接。</div>
+        </el-form-item>
 
         <!-- 价格信息 -->
         <el-row :gutter="20">
@@ -2513,6 +2517,7 @@ const cloakRulesLoading = ref(false);
 // 表单数据
 const form = reactive({
   id: null,
+  custom_path: "",
   spu_id: "",
   title: "",
   sell_price: 0,
@@ -2682,6 +2687,7 @@ const skuForm = reactive({
 
 // 表单验证规则
 const rules = {
+  custom_path: [{ pattern: /^$|^(?:https?:\/\/[^/]+)?\/?[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/?$/, message: "请输入 abc 或 post/10 这类路径", trigger: "blur" }],
   title: [
     { required: true, message: "请输入商品标题", trigger: "blur" },
     { min: 2, max: 500, message: "商品标题长度在 2 到 500 个字符", trigger: "blur" }
@@ -2829,6 +2835,7 @@ const handleAdd = () => {
 
   Object.assign(form, {
     id: null,
+    custom_path: "",
     spu_id: "", // 后端自动生成
     title: "",
     sell_price: 0,
@@ -3298,6 +3305,7 @@ const handleEdit = (row: Product) => {
     country: row.country || "JA",
     template: row.template || "classic", // 确保模板字段被正确设置
     cloak_template: row.cloak_template || "",
+    custom_path: row.custom_path || "",
     original_pixel_enabled: row.original_pixel_enabled === false || row.original_pixel_enabled === 0 ? 0 : 1,
     cloak_rule_id: row.cloak_rule_id || null, // 确保斗篷规则ID被正确设置
     company_name: row.company_name || "",
@@ -3453,7 +3461,7 @@ const handleSubmit = async () => {
         loadData(true);
       } catch (error) {
         console.error("提交失败:", error);
-        ElMessage.error(form.id ? "更新失败" : "添加失败");
+        ElMessage.error((error as any)?.response?.data?.message || (form.id ? "更新失败" : "添加失败"));
       } finally {
         submitLoading.value = false;
       }
@@ -4641,6 +4649,7 @@ const handleCreateNewFake = () => {
 
   Object.assign(form, {
     id: null,
+    custom_path: "",
     spu_id: "", // 后端自动生成
     title: `${currentOriginalProduct.value.title} - 蜜罐版`,
     sell_price: Math.round((currentOriginalProduct.value.sell_price || 0) * 0.6), // 默认60%的价格
